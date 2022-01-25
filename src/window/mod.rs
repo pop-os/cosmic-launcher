@@ -35,7 +35,7 @@ impl Window {
 
         cascade! {
             &self_;
-            ..set_width_request(600);
+            ..set_width_request(700);
             ..set_title(Some("Cosmic Launcher"));
             ..set_decorated(false);
             ..set_resizable(false);
@@ -50,6 +50,7 @@ impl Window {
 
         let entry = cascade! {
             Entry::new();
+            ..set_placeholder_text(Some("Type to search apps"));
             ..set_margin_bottom(12);
         };
         container.append(&entry);

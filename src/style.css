@@ -1,22 +1,36 @@
 listview row:selected {
     transition: 100ms;
-    background: #888888;
+    background: #5a5757;
+    color: #acaaaa;
     border-radius: 8px;
+    outline: none;
+}
+
+entry {
+    background-color: #1E1E1E;
+    border: 2px solid #fddab2;
+    color: #acaaaa;
+    font-family: "Fira Sans";
+    font-size: 14px;
+    outline: none;
 }
 
 listview row {
     transition: 100ms;
-    background: #333333;
+    background: #1E1E1E;
+    color: #acaaaa;
     border-radius: 8px;
+    padding: 0 10 0 10;
 }
 
 listview {
-    background: #333333;
+    background: #1E1E1E;
+    color: #acaaaa;
 }
 
 box.container {
-    background: #333333;
-    padding: 12px;
+    background: #1E1E1E;
+    padding: 40px;
     border-radius: 12px;
 }
 
