@@ -1,16 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use cascade::cascade;
 use gdk4_x11::X11Display;
-use glib::Object;
-use gtk4::prelude::*;
-use gtk4::subclass::prelude::*;
-use gtk4::Box;
-use gtk4::Entry;
-use gtk4::ListView;
-use gtk4::Orientation;
-use gtk4::{gio, glib};
-use gtk4::{Application, SignalListItemFactory};
-
+use gtk4::{
+    gio, glib, glib::Object, prelude::*, subclass::prelude::*, Application, Box, Entry, ListView,
+    Orientation, SignalListItemFactory,
+};
 use libcosmic::x;
 
 use crate::search_result_row::SearchResultRow;

@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
-use gdk4::Display;
-use gio::DesktopAppInfo;
-use gtk4::gio;
-use gtk4::glib;
-use gtk4::prelude::*;
-use gtk4::Application;
-use gtk4::CssProvider;
-use gtk4::StyleContext;
-use once_cell::sync::OnceCell;
-use pop_launcher_service::IpcClient;
-use tokio::sync::mpsc;
-
 use crate::utils::BoxedSearchResult;
+use gtk4::{
+    gdk::Display, gio::DesktopAppInfo, glib, prelude::*, Application, CssProvider, StyleContext,
+};
+use once_cell::sync::OnceCell;
+use tokio::{runtime::Runtime, sync::mpsc};
+use tokio_stream::StreamExt;
 
 use self::search_result_object::SearchResultObject;
 use self::window::Window;
@@ -30,19 +24,33 @@ pub enum Event {
     Activate(u32),
 }
 
-fn spawn_launcher(tx: mpsc::Sender<Event>) -> IpcClient {
-    let (launcher, responses) =
+pub enum LauncherIpcEvent {
+    Response(pop_launcher::Response),
+    Request(pop_launcher::Request),
+}
+
+async fn spawn_launcher(tx: mpsc::Sender<Event>, mut rx: mpsc::Receiver<pop_launcher::Request>) {
+    let (mut launcher, responses) =
         pop_launcher_service::IpcClient::new().expect("failed to connect to launcher service");
 
-    glib::MainContext::default().spawn_local(async move {
-        use futures::StreamExt;
-        futures::pin_mut!(responses);
-        while let Some(event) = responses.next().await {
-            let _ = tx.send(Event::Response(event)).await;
+    let launcher_stream = Box::pin(async_stream::stream! {
+        while let Some(e) = rx.recv().await {
+            yield LauncherIpcEvent::Request(e);
         }
     });
 
-    launcher
+    let responses = Box::pin(responses.map(|e| LauncherIpcEvent::Response(e)));
+    let mut rx = launcher_stream.merge(responses);
+    while let Some(event) = rx.next().await {
+        match event {
+            LauncherIpcEvent::Response(e) => {
+                let _ = tx.send(Event::Response(e)).await;
+            }
+            LauncherIpcEvent::Request(e) => {
+                let _ = launcher.send(e).await;
+            }
+        }
+    }
 }
 
 fn setup_shortcuts(app: &Application) {
@@ -76,9 +84,12 @@ fn main() {
         setup_shortcuts(app);
         load_css()
     });
+    let rt = Runtime::new().unwrap();
     app.connect_activate(move |app| {
         let (tx, mut rx) = mpsc::channel(100);
-        let mut launcher = spawn_launcher(tx.clone());
+        let (launcher_tx, launcher_rx) = mpsc::channel(100);
+
+        rt.spawn(spawn_launcher(tx.clone(), launcher_rx));
         if TX.set(tx).is_err() {
             println!("failed to set global Sender. Exiting");
             std::process::exit(1);
@@ -91,17 +102,16 @@ fn main() {
             while let Some(event) = rx.recv().await {
                 match event {
                     Event::Search(search) => {
-                        let _ = launcher.send(pop_launcher::Request::Search(search)).await;
+                        let _ = launcher_tx.send(pop_launcher::Request::Search(search)).await;
                     }
                     Event::Activate(index) => {
-                        let _ = launcher.send(pop_launcher::Request::Activate(index)).await;
+                        let _ = launcher_tx.send(pop_launcher::Request::Activate(index)).await;
                     }
 
                     Event::Response(event) => {
                         if let pop_launcher::Response::Update(results) = event {
                             let model = window.model();
                             let model_len = model.n_items();
-                            dbg!(&results);
                             let new_results: Vec<glib::Object> = results
                                 // [0..std::cmp::min(results.len(), NUM_LAUNCHER_ITEMS.into())]
                                 .into_iter()

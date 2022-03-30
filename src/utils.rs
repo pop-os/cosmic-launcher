@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-use gtk4::glib;
+use gtk4::{gio, glib};
 use std::cell::RefCell;
 use std::rc::Rc;
 
