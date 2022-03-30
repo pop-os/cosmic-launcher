@@ -34,17 +34,24 @@ impl Window {
             ..set_decorated(false);
             ..set_resizable(false);
             ..add_css_class("root_window");
+            ..add_css_class("border-radius-small");
+            ..add_css_class("padding-small");
         };
 
         let container = cascade! {
             Box::new(Orientation::Vertical, 0);
-            ..add_css_class("container");
+            ..add_css_class("background");
+            ..add_css_class("border-radius-small");
         };
         self_.set_child(Some(&container));
 
         let entry = cascade! {
             Entry::new();
             ..set_margin_bottom(12);
+            ..add_css_class("background-component");
+            ..add_css_class("border-radius-medium");
+            ..add_css_class("padding-medium");
+
         };
         container.append(&entry);
 
@@ -52,6 +59,8 @@ impl Window {
             ListView::default();
             ..set_orientation(Orientation::Vertical);
             ..set_single_click_activate(true);
+            ..add_css_class("primary-container");
+            ..add_css_class("border-radius-medium");
         };
         container.append(&list_view);
 

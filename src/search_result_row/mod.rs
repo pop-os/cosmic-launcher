@@ -37,9 +37,10 @@ impl SearchResultRow {
             &self_;
             ..set_orientation(Orientation::Horizontal);
             ..set_spacing(12);
-            ..set_margin_start(4);
-            ..set_margin_end(4);
             ..set_hexpand(true);
+            ..add_css_class("primary-container-component");
+            ..add_css_class("padding-medium");
+            ..add_css_class("border-radius-medium");
         };
 
         let category_image = cascade! {

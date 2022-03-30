@@ -63,7 +63,6 @@ fn setup_shortcuts(app: &Application) {
 }
 
 fn load_css() {
-    // Load the css file and add it to the provider
     let provider = CssProvider::new();
     provider.load_from_data(include_bytes!("style.css"));
 
@@ -73,6 +72,13 @@ fn load_css() {
         &provider,
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
+
+    // Load the css file and add it to the provider
+    glib::MainContext::default().spawn_local(async move {
+        if let Err(e) = cosmic_theme::load_cosmic_gtk_theme().await {
+            eprintln!("{}", e);
+        }
+    });
 }
 
 fn main() {
@@ -82,7 +88,7 @@ fn main() {
 
     app.connect_startup(|app| {
         setup_shortcuts(app);
-        load_css()
+        load_css();
     });
     let rt = Runtime::new().unwrap();
     app.connect_activate(move |app| {
