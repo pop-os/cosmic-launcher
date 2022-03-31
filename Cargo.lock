@@ -260,6 +260,7 @@ dependencies = [
 [[package]]
 name = "cosmic-theme"
 version = "0.1.0"
+source = "git+https://github.com/pop-os/cosmic-theme#91536a7ab185dda20598ed2a7abdb5930a3d0f73"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1328,9 +1329,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkg-config"
-version = "0.3.24"
+version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
+checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "pop-launcher"
@@ -1517,8 +1518,8 @@ checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
 name = "relm4-macros"
-version = "0.4.3"
-source = "git+https://github.com/AaronErhardt/Relm4#65be6f1bb0c0dcff54be6d3f9ee31389fcf30540"
+version = "0.4.4"
+source = "git+https://github.com/AaronErhardt/Relm4#ec10dc9e44a9f125855a9192e5789f8682cfedfb"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -182,7 +182,11 @@ impl Window {
         }));
 
         window.connect_realize(move |window| {
-            if let Some((display, surface)) = x::get_window_x11(window) {
+            let _ = std::panic::catch_unwind(|| {
+                // XXX investigate panic in libcosmic
+                // seems to be a race
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                if let Some((display, surface)) = x::get_window_x11(window) {
                 // ignore all x11 errors...
                 let xdisplay = display.clone().downcast::<X11Display>().expect("Failed to downgrade X11 Display.");
                 xdisplay.error_trap_push();
@@ -230,6 +234,7 @@ impl Window {
             } else {
                 println!("failed to get X11 window");
             }
+            });
         });
 
         let action_quit = gio::SimpleAction::new("quit", None);

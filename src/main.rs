@@ -73,9 +73,17 @@ fn load_css() {
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
+    let theme_provider = CssProvider::new();
+    // Add the provider to the default screen
+    StyleContext::add_provider_for_display(
+        &Display::default().expect("Error initializing GTK CSS provider."),
+        &theme_provider,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+
     // Load the css file and add it to the provider
     glib::MainContext::default().spawn_local(async move {
-        if let Err(e) = cosmic_theme::load_cosmic_gtk_theme().await {
+        if let Err(e) = cosmic_theme::load_cosmic_gtk_theme(theme_provider).await {
             eprintln!("{}", e);
         }
     });
