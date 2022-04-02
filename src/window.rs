@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+
 use cascade::cascade;
 use gdk4_x11::X11Display;
 use gtk4::{
@@ -7,14 +8,50 @@ use gtk4::{
 };
 use libcosmic::x;
 
+use crate::application::{CosmicLauncherApplication, Event, TX};
+use crate::config::{APP_ID, PROFILE};
+use crate::search_result_object::SearchResultObject;
 use crate::search_result_row::SearchResultRow;
-use crate::SearchResultObject;
-use crate::TX;
 
-mod imp;
+mod imp {
+    use super::*;
+    use gtk4::subclass::prelude::*;
+    use gtk4::{gio, glib};
+    use gtk4::{Entry, ListView};
+    use once_cell::sync::OnceCell;
+
+    // Object holding the state
+    #[derive(Default)]
+    pub struct CosmicLauncherWindow {
+        pub entry: OnceCell<Entry>,
+        pub list_view: OnceCell<ListView>,
+        pub model: OnceCell<gio::ListStore>,
+    }
+
+    // The central trait for subclassing a GObject
+    #[glib::object_subclass]
+    impl ObjectSubclass for CosmicLauncherWindow {
+        // `NAME` needs to match `class` attribute of template
+        const NAME: &'static str = "CosmicLauncherWindow";
+        type Type = super::CosmicLauncherWindow;
+        type ParentType = gtk4::ApplicationWindow;
+    }
+
+    // Trait shared by all GObjects
+    impl ObjectImpl for CosmicLauncherWindow {}
+
+    // Trait shared by all widgets
+    impl WidgetImpl for CosmicLauncherWindow {}
+
+    // Trait shared by all windows
+    impl WindowImpl for CosmicLauncherWindow {}
+
+    // Trait shared by all application
+    impl ApplicationWindowImpl for CosmicLauncherWindow {}
+}
 
 glib::wrapper! {
-    pub struct Window(ObjectSubclass<imp::Window>)
+    pub struct CosmicLauncherWindow(ObjectSubclass<imp::CosmicLauncherWindow>)
         @extends gtk4::ApplicationWindow, gtk4::Window, gtk4::Widget,
         @implements gio::ActionGroup, gio::ActionMap, gtk4::Accessible, gtk4::Buildable,
                     gtk4::ConstraintTarget, gtk4::Native, gtk4::Root, gtk4::ShortcutManager;
@@ -22,10 +59,10 @@ glib::wrapper! {
 
 const NUM_LAUNCHER_ITEMS: u8 = 9;
 
-impl Window {
-    pub fn new(app: &Application) -> Self {
+impl CosmicLauncherWindow {
+    pub fn new(app: &CosmicLauncherApplication) -> Self {
         let self_: Self = Object::new(&[("application", app)]).expect("Failed to create `Window`.");
-        let imp = imp::Window::from_instance(&self_);
+        let imp = imp::CosmicLauncherWindow::from_instance(&self_);
 
         cascade! {
             &self_;
@@ -76,13 +113,13 @@ impl Window {
 
     pub fn model(&self) -> &gio::ListStore {
         // Get state
-        let imp = imp::Window::from_instance(self);
+        let imp = imp::CosmicLauncherWindow::from_instance(self);
         imp.model.get().expect("Could not get model")
     }
 
     fn setup_model(&self) {
         // Get state and set model
-        let imp = imp::Window::from_instance(self);
+        let imp = imp::CosmicLauncherWindow::from_instance(self);
         let model = gio::ListStore::new(SearchResultObject::static_type());
 
         let slice_model = gtk4::SliceListModel::new(Some(&model), 0, NUM_LAUNCHER_ITEMS.into());
@@ -103,7 +140,7 @@ impl Window {
 
     fn setup_callbacks(&self) {
         // Get state
-        let imp = imp::Window::from_instance(self);
+        let imp = imp::CosmicLauncherWindow::from_instance(self);
         let window = self.clone().upcast::<gtk4::Window>();
         let list_view = &imp.list_view;
         let entry = &imp.entry.get().unwrap();
@@ -126,7 +163,7 @@ impl Window {
                     println!("activating... {}", i + 1);
                     glib::MainContext::default().spawn_local(async move {
                         if let Some(tx) = TX.get() {
-                            let _ = tx.send(crate::Event::Activate(search_result.id)).await;
+                            let _ = tx.send(Event::Activate(search_result.id)).await;
                         }
                     });
                 }
@@ -155,7 +192,7 @@ impl Window {
                 println!("activating... {}", i + 1);
                 glib::MainContext::default().spawn_local(async move {
                     if let Some(tx) = TX.get() {
-                        let _ = tx.send(crate::Event::Activate(search_result.id)).await;
+                        let _ = tx.send(Event::Activate(search_result.id)).await;
                     }
                 });
             }
@@ -166,7 +203,7 @@ impl Window {
 
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
-                    let _ = tx.send(crate::Event::Search(search)).await;
+                    let _ = tx.send(Event::Search(search)).await;
                 }
             });
         }));
@@ -176,7 +213,7 @@ impl Window {
 
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
-                    let _ = tx.send(crate::Event::Search(search)).await;
+                    let _ = tx.send(Event::Search(search)).await;
                 }
             });
         }));
@@ -274,7 +311,7 @@ impl Window {
             row.set_search_result(application_object);
         });
         // Set the factory of the list view
-        let imp = imp::Window::from_instance(self);
+        let imp = imp::CosmicLauncherWindow::from_instance(self);
         imp.list_view.get().unwrap().set_factory(Some(&factory));
     }
 }

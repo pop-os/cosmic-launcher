@@ -10,9 +10,9 @@ use gtk4::Image;
 use gtk4::Label;
 use gtk4::Orientation;
 
+use crate::search_result_object::SearchResultObject;
 use crate::utils::icon_source;
-use crate::BoxedSearchResult;
-use crate::SearchResultObject;
+use crate::utils::BoxedSearchResult;
 
 mod imp;
 

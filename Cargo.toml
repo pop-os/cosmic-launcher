@@ -1,11 +1,13 @@
 [package]
 name = "cosmic-launcher"
 version = "0.1.0"
+authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+log = "0.4"
+pretty_env_logger = "0.4"
+gettext-rs = { version = "0.7", features = ["gettext-system"] }
 cascade = "1.0.0"
 gtk4 = { version = "0.4.7", features = ["v4_4"] }
 gdk4-x11 = {version = "0.4.2", package = "gdk4-x11", features = ["xlib"]}
@@ -30,3 +32,4 @@ cosmic-theme = { git = "https://github.com/pop-os/cosmic-theme" }
 [profile.release]
 incremental = true
 debug = 1
+

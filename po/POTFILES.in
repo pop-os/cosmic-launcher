@@ -1,0 +1,6 @@
+data/com.System76.CosmicLauncher.desktop.in.in
+data/com.System76.CosmicLauncher.gschema.xml.in
+data/com.System76.CosmicLauncher.metainfo.xml.in.in
+data/resources/ui/shortcuts.ui
+data/resources/ui/window.ui
+src/application.rs
