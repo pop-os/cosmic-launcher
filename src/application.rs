@@ -1,21 +1,18 @@
-// SPDX-License-Identifier: GPL-3.0-only
-
+// SPDX-License-Identifier: MPL-2.0-only
 
 use crate::search_result_object::SearchResultObject;
 use crate::utils::BoxedSearchResult;
-use gettextrs::gettext;
-use gtk4::{
-    gdk, gdk::Display, gio, gio::DesktopAppInfo, glib, prelude::*, subclass::prelude::*,
-    Application, CssProvider, StyleContext,
-};
+use gtk4::{gdk::Display, gio, glib, prelude::*, subclass::prelude::*, CssProvider, StyleContext};
 use log::{debug, info};
 use once_cell::sync::OnceCell;
 use tokio::{runtime::Runtime, sync::mpsc};
 use tokio_stream::StreamExt;
 
-use crate::window::CosmicLauncherWindow;
-
-use crate::config::{APP_ID, PKGDATADIR, PROFILE, VERSION};
+use crate::{
+    config::{APP_ID, PKGDATADIR, PROFILE, VERSION},
+    utils,
+    window::CosmicLauncherWindow,
+};
 
 pub const NUM_LAUNCHER_ITEMS: u8 = 10;
 pub static TX: OnceCell<mpsc::Sender<Event>> = OnceCell::new();
@@ -31,6 +28,10 @@ pub enum LauncherIpcEvent {
 }
 
 mod imp {
+    use std::{fs, path::Path};
+
+    use crate::desktop_entry_data::DesktopEntryData;
+
     use super::*;
     use glib::WeakRef;
     use once_cell::sync::OnceCell;
@@ -82,10 +83,14 @@ mod imp {
                 while let Some(event) = rx.recv().await {
                     match event {
                         Event::Search(search) => {
-                            let _ = launcher_tx.send(pop_launcher::Request::Search(search)).await;
+                            let _ = launcher_tx
+                                .send(pop_launcher::Request::Search(search))
+                                .await;
                         }
                         Event::Activate(index) => {
-                            let _ = launcher_tx.send(pop_launcher::Request::Activate(index)).await;
+                            let _ = launcher_tx
+                                .send(pop_launcher::Request::Activate(index))
+                                .await;
                         }
                         Event::Response(event) => {
                             if let pop_launcher::Response::Update(results) = event {
@@ -94,26 +99,53 @@ mod imp {
                                 let new_results: Vec<glib::Object> = results
                                     // [0..std::cmp::min(results.len(), NUM_LAUNCHER_ITEMS.into())]
                                     .into_iter()
-                                    .map(|result| SearchResultObject::new(&BoxedSearchResult(Some(result))).upcast())
+                                    .map(|result| {
+                                        SearchResultObject::new(&BoxedSearchResult(Some(result)))
+                                            .upcast()
+                                    })
                                     .collect();
                                 model.splice(0, model_len, &new_results[..]);
                             } else if let pop_launcher::Response::DesktopEntry {
-                                path,
+                                mut path,
                                 gpu_preference: _gpu_preference, // TODO use GPU preference when launching app
                             } = event
                             {
-                                let app_info =
-                                    DesktopAppInfo::new(&path.file_name().expect("desktop entry path needs to be a valid filename").to_string_lossy())
-                                        .expect("failed to create a Desktop App info for launching the application.");
-                                app_info
-                                    .launch(&[], Some(&window.display().app_launch_context())).expect("failed to launch the application.");
+                                if utils::in_flatpak() {
+                                    if path.starts_with("/usr") {
+                                        let stripped_path = path.strip_prefix("/").unwrap_or(&path);
+                                        path = Path::new("/var/run/host").join(stripped_path);
+                                    }
+                                }
+                                if let Ok(bytes) = fs::read_to_string(&path) {
+                                    if let Ok(de) = freedesktop_desktop_entry::DesktopEntry::decode(
+                                        &path, &bytes,
+                                    ) {
+                                        let name: String = de.name(None).unwrap_or_default().into();
+                                        if name.eq("".into()) || de.no_display() {
+                                            continue;
+                                        };
+                                        // dbg!(de.appid);
+                                        let app_info = DesktopEntryData::new();
+                                        app_info.set_data(
+                                            path.file_stem()
+                                                .unwrap_or_default()
+                                                .to_string_lossy()
+                                                .into(),
+                                            path.clone(),
+                                            name,
+                                            de.icon().map(|s| String::from(s)),
+                                            de.categories().unwrap_or_default().into(),
+                                        );
+                                        app_info
+                                            .launch()
+                                            .expect("failed to launch the application.");
+                                    }
+                                }
                             }
                         }
                     }
                 }
             });
-
-            app.main_window().present();
         }
 
         fn startup(&self, app: &Self::Type) {
@@ -149,10 +181,6 @@ impl CosmicLauncherApplication {
         self_
     }
 
-    fn main_window(&self) -> CosmicLauncherWindow {
-        self.imp().window.get().unwrap().upgrade().unwrap()
-    }
-
     pub fn run(&self) {
         info!("Cosmic Launcher ({})", APP_ID);
         info!("Version: {} ({})", VERSION, PROFILE);
@@ -165,7 +193,7 @@ impl CosmicLauncherApplication {
 async fn spawn_launcher(tx: mpsc::Sender<Event>, mut rx: mpsc::Receiver<pop_launcher::Request>) {
     let (mut launcher, responses) = pop_launcher_service::IpcClient::new_flatpak()
         .expect("failed to connect to launcher service");
-    
+
     let launcher_stream = Box::pin(async_stream::stream! {
         while let Some(e) = rx.recv().await {
             yield LauncherIpcEvent::Request(e);
@@ -216,7 +244,7 @@ fn load_css() {
 
     // Load the css file and add it to the provider
     glib::MainContext::default().spawn_local(async move {
-        if let Err(e) = cosmic_theme::load_cosmic_gtk_theme(theme_provider).await {
+        if let Err(e) = cosmic_theme::load_cosmic_gtk4_theme(theme_provider).await {
             eprintln!("{}", e);
         }
     });

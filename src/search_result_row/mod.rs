@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: MPL-2.0-only
+
 use cascade::cascade;
 use gtk4::glib;
 use gtk4::pango::EllipsizeMode;
@@ -102,17 +103,22 @@ impl SearchResultRow {
         self_
     }
 
-    pub fn set_search_result(&self, search_obj: SearchResultObject) {
+    pub fn set_search_result(&self, search_obj: SearchResultObject, icon_theme: gtk4::IconTheme) {
         let self_ = imp::SearchResultRow::from_instance(self);
         let search_result = search_obj.property::<BoxedSearchResult>("data");
+
         if let Some(search_result) = search_result.0 {
             self_.name.borrow().set_text(&search_result.name);
             self_
                 .description
                 .borrow()
                 .set_text(&search_result.description);
-            icon_source(&self_.image, &search_result.icon);
-            icon_source(&self_.category_image, &search_result.category_icon);
+            icon_source(&self_.image, &search_result.icon, &icon_theme);
+            icon_source(
+                &self_.category_image,
+                &search_result.category_icon,
+                &icon_theme,
+            );
         }
     }
 

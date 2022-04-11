@@ -8,6 +8,7 @@
     "finish-args" : [
         "--socket=fallback-x11",
         "--socket=wayland",
+        "--filesystem=xdg-data/flatpak:ro",
      	"--filesystem=xdg-config/cosmic-theme:ro",
 	    "--filesystem=xdg-data/cosmic-theme:ro",
      	"--filesystem=xdg-config/cosmic-theme:ro",

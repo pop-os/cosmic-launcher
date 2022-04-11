@@ -28,6 +28,9 @@ tokio-stream = "0.1.8"
 async-stream = "0.3.3"
 #cosmic-theme = { path = "../cosmic-theme" }
 cosmic-theme = { git = "https://github.com/pop-os/cosmic-theme" }
+xdg = "2.4.0"
+anyhow = "1.0.56"
+freedesktop-desktop-entry = "0.5.0"
 
 [profile.release]
 incremental = true

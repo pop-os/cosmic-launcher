@@ -1,16 +1,17 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: MPL-2.0-only
 
 mod application;
+mod desktop_entry_data;
 mod search_result_object;
 mod search_result_row;
+
 #[rustfmt::skip]
 mod config;
 mod utils;
 mod window;
-
-use tokio::{runtime::Runtime};
 use gettextrs::{gettext, LocaleCategory};
 use gtk4::{gio, glib};
+use tokio::runtime::Runtime;
 
 use self::application::CosmicLauncherApplication;
 use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};

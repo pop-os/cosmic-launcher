@@ -1,21 +1,22 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: MPL-2.0-only
 
+use crate::{
+    application::{CosmicLauncherApplication, Event, TX},
+    search_result_object::SearchResultObject,
+    search_result_row::SearchResultRow,
+    utils,
+};
 use cascade::cascade;
 use gdk4_x11::X11Display;
 use gtk4::{
-    gio, glib, glib::Object, prelude::*, subclass::prelude::*, Application, Box, Entry, ListView,
+    gdk, gio, glib, glib::Object, prelude::*, subclass::prelude::*, Box, Entry, ListView,
     Orientation, SignalListItemFactory,
 };
 use libcosmic::x;
-
-use crate::application::{CosmicLauncherApplication, Event, TX};
-use crate::config::{APP_ID, PROFILE};
-use crate::search_result_object::SearchResultObject;
-use crate::search_result_row::SearchResultRow;
+use std::path::Path;
 
 mod imp {
     use super::*;
-    use gtk4::subclass::prelude::*;
     use gtk4::{gio, glib};
     use gtk4::{Entry, ListView};
     use once_cell::sync::OnceCell;
@@ -26,6 +27,7 @@ mod imp {
         pub entry: OnceCell<Entry>,
         pub list_view: OnceCell<ListView>,
         pub model: OnceCell<gio::ListStore>,
+        pub icon_theme: OnceCell<gtk4::IconTheme>,
     }
 
     // The central trait for subclassing a GObject
@@ -103,6 +105,30 @@ impl CosmicLauncherWindow {
 
         imp.entry.set(entry).unwrap();
         imp.list_view.set(list_view).unwrap();
+
+        let xdg_base = xdg::BaseDirectories::new().expect("could not access XDG Base directory");
+
+        let icon_theme = gtk4::IconTheme::for_display(&gdk::Display::default().unwrap());
+        let mut data_dirs = utils::xdg_data_dirs();
+        data_dirs.push(xdg_base.get_data_home());
+        if utils::in_flatpak() {
+            for mut p in data_dirs {
+                if p.starts_with("/usr") {
+                    let stripped_path = p.strip_prefix("/").unwrap_or(&p);
+                    p = Path::new("/var/run/host").join(stripped_path);
+                }
+                let mut icons = p.clone();
+                icons.push("icons");
+                let mut pixmaps = p.clone();
+                pixmaps.push("pixmaps");
+
+                icon_theme.add_search_path(icons);
+                icon_theme.add_search_path(pixmaps);
+            }
+        }
+        // dbg!(icon_theme.search_path());
+        // dbg!(icon_theme.icon_names());
+        imp.icon_theme.set(icon_theme).unwrap();
 
         // Setup
         self_.setup_model();
@@ -203,7 +229,10 @@ impl CosmicLauncherWindow {
 
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
-                    let _ = tx.send(Event::Search(search)).await;
+                    println!("searching...");
+                    if let Err(e) = tx.send(Event::Search(search)).await {
+                        println!("{}", e);
+                    }
                 }
             });
         }));
@@ -212,8 +241,11 @@ impl CosmicLauncherWindow {
             let search = search.text().to_string();
 
             glib::MainContext::default().spawn_local(async move {
+                println!("searching...");
                 if let Some(tx) = TX.get() {
-                    let _ = tx.send(Event::Search(search)).await;
+                    if let Err(e) = tx.send(Event::Search(search)).await {
+                        println!("{}", e);
+                    }
                 }
             });
         }));
@@ -277,12 +309,16 @@ impl CosmicLauncherWindow {
         let action_quit = gio::SimpleAction::new("quit", None);
         action_quit.connect_activate(glib::clone!(@weak window => move |_, _| {
             window.close();
+            window.application().map(|a| a.quit());
+            std::process::exit(0);
         }));
         self.add_action(&action_quit);
 
         window.connect_is_active_notify(|win| {
             if !win.is_active() {
                 win.close();
+                win.application().map(|a| a.quit());
+                std::process::exit(0);
             }
         });
     }
@@ -293,7 +329,9 @@ impl CosmicLauncherWindow {
             let row = SearchResultRow::new();
             list_item.set_child(Some(&row))
         });
-        factory.connect_bind(move |_, list_item| {
+        let imp = imp::CosmicLauncherWindow::from_instance(self);
+        let icon_theme = imp.icon_theme.get().unwrap();
+        factory.connect_bind(glib::clone!(@weak icon_theme => move |_, list_item| {
             let application_object = list_item
                 .item()
                 .expect("The item has to exist.")
@@ -308,8 +346,8 @@ impl CosmicLauncherWindow {
                 row.set_shortcut(list_item.position() + 1);
             }
 
-            row.set_search_result(application_object);
-        });
+            row.set_search_result(application_object, icon_theme);
+        }));
         // Set the factory of the list view
         let imp = imp::CosmicLauncherWindow::from_instance(self);
         imp.list_view.get().unwrap().set_factory(Some(&factory));
