@@ -225,8 +225,7 @@ fn setup_shortcuts(app: &CosmicLauncherApplication) {
 
 fn load_css() {
     let provider = CssProvider::new();
-    provider.load_from_data(include_bytes!("style.css"));
-
+    provider.load_from_resource("/com/System76/CosmicLauncher/style.css");
     // Add the provider to the default screen
     StyleContext::add_provider_for_display(
         &Display::default().expect("Error initializing GTK CSS provider."),
@@ -234,17 +233,17 @@ fn load_css() {
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
-    let theme_provider = CssProvider::new();
-    // Add the provider to the default screen
-    StyleContext::add_provider_for_display(
-        &Display::default().expect("Error initializing GTK CSS provider."),
-        &theme_provider,
-        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
+    // let theme_provider = CssProvider::new();
+    // // Add the provider to the default screen
+    // StyleContext::add_provider_for_display(
+    //     &Display::default().expect("Error initializing GTK CSS provider."),
+    //     &theme_provider,
+    //     gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    // );
 
     // Load the css file and add it to the provider
     glib::MainContext::default().spawn_local(async move {
-        if let Err(e) = cosmic_theme::load_cosmic_gtk4_theme(theme_provider).await {
+        if let Err(e) = cosmic_theme::load_cosmic_gtk4_theme(provider).await {
             eprintln!("{}", e);
         }
     });

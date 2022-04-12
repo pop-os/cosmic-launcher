@@ -1,4 +1,253 @@
-.title-header{
-  font-size: 36px;
-  font-weight: bold;
+
+/* background CSS */
+*.background {
+  background-color: #1E1E1EFF;
+  color: #DDDDDDFF;
+}
+
+*.background-component {
+  transition-duration: 50ms;
+  background-color: rgb(44, 42, 53);
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+*.background-component:hover {
+  transition-duration: 50ms;
+  background-color: rgb(46, 44, 51);
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+*.background-component:selected {
+  transition-duration: 50ms;
+  background-color: rgb(44, 42, 53);
+  transition-duration: 50ms;
+  outline-color: rgb(44, 42, 53);
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+/* slider and switch are examples of widgets which likely want sass */
+*.background-component:checked {
+  transition-duration: 50ms;
+  background-color: rgb(76, 74, 85);
+  outline-color: rgb(44, 42, 53);
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+*.background-component slider {
+  transition-duration: 50ms;
+  background-color: #dededeff;
+  outline-color: rgb(44, 42, 53);
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+*.background-component:active {
+  transition-duration: 50ms;
+  background-color: rgb(76, 74, 85);
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+*.background-component:disabled {
+  transition-duration: 50ms;
+  background-color: #231e3a80;
+  color: #dededeff;
+  border-color: rgb(44, 42, 53);
+}
+
+*.background-divider {
+  background-color: #393939ff;
+}
+
+*.background-component-divider {
+  background-color: #606060ff;
+}
+
+/* primary-container CSS */
+*.primary-container {
+  background-color: #292A32;
+  color: #afafafff;
+}
+
+*.primary-container-component {
+  transition-duration: 50ms;
+  background-color: rgb(32, 31, 36);
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+listview.primary-container row:selected *.primary-container-component {
+  transition-duration: 50ms;
+  background-color: rgb(60, 57, 70);
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+listview.primary-container row:selected {
+  transition-duration: 50ms;
+  background-color: #9bccd1ff;
+  border-color: #9bccd1ff;
+}
+
+*.primary-container-component:selected {
+  transition-duration: 50ms;
+  background-color: rgb(32, 31, 36);
+  transition-duration: 50ms;
+  outline-color: rgb(32, 31, 36);
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+/* slider and switch are examples of widgets which likely want sass */
+*.primary-container-component:checked {
+  transition-duration: 50ms;
+  background-color: rgb(97, 93, 112);
+  outline-color: rgb(32, 31, 36);
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+*.primary-container-component slider {
+  transition-duration: 50ms;
+  background-color: #edededff;
+  outline-color: rgb(32, 31, 36);
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+*.primary-container-component:active {
+  transition-duration: 50ms;
+  background-color: rgb(97, 93, 112);
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+*.primary-container-component:disabled {
+  transition-duration: 50ms;
+  background-color: #2d264c80;
+  color: #edededff;
+  border-color: rgb(32, 31, 36);
+}
+
+*.primary-container-divider {
+  background-color: #414141ff;
+}
+
+*.primary-container-component-divider {
+  background-color: #6a6a6aff;
+}
+
+/* Suggested CSS */
+*.suggested-action {
+  background-color: #9bccd1ff;
+  color: #3c3c3cff;
+  border-color: #9bccd1ff;
+}
+
+*.suggested-action:hover {
+  background-color: #a1d2d7ff;
+  color: #3c3c3cff;
+  border-color: #9bccd1ff;
+}
+
+*.suggested-action:selected {
+  background-color: #9bccd1ff;
+  outline-color: #9bccd1ff;
+  color: #3c3c3cff;
+  border-color: #9bccd1ff;
+}
+
+*.suggested-action:active {
+  background-color: #a6d7dcff;
+  color: #3c3c3cff;
+  border-color: #9bccd1ff;
+}
+
+*.suggested-action:disabled {
+  background-color: #9bccd180;
+  color: #3c3c3cff;
+  border-color: #9bccd1ff;
+}
+
+/* Destructive CSS */
+*.destructive-action {
+  background-color: #561b2eff;
+  color: #f3f3f3ff;
+  border-color: #561b2eff;
+}
+
+*.destructive-action:hover {
+  background-color: #6a2e3fff;
+  color: #f3f3f3ff;
+  border-color: #561b2eff;
+}
+
+*.destructive-action:selected {
+  background-color: #561b2eff;
+  outline-color: #561b2eff;
+  color: #f3f3f3ff;
+  border-color: #561b2eff;
+}
+
+*.destructive-action:active {
+  background-color: #7d3f50ff;
+  color: #f3f3f3ff;
+  border-color: #561b2eff;
+}
+
+*.destructive-action:disabled {
+  background-color: #561b2e80;
+  color: #f3f3f3ff;
+  border-color: #561b2eff;
+}
+
+/* Accent CSS */
+
+* {
+  background-image: none;
+  outline-color: #9bccd1ff;
+}
+
+*.padding-x-small {
+  padding: 4px;
+}
+
+*.padding-small {
+  padding: 8px;
+}
+
+*.padding-medium {
+  padding: 12px;
+}
+
+*.padding-large {
+  padding: 16px;
+}
+
+*.padding-x-large {
+  padding: 20px;
+}
+
+*.border-radius-x-small {
+  border-radius: 4px;
+}
+
+*.border-radius-small {
+  border-radius: 8px;
+}
+
+*.border-radius-medium {
+  border-radius: 12px;
+}
+
+*.border-radius-large {
+  border-radius: 16px;
+}
+
+*.border-radius-x-large {
+  border-radius: 20px;
 }

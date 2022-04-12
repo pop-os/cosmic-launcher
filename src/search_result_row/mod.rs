@@ -40,8 +40,8 @@ impl SearchResultRow {
             ..set_spacing(12);
             ..set_hexpand(true);
             ..add_css_class("primary-container-component");
-            ..add_css_class("padding-medium");
-            ..add_css_class("border-radius-medium");
+            ..add_css_class("padding-small");
+            ..add_css_class("border-radius-small");
         };
 
         let category_image = cascade! {
