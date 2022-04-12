@@ -7,5 +7,11 @@ export APP_ID="com.System76.CosmicLauncher.Devel"
 export RUNTIME_REPO="https://nightly.gnome.org/gnome-nightly.flatpakrepo"
 
 sudo rm -rf .flatpak-builder/
+sudo rm -rf repo/
+sudo rm -rf flatpak_app/
+
 sudo flatpak-builder --keep-build-dirs --user --disable-rofiles-fuse flatpak_app --repo=repo ${BRANCH:+--default-branch=$BRANCH} ${MANIFEST_PATH} --force-clean --install --system --delete-build-dirs
+
 sudo rm -rf .flatpak-builder/
+sudo rm -rf repo/
+sudo rm -rf flatpak_app/

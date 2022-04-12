@@ -79,6 +79,7 @@ mod imp {
             let window = CosmicLauncherWindow::new(app);
             window.show();
 
+            let app_clone = app.clone();
             glib::MainContext::default().spawn_local(async move {
                 while let Some(event) = rx.recv().await {
                     match event {
@@ -139,6 +140,7 @@ mod imp {
                                         app_info
                                             .launch()
                                             .expect("failed to launch the application.");
+                                        app_clone.quit();
                                     }
                                 }
                             }
@@ -233,17 +235,17 @@ fn load_css() {
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
 
-    // let theme_provider = CssProvider::new();
-    // // Add the provider to the default screen
-    // StyleContext::add_provider_for_display(
-    //     &Display::default().expect("Error initializing GTK CSS provider."),
-    //     &theme_provider,
-    //     gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    // );
+    let theme_provider = CssProvider::new();
+    // Add the provider to the default screen
+    StyleContext::add_provider_for_display(
+        &Display::default().expect("Error initializing GTK CSS provider."),
+        &theme_provider,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 
     // Load the css file and add it to the provider
     glib::MainContext::default().spawn_local(async move {
-        if let Err(e) = cosmic_theme::load_cosmic_gtk4_theme(provider).await {
+        if let Err(e) = cosmic_theme::load_cosmic_gtk4_theme(theme_provider).await {
             eprintln!("{}", e);
         }
     });
