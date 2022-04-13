@@ -9,3 +9,5 @@ src/config.rs
 *.ui~
 .flatpak/
 vendor
+repo
+flatpak_app
