@@ -106,11 +106,9 @@ impl CosmicLauncherWindow {
         imp.entry.set(entry).unwrap();
         imp.list_view.set(list_view).unwrap();
 
-        let xdg_base = xdg::BaseDirectories::new().expect("could not access XDG Base directory");
-
         let icon_theme = gtk4::IconTheme::for_display(&gdk::Display::default().unwrap());
-        let mut data_dirs = utils::xdg_data_dirs();
-        data_dirs.push(xdg_base.get_data_home());
+        let data_dirs = utils::xdg_data_dirs();
+
         if utils::in_flatpak() {
             for mut p in data_dirs {
                 if p.starts_with("/usr") {

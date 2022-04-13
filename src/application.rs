@@ -191,27 +191,51 @@ impl CosmicLauncherApplication {
 }
 
 async fn spawn_launcher(tx: mpsc::Sender<Event>, mut rx: mpsc::Receiver<pop_launcher::Request>) {
-    let (mut launcher, responses) = pop_launcher_service::IpcClient::new_flatpak()
-        .expect("failed to connect to launcher service");
+    // TODO cleanup
 
-    let launcher_stream = Box::pin(async_stream::stream! {
-        while let Some(e) = rx.recv().await {
-            yield LauncherIpcEvent::Request(e);
-        }
-    });
+    if utils::in_flatpak() {
+        let (mut launcher, responses) = pop_launcher_service::IpcClient::new_flatpak()
+            .expect("failed to connect to launcher service");
+        let launcher_stream = Box::pin(async_stream::stream! {
+            while let Some(e) = rx.recv().await {
+                yield LauncherIpcEvent::Request(e);
+            }
+        });
 
-    let responses = Box::pin(responses.map(|e| LauncherIpcEvent::Response(e)));
-    let mut rx = launcher_stream.merge(responses);
-    while let Some(event) = rx.next().await {
-        match event {
-            LauncherIpcEvent::Response(e) => {
-                let _ = tx.send(Event::Response(e)).await;
-            }
-            LauncherIpcEvent::Request(e) => {
-                let _ = launcher.send(e).await;
+        let responses = Box::pin(responses.map(|e| LauncherIpcEvent::Response(e)));
+        let mut rx = launcher_stream.merge(responses);
+        while let Some(event) = rx.next().await {
+            match event {
+                LauncherIpcEvent::Response(e) => {
+                    let _ = tx.send(Event::Response(e)).await;
+                }
+                LauncherIpcEvent::Request(e) => {
+                    let _ = launcher.send(e).await;
+                }
             }
         }
-    }
+    } else {
+        let (mut launcher, responses) =
+            pop_launcher_service::IpcClient::new().expect("failed to connect to launcher service");
+        let launcher_stream = Box::pin(async_stream::stream! {
+            while let Some(e) = rx.recv().await {
+                yield LauncherIpcEvent::Request(e);
+            }
+        });
+
+        let responses = Box::pin(responses.map(|e| LauncherIpcEvent::Response(e)));
+        let mut rx = launcher_stream.merge(responses);
+        while let Some(event) = rx.next().await {
+            match event {
+                LauncherIpcEvent::Response(e) => {
+                    let _ = tx.send(Event::Response(e)).await;
+                }
+                LauncherIpcEvent::Request(e) => {
+                    let _ = launcher.send(e).await;
+                }
+            }
+        }
+    };
 }
 
 fn setup_shortcuts(app: &CosmicLauncherApplication) {

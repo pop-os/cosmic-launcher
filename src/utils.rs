@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0-only
 
-use gtk4::glib;
+use gtk4::{gio, glib};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -14,6 +14,21 @@ pub fn icon_source(
     source: &Option<pop_launcher::IconSource>,
     icon_theme: &gtk4::IconTheme,
 ) {
+    if !in_flatpak() {
+        match source {
+            Some(pop_launcher::IconSource::Name(name)) => {
+                image.borrow().set_from_icon_name(Some(name));
+            }
+            Some(pop_launcher::IconSource::Mime(content_type)) => {
+                image
+                    .borrow()
+                    .set_from_gicon(&gio::content_type_get_icon(content_type));
+            }
+            _ => {
+                image.borrow().set_from_icon_name(None);
+            }
+        }
+    }
     let icon_name = match source {
         Some(pop_launcher::IconSource::Name(name)) => name,
 
@@ -51,16 +66,22 @@ pub fn in_flatpak() -> bool {
 }
 
 pub fn xdg_data_dirs() -> Vec<PathBuf> {
-    std::str::from_utf8(
-        &std::process::Command::new("flatpak-spawn")
-            .args(["--host", "printenv", "XDG_DATA_DIRS"])
-            .output()
-            .unwrap()
-            .stdout[..],
-    )
-    .unwrap_or_default()
-    .trim()
-    .split(":")
-    .map(|p| PathBuf::from(p))
-    .collect()
+    if in_flatpak() {
+        std::str::from_utf8(
+            &std::process::Command::new("flatpak-spawn")
+                .args(["--host", "printenv", "XDG_DATA_DIRS"])
+                .output()
+                .unwrap()
+                .stdout[..],
+        )
+        .unwrap_or_default()
+        .trim()
+        .split(":")
+        .map(|p| PathBuf::from(p))
+        .collect()
+    } else {
+        let xdg_base = xdg::BaseDirectories::new().expect("could not access XDG Base directory");
+        let data_dirs = xdg_base.get_data_dirs();
+        data_dirs
+    }
 }
