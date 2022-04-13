@@ -1,7 +1,30 @@
 #!/usr/bin/make -f
 
+CLEAN ?= 1
+VENDOR ?= 1
+
 %:
 	dh $@ --buildsystem=meson
 
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
+
+override_dh_auto_configure:
+	if ! ischroot && test "${VENDOR}" = "1"; then \
+		meson configure -Dvendor=true; \
+	else \
+		meson configure; \
+	fi \
+
+override_dh_auto_clean:
+	if test "${CLEAN}" = "1"; then \
+		cargo clean; \
+	fi
+
+	if ! ischroot && test "${VENDOR}" = "1"; then \
+		mkdir -p .cargo; \
+		cargo vendor --sync Cargo.toml | head -n -1 > .cargo/config; \
+		echo 'directory = "vendor"' >> .cargo/config; \
+		tar pcf vendor.tar vendor; \
+		rm -rf vendor; \
+	fi

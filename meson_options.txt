@@ -8,3 +8,10 @@ option(
   value: 'default',
   description: 'The build profile for Cosmic Launcher. One of "default" or "development".'
 )
+
+option(
+  'vendor',
+  type: 'boolean',
+  value: true,
+  description: 'Whether or not sources are vendored.'
+)

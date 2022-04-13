@@ -60,6 +60,19 @@ if get_option('profile') == 'development'
   run_command('cp', '-f', 'hooks/pre-commit.hook', '.git/hooks/pre-commit')
 endif
 
+# vendoring
+if get_option('vendor')
+  run_command(
+    'rm', '-rf',
+    meson.project_source_root() / 'vendor', check: false
+  )
+
+  run_command(
+    'tar', 'xf',
+    meson.project_source_root() / 'vendor.tar'
+  )
+endif
+
 subdir('data')
 subdir('po')
 subdir('src')
