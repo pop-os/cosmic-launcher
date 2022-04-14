@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Ashley Wulber 2019 <ashley@system76.com> -->
 <component type="desktop-application">
-  <id>@app-id@</id>
+  <id>com.system76.CosmicLauncher</id>
   <metadata_license>CC0</metadata_license>
   <!-- Insert your license of choice here -->
   <!-- <project_license>MIT</project_license> -->
@@ -32,6 +32,5 @@
   </kudos>
   <developer_name>Ashley Wulber</developer_name>
   <update_contact>ashley@system76.com</update_contact>
-  <translation type="gettext">@gettext-package@</translation>
-  <launchable type="desktop-id">@app-id@.desktop</launchable>
+  <launchable type="desktop-id">com.system76.CosmicLauncher.desktop</launchable>
 </component>

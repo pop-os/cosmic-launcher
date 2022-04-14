@@ -1,20 +1,14 @@
 #!/usr/bin/make -f
 
+DESTDIR = debian/cosmic-launcher
 CLEAN ?= 1
 VENDOR ?= 1
 
 %:
-	dh $@ --buildsystem=meson
+	dh $@
 
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
-
-override_dh_auto_configure:
-	if ! ischroot && test "${VENDOR}" = "1"; then \
-		meson configure -Dvendor=true; \
-	else \
-		meson configure; \
-	fi \
 
 override_dh_auto_clean:
 	if test "${CLEAN}" = "1"; then \
@@ -28,3 +22,9 @@ override_dh_auto_clean:
 		tar pcf vendor.tar vendor; \
 		rm -rf vendor; \
 	fi
+
+override_dh_auto_build:
+	just rootdir=$(DESTDIR) debug=$(DEBUG) vendor=$(VENDOR)
+
+override_dh_auto_install:
+	just rootdir=$(DESTDIR) install

@@ -9,7 +9,6 @@ use tokio::{runtime::Runtime, sync::mpsc};
 use tokio_stream::StreamExt;
 
 use crate::{
-    config::{APP_ID, PKGDATADIR, PROFILE, VERSION},
     utils,
     window::CosmicLauncherWindow,
 };
@@ -155,7 +154,7 @@ mod imp {
             self.parent_startup(app);
 
             // Set icons for shell
-            gtk4::Window::set_default_icon_name(APP_ID);
+            gtk4::Window::set_default_icon_name(crate::APP_ID);
 
             setup_shortcuts(app);
             load_css();
@@ -174,7 +173,7 @@ glib::wrapper! {
 impl CosmicLauncherApplication {
     pub fn new(rt: Runtime) -> Self {
         let self_: Self = glib::Object::new(&[
-            ("application-id", &Some(APP_ID)),
+            ("application-id", &Some(crate::APP_ID)),
             ("flags", &gio::ApplicationFlags::empty()),
             ("resource-base-path", &Some("/com/System76/CosmicLauncher/")),
         ])
@@ -184,10 +183,6 @@ impl CosmicLauncherApplication {
     }
 
     pub fn run(&self) {
-        info!("Cosmic Launcher ({})", APP_ID);
-        info!("Version: {} ({})", VERSION, PROFILE);
-        info!("Datadir: {}", PKGDATADIR);
-
         ApplicationExtManual::run(self);
     }
 }
