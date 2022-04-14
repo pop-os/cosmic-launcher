@@ -3,12 +3,12 @@
 use crate::search_result_object::SearchResultObject;
 use crate::utils::BoxedSearchResult;
 use gtk4::{gdk::Display, gio, glib, prelude::*, subclass::prelude::*, CssProvider, StyleContext};
-use log::{debug, info};
+use log::debug;
 use once_cell::sync::OnceCell;
 use tokio::{runtime::Runtime, sync::mpsc};
 use tokio_stream::StreamExt;
 
-use crate::{utils, window::CosmicLauncherWindow};
+use crate::{config, utils, window::CosmicLauncherWindow};
 
 pub const NUM_LAUNCHER_ITEMS: u8 = 10;
 pub static TX: OnceCell<mpsc::Sender<Event>> = OnceCell::new();
@@ -26,7 +26,7 @@ pub enum LauncherIpcEvent {
 mod imp {
     use std::{fs, path::Path};
 
-    use crate::desktop_entry_data::DesktopEntryData;
+    use crate::{config, desktop_entry_data::DesktopEntryData};
 
     use super::*;
     use glib::WeakRef;
@@ -151,7 +151,7 @@ mod imp {
             self.parent_startup(app);
 
             // Set icons for shell
-            gtk4::Window::set_default_icon_name(crate::APP_ID);
+            gtk4::Window::set_default_icon_name(config::APP_ID);
 
             setup_shortcuts(app);
             load_css();
@@ -170,7 +170,7 @@ glib::wrapper! {
 impl CosmicLauncherApplication {
     pub fn new(rt: Runtime) -> Self {
         let self_: Self = glib::Object::new(&[
-            ("application-id", &Some(crate::APP_ID)),
+            ("application-id", &Some(config::APP_ID)),
             ("flags", &gio::ApplicationFlags::empty()),
             ("resource-base-path", &Some("/com/System76/CosmicLauncher/")),
         ])

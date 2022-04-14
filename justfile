@@ -15,7 +15,7 @@ iconsdir := sharedir + '/icons/hicolor/scalable/apps'
 bindir := rootdir + prefix + '/bin'
 
 all: _extract_vendor _compile_gresource
-    cargo build {{cargo_args}}
+    cargo build {{cargo_args}} --no-default-features
 
 # Installs files into the system
 install:
@@ -23,6 +23,7 @@ install:
     install -Dm0644 data/icons/{{id}}.Devel.svg {{iconsdir}}/{{id}}.Devel.svg
     install -Dm0644 data/icons/{{id}}.svg {{iconsdir}}/{{id}}.svg
     install -Dm0644 data/{{id}}.desktop {{sharedir}}/applications/{{id}}.desktop
+    install -Dm0644 target/compiled.gresource {{sharedir}}/{{id}}/compiled.gresource
     install -Dm04755 target/release/cosmic-launcher {{bindir}}/cosmic-launcher
 
 # Extracts vendored dependencies if vendor=1
