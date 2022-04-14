@@ -12,6 +12,6 @@ option(
 option(
   'vendor',
   type: 'boolean',
-  value: true,
+  value: false,
   description: 'Whether or not sources are vendored.'
 )
