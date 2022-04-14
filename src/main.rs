@@ -20,7 +20,8 @@ fn main() {
 
     glib::set_application_name("Cosmic Launcher");
 
-    let res = gio::Resource::load("target/compiled.gresource").expect("Could not load gresource file");
+    let res =
+        gio::Resource::load("target/compiled.gresource").expect("Could not load gresource file");
     gio::resources_register(&res);
     let rt = Runtime::new().unwrap();
 

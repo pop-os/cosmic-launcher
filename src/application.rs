@@ -8,10 +8,7 @@ use once_cell::sync::OnceCell;
 use tokio::{runtime::Runtime, sync::mpsc};
 use tokio_stream::StreamExt;
 
-use crate::{
-    utils,
-    window::CosmicLauncherWindow,
-};
+use crate::{utils, window::CosmicLauncherWindow};
 
 pub const NUM_LAUNCHER_ITEMS: u8 = 10;
 pub static TX: OnceCell<mpsc::Sender<Event>> = OnceCell::new();
