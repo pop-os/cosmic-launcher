@@ -1,0 +1,1 @@
+cosmic-launcher = Cosmic Launcher

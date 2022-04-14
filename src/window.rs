@@ -2,10 +2,12 @@
 
 use crate::{
     application::{CosmicLauncherApplication, Event, TX},
+    fl,
     search_result_object::SearchResultObject,
     search_result_row::SearchResultRow,
     utils,
 };
+
 use cascade::cascade;
 use gdk4_x11::X11Display;
 use gtk4::{
@@ -69,7 +71,7 @@ impl CosmicLauncherWindow {
         cascade! {
             &self_;
             ..set_width_request(600);
-            ..set_title(Some("Cosmic Launcher"));
+            ..set_title(Some(&fl!("cosmic-launcher")));
             ..set_decorated(false);
             ..set_resizable(false);
             ..add_css_class("root_window");

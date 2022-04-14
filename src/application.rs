@@ -3,7 +3,7 @@
 use crate::search_result_object::SearchResultObject;
 use crate::utils::BoxedSearchResult;
 use gtk4::{gdk::Display, gio, glib, prelude::*, subclass::prelude::*, CssProvider, StyleContext};
-use log::debug;
+use log::{debug, info};
 use once_cell::sync::OnceCell;
 use tokio::{runtime::Runtime, sync::mpsc};
 use tokio_stream::StreamExt;
@@ -181,6 +181,8 @@ impl CosmicLauncherApplication {
 
     pub fn run(&self) {
         ApplicationExtManual::run(self);
+        info!("Cosmic Launcher ({})", config::APP_ID);
+        info!("Version: {}", config::VERSION);
     }
 }
 
