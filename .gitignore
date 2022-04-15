@@ -17,6 +17,5 @@ debian/*
 # Flatpak
 build-aux/app
 build-aux/.flatpak-builder/
-src/config.rs
 .flatpak/
 flatpak_app
