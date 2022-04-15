@@ -6,7 +6,8 @@ vendor := '0'
 target := if debug == '1' { 'debug' } else { 'release' }
 vendor_args := if vendor == '1' { '--frozen --offline' } else { '' }
 debug_args := if debug == '1' { '' } else { '--release' }
-cargo_args := vendor_args + ' ' + debug_args
+feature_args :=  "--no-default-features"
+cargo_args := vendor_args + ' ' + debug_args + ' ' + feature_args
 
 id := 'com.System76.CosmicLauncher'
 
@@ -15,7 +16,7 @@ iconsdir := sharedir + '/icons/hicolor/scalable/apps'
 bindir := rootdir + prefix + '/bin'
 
 all: _extract_vendor _compile_gresource
-    cargo build {{cargo_args}} --no-default-features
+    cargo build {{cargo_args}}
 
 # Installs files into the system
 install:
