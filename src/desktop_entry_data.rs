@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0-only
 
+use crate::utils;
 use anyhow::Result;
 use gtk4::glib;
 use gtk4::subclass::prelude::*;
@@ -7,7 +8,6 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::rc::Rc;
-
 mod imp {
 
     use super::*;
@@ -99,16 +99,28 @@ impl DesktopEntryData {
                 .borrow()
                 .clone()
         );
-        Command::new("flatpak-spawn")
-            .arg("--host")
-            .arg("gtk-launch")
-            .arg(
-                imp::DesktopEntryData::from_instance(self)
-                    .appid
-                    .borrow()
-                    .clone(),
-            )
-            .spawn()
-            .map_err(anyhow::Error::msg)
+        if utils::in_flatpak() {
+            Command::new("flatpak-spawn")
+                .arg("--host")
+                .arg("gtk-launch")
+                .arg(
+                    imp::DesktopEntryData::from_instance(self)
+                        .appid
+                        .borrow()
+                        .clone(),
+                )
+                .spawn()
+                .map_err(anyhow::Error::msg)
+        } else {
+            Command::new("gtk-launch")
+                .arg(
+                    imp::DesktopEntryData::from_instance(self)
+                        .appid
+                        .borrow()
+                        .clone(),
+                )
+                .spawn()
+                .map_err(anyhow::Error::msg)
+        }
     }
 }
