@@ -12,8 +12,6 @@ mod window;
 use gtk4::{gio, glib};
 use tokio::runtime::Runtime;
 
-use self::config::RESOURCES_FILE;
-
 use self::application::CosmicLauncherApplication;
 
 pub fn localize() {
@@ -35,8 +33,7 @@ fn main() {
     glib::set_application_name(config::APP_ID);
 
     localize();
-    let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
-    gio::resources_register(&res);
+    gio::resources_register_include!("compiled.gresource").unwrap();
     let rt = Runtime::new().unwrap();
 
     let app = CosmicLauncherApplication::new(rt);

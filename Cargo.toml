@@ -35,9 +35,8 @@ i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-request
 i18n-embed-fl = "0.6.4"
 rust-embed = "6.3.0"
 
-[features]
-default = ["dev"]
-dev = []
+[build-dependencies]
+gio = "0.15.10"
 
 [profile.release]
 incremental = true

@@ -15,7 +15,7 @@ sharedir := rootdir + prefix + '/share'
 iconsdir := sharedir + '/icons/hicolor/scalable/apps'
 bindir := rootdir + prefix + '/bin'
 
-all: _extract_vendor _compile_gresource
+all: _extract_vendor
     cargo build {{cargo_args}}
 
 # Installs files into the system
@@ -24,7 +24,6 @@ install:
     install -Dm0644 data/icons/{{id}}.Devel.svg {{iconsdir}}/{{id}}.Devel.svg
     install -Dm0644 data/icons/{{id}}.svg {{iconsdir}}/{{id}}.svg
     install -Dm0644 data/{{id}}.desktop {{sharedir}}/applications/{{id}}.desktop
-    install -Dm0644 target/compiled.gresource {{sharedir}}/{{id}}/compiled.gresource
     install -Dm04755 target/release/cosmic-launcher {{bindir}}/cosmic-launcher
 
 # Extracts vendored dependencies if vendor=1
@@ -33,10 +32,3 @@ _extract_vendor:
     if test {{vendor}} = 1; then
         rm -rf vendor; tar pxf vendor.tar
     fi
-
-# Compiles the gresources file
-_compile_gresource:
-    mkdir -p target/
-    glib-compile-resources --sourcedir=data/resources \
-        --target=target/compiled.gresource \
-        data/resources/resources.gresource.xml
