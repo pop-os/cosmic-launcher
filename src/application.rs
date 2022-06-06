@@ -172,7 +172,7 @@ impl CosmicLauncherApplication {
         let self_: Self = glib::Object::new(&[
             ("application-id", &Some(config::APP_ID)),
             ("flags", &gio::ApplicationFlags::empty()),
-            ("resource-base-path", &Some("/com/System76/CosmicLauncher/")),
+            ("resource-base-path", &Some("/com/system76/CosmicLauncher/")),
         ])
         .expect("Application initialization failed...");
         self_.imp().rt.set(rt).unwrap();
@@ -245,7 +245,7 @@ fn setup_shortcuts(app: &CosmicLauncherApplication) {
 
 fn load_css() {
     let provider = CssProvider::new();
-    provider.load_from_resource("/com/System76/CosmicLauncher/style.css");
+    provider.load_from_resource("/com/system76/CosmicLauncher/style.css");
     // Add the provider to the default screen
     StyleContext::add_provider_for_display(
         &Display::default().expect("Error initializing GTK CSS provider."),

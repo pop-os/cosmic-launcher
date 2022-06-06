@@ -9,7 +9,7 @@ debug_args := if debug == '1' { '' } else { '--release' }
 feature_args :=  "--no-default-features"
 cargo_args := vendor_args + ' ' + debug_args + ' ' + feature_args
 
-id := 'com.System76.CosmicLauncher'
+id := 'com.system76.CosmicLauncher'
 
 sharedir := rootdir + prefix + '/share'
 iconsdir := sharedir + '/icons/hicolor/scalable/apps'

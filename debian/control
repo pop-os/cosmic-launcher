@@ -1,7 +1,7 @@
 Source: cosmic-launcher
 Section: admin
 Priority: optional
-Maintainer: System76 <info@system76.com>
+Maintainer: system76 <info@system76.com>
 Build-Depends:
   debhelper (>= 11),
   debhelper-compat (= 11),
