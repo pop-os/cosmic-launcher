@@ -24,7 +24,7 @@ install:
     install -Dm0644 data/icons/{{id}}.Devel.svg {{iconsdir}}/{{id}}.Devel.svg
     install -Dm0644 data/icons/{{id}}.svg {{iconsdir}}/{{id}}.svg
     install -Dm0644 data/{{id}}.desktop {{sharedir}}/applications/{{id}}.desktop
-    install -Dm04755 target/release/cosmic-launcher {{bindir}}/cosmic-launcher
+    install -Dm0755 target/release/cosmic-launcher {{bindir}}/cosmic-launcher
 
 # Extracts vendored dependencies if vendor=1
 _extract_vendor:
