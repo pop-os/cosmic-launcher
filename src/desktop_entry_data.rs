@@ -112,6 +112,11 @@ impl DesktopEntryData {
                 .spawn()
                 .map_err(anyhow::Error::msg)
         } else {
+            let wayland_display = if let Ok(display) = std::env::var("HOST_WAYLAND_DISPLAY") {
+                Some(("WAYLAND_DISPLAY", display))
+            } else {
+                None
+            };
             Command::new("gtk-launch")
                 .arg(
                     imp::DesktopEntryData::from_instance(self)
@@ -119,6 +124,7 @@ impl DesktopEntryData {
                         .borrow()
                         .clone(),
                 )
+                .envs(wayland_display)
                 .spawn()
                 .map_err(anyhow::Error::msg)
         }
