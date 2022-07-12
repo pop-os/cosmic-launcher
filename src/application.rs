@@ -136,7 +136,6 @@ mod imp {
                                         app_info
                                             .launch()
                                             .expect("failed to launch the application.");
-                                        app_clone.quit();
                                     }
                                 }
                             }

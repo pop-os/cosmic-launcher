@@ -30,8 +30,6 @@ fn main() {
     // Initialize logger
     pretty_env_logger::init();
 
-    glib::set_application_name(config::APP_ID);
-
     localize();
     gio::resources_register_include!("compiled.gresource").unwrap();
     let rt = Runtime::new().unwrap();

@@ -186,7 +186,6 @@ impl CosmicLauncherWindow {
                     },
                 };
                 if let Some(search_result) = obj.data() {
-                    println!("activating... {}", i + 1);
                     glib::MainContext::default().spawn_local(async move {
                         if let Some(tx) = TX.get() {
                             let _ = tx.send(Event::Activate(search_result.id)).await;
@@ -197,7 +196,6 @@ impl CosmicLauncherWindow {
         }
 
         lv.connect_activate(glib::clone!(@weak window => move |list_view, i| {
-            dbg!(i);
             let model = list_view.model()
                 .expect("List view missing selection model")
                 .downcast::<gtk4::SingleSelection>()
@@ -308,21 +306,17 @@ impl CosmicLauncherWindow {
 
         let action_quit = gio::SimpleAction::new("quit", None);
         // TODO clear state instead of closing
-        // action_quit.connect_activate(glib::clone!(@weak window => move |_, _| {
-        //     window.close();
-        //     window.application().map(|a| a.quit());
-        //     std::process::exit(0);
-        // }));
+        action_quit.connect_activate(glib::clone!(@weak entry  => move |_, _| {
+            entry.set_text("");
+        }));
         self.add_action(&action_quit);
 
         // TODO clear the search state on fucus loss
-        // window.connect_is_active_notify(|win| {
-        //     if !win.is_active() {
-        //         win.close();
-        //         win.application().map(|a| a.quit());
-        //         std::process::exit(0);
-        //     }
-        // });
+        window.connect_is_active_notify(glib::clone!(@weak entry => move |win| {
+            if !win.is_active() {
+                entry.set_text("");
+            }
+        }));
     }
 
     fn setup_factory(&self) {
