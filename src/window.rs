@@ -226,7 +226,7 @@ impl CosmicLauncherWindow {
 
         entry.connect_changed(glib::clone!(@weak lv => move |search: &gtk4::Entry| {
             let search = search.text().to_string();
-
+            dbg!(&search);
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
                     println!("searching...");
@@ -307,20 +307,22 @@ impl CosmicLauncherWindow {
         });
 
         let action_quit = gio::SimpleAction::new("quit", None);
-        action_quit.connect_activate(glib::clone!(@weak window => move |_, _| {
-            window.close();
-            window.application().map(|a| a.quit());
-            std::process::exit(0);
-        }));
+        // TODO clear state instead of closing
+        // action_quit.connect_activate(glib::clone!(@weak window => move |_, _| {
+        //     window.close();
+        //     window.application().map(|a| a.quit());
+        //     std::process::exit(0);
+        // }));
         self.add_action(&action_quit);
 
-        window.connect_is_active_notify(|win| {
-            if !win.is_active() {
-                win.close();
-                win.application().map(|a| a.quit());
-                std::process::exit(0);
-            }
-        });
+        // TODO clear the search state on fucus loss
+        // window.connect_is_active_notify(|win| {
+        //     if !win.is_active() {
+        //         win.close();
+        //         win.application().map(|a| a.quit());
+        //         std::process::exit(0);
+        //     }
+        // });
     }
 
     fn setup_factory(&self) {
