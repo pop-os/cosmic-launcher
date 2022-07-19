@@ -29,6 +29,7 @@ mod imp {
         pub entry: OnceCell<Entry>,
         pub list_view: OnceCell<ListView>,
         pub model: OnceCell<gio::ListStore>,
+        pub selection_model: OnceCell<gtk4::SingleSelection>,
         pub icon_theme: OnceCell<gtk4::IconTheme>,
     }
 
@@ -92,7 +93,6 @@ impl CosmicLauncherWindow {
             ..add_css_class("background-component");
             ..add_css_class("border-radius-medium");
             ..add_css_class("padding-medium");
-
         };
         container.append(&entry);
 
@@ -143,6 +143,35 @@ impl CosmicLauncherWindow {
         imp.model.get().expect("Could not get model")
     }
 
+    pub fn selected(&self) -> u32 {
+        let imp = imp::CosmicLauncherWindow::from_instance(self);
+        imp.selection_model.get().unwrap().selected()
+    }
+
+    fn activate_result(&self, position: u32) {
+        let model = self.model();
+
+        if position >= model.n_items() {
+            dbg!("index out of range");
+            return;
+        }
+        let obj = match model.item(position) {
+            Some(obj) => obj.downcast::<SearchResultObject>().unwrap(),
+            None => {
+                dbg!(model.item(position));
+                return;
+            },
+        };
+        if let Some(search_result) = obj.data() {
+            println!("activating... {}", position + 1);
+            glib::MainContext::default().spawn_local(async move {
+                if let Some(tx) = TX.get() {
+                    let _ = tx.send(Event::Activate(search_result.id)).await;
+                }
+            });
+        }
+    }
+
     fn setup_model(&self) {
         // Get state and set model
         let imp = imp::CosmicLauncherWindow::from_instance(self);
@@ -151,9 +180,7 @@ impl CosmicLauncherWindow {
         let slice_model = gtk4::SliceListModel::new(Some(&model), 0, NUM_LAUNCHER_ITEMS.into());
         let selection_model = gtk4::SingleSelection::builder()
             .model(&slice_model)
-            .autoselect(false)
-            .can_unselect(true)
-            .selected(gtk4::INVALID_LIST_POSITION)
+            .autoselect(true)
             .build();
 
         imp.model.set(model).expect("Could not set model");
@@ -162,64 +189,30 @@ impl CosmicLauncherWindow {
             .get()
             .unwrap()
             .set_model(Some(&selection_model));
+        imp.selection_model.set(selection_model).expect("Could not set selection model");
     }
 
     fn setup_callbacks(&self) {
         // Get state
         let imp = imp::CosmicLauncherWindow::from_instance(self);
-        let window = self.clone().upcast::<gtk4::Window>();
+        let window = self.clone();
         let list_view = &imp.list_view;
         let entry = &imp.entry.get().unwrap();
         let lv = list_view.get().unwrap();
         for i in 1..10 {
             let action_launchi = gio::SimpleAction::new(&format!("launch{}", i), None);
             self.add_action(&action_launchi);
-            action_launchi.connect_activate(glib::clone!(@weak lv =>  move |_action, _parameter| {
-                let i = i - 1;
-                println!("activating... {}", i);
-                let model = lv.model().unwrap();
-                let obj = match model.item(i) {
-                    Some(obj) => obj.downcast::<SearchResultObject>().unwrap(),
-                    None => {
-                        dbg!(model.item(i));
-                        return;
-                    },
-                };
-                if let Some(search_result) = obj.data() {
-                    glib::MainContext::default().spawn_local(async move {
-                        if let Some(tx) = TX.get() {
-                            let _ = tx.send(Event::Activate(search_result.id)).await;
-                        }
-                    });
-                }
+            action_launchi.connect_activate(glib::clone!(@weak window => move |_action, _parameter| {
+                window.activate_result(i - 1);
             }));
         }
 
-        lv.connect_activate(glib::clone!(@weak window => move |list_view, i| {
-            let model = list_view.model()
-                .expect("List view missing selection model")
-                .downcast::<gtk4::SingleSelection>()
-                .expect("could not downcast listview model to no selection model");
+        lv.connect_activate(glib::clone!(@weak window => move |_list_view, i| {
+            window.activate_result(i);
+        }));
 
-            if i >= model.n_items() {
-                dbg!("index out of range");
-                return;
-            }
-            let obj = match model.item(i) {
-                Some(obj) => obj.downcast::<SearchResultObject>().unwrap(),
-                None => {
-                    dbg!(model.item(i));
-                    return;
-                },
-            };
-            if let Some(search_result) = obj.data() {
-                println!("activating... {}", i + 1);
-                glib::MainContext::default().spawn_local(async move {
-                    if let Some(tx) = TX.get() {
-                        let _ = tx.send(Event::Activate(search_result.id)).await;
-                    }
-                });
-            }
+        entry.connect_activate(glib::clone!(@weak window => move |_| {
+            window.activate_result(window.selected());
         }));
 
         entry.connect_changed(glib::clone!(@weak lv => move |search: &gtk4::Entry| {
