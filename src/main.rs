@@ -9,7 +9,7 @@ mod search_result_row;
 mod localize;
 mod utils;
 mod window;
-use gtk4::{gio, glib};
+use gtk4::{gio};
 use tokio::runtime::Runtime;
 
 use self::application::CosmicLauncherApplication;

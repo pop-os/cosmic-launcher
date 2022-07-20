@@ -112,7 +112,7 @@ impl DesktopEntryData {
                 .spawn()
                 .map_err(anyhow::Error::msg)
         } else {
-            let wayland_display = if let Ok(display) = std::env::var("HOST_WAYLAND_DISPLAY") {
+            let wayland_display = if let Ok(display) = std::env::var("WAYLAND_DISPLAY") {
                 Some(("WAYLAND_DISPLAY", display))
             } else {
                 None
