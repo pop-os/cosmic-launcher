@@ -15,7 +15,7 @@ wayland-client = { version = "0.29.4", optional = true }
 wayland-protocols = { version = "0.29.4", features = [ "client", "unstable_protocols" ], optional = true }
 x11 = { version = "2.19.1", features = ["xlib"] }
 libcosmic = { git = "https://github.com/pop-os/libcosmic" }
-relm4-macros = { git = "https://github.com/AaronErhardt/Relm4" }
+relm4-macros = { git = "https://github.com/Relm4/Relm4" }
 pop-launcher-service = { git = "https://github.com/wash2/launcher.git" }
 pop-launcher = { git = "https://github.com/wash2/launcher.git" }
 serde = "1.0.134"
