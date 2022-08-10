@@ -151,7 +151,7 @@ impl CosmicLauncherWindow {
             None => {
                 dbg!(model.item(position));
                 return;
-            },
+            }
         };
         if let Some(search_result) = obj.data() {
             println!("activating... {}", position + 1);
@@ -180,7 +180,9 @@ impl CosmicLauncherWindow {
             .get()
             .unwrap()
             .set_model(Some(&selection_model));
-        imp.selection_model.set(selection_model).expect("Could not set selection model");
+        imp.selection_model
+            .set(selection_model)
+            .expect("Could not set selection model");
     }
 
     fn setup_callbacks(&self) {
@@ -193,9 +195,11 @@ impl CosmicLauncherWindow {
         for i in 1..10 {
             let action_launchi = gio::SimpleAction::new(&format!("launch{}", i), None);
             self.add_action(&action_launchi);
-            action_launchi.connect_activate(glib::clone!(@weak window => move |_action, _parameter| {
-                window.activate_result(i - 1);
-            }));
+            action_launchi.connect_activate(
+                glib::clone!(@weak window => move |_action, _parameter| {
+                    window.activate_result(i - 1);
+                }),
+            );
         }
 
         lv.connect_activate(glib::clone!(@weak window => move |_list_view, i| {
