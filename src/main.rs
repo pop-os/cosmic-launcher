@@ -15,6 +15,8 @@ use tokio::runtime::Runtime;
 use self::application::CosmicLauncherApplication;
 
 pub fn localize() {
+    let _ = gtk4::init();
+    adw::init();
     let localizer = crate::localize::localizer();
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
 

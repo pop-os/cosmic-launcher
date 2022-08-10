@@ -9,12 +9,10 @@ use crate::{
 };
 
 use cascade::cascade;
-use gdk4_x11::X11Display;
 use gtk4::{
     gdk, gio, glib, glib::Object, prelude::*, subclass::prelude::*, Box, Entry, ListView,
     Orientation, SignalListItemFactory,
 };
-use libcosmic::x;
 use std::path::Path;
 
 mod imp {
@@ -75,24 +73,15 @@ impl CosmicLauncherWindow {
             ..set_title(Some(&fl!("cosmic-launcher")));
             ..set_decorated(false);
             ..set_resizable(false);
-            ..add_css_class("root_window");
-            ..add_css_class("border-radius-small");
-            ..add_css_class("padding-small");
         };
 
         let container = cascade! {
             Box::new(Orientation::Vertical, 0);
-            ..add_css_class("background");
-            ..add_css_class("border-radius-small");
         };
         self_.set_child(Some(&container));
 
         let entry = cascade! {
             Entry::new();
-            ..set_margin_bottom(12);
-            ..add_css_class("background-component");
-            ..add_css_class("border-radius-medium");
-            ..add_css_class("padding-medium");
         };
         container.append(&entry);
 
@@ -100,8 +89,10 @@ impl CosmicLauncherWindow {
             ListView::default();
             ..set_orientation(Orientation::Vertical);
             ..set_single_click_activate(true);
-            ..add_css_class("primary-container");
-            ..add_css_class("border-radius-medium");
+            ..set_margin_top(8);
+            ..set_margin_start(8);
+            ..set_margin_end(8);
+            ..set_margin_bottom(8);
         };
         container.append(&list_view);
 
@@ -240,62 +231,6 @@ impl CosmicLauncherWindow {
                 }
             });
         }));
-
-        window.connect_realize(move |window| {
-            let _ = std::panic::catch_unwind(|| {
-                // XXX investigate panic in libcosmic
-                // seems to be a race
-                std::thread::sleep(std::time::Duration::from_millis(50));
-                if let Some((display, surface)) = x::get_window_x11(window) {
-                // ignore all x11 errors...
-                let xdisplay = display.clone().downcast::<X11Display>().expect("Failed to downgrade X11 Display.");
-                xdisplay.error_trap_push();
-                unsafe {
-                    x::change_property(
-                        &display,
-                        &surface,
-                        "_NET_WM_WINDOW_TYPE",
-                        x::PropMode::Replace,
-                        &[x::Atom::new(&display, "_NET_WM_WINDOW_TYPE_DIALOG").unwrap()],
-                    );
-                }
-                let resize = glib::clone!(@weak window => move || {
-                    let height = window.height();
-                    let width = window.width();
-
-                    if let Some((display, _surface)) = x::get_window_x11(&window) {
-                        let geom = display
-                            .primary_monitor().geometry();
-                        let monitor_x = geom.x();
-                        let monitor_y = geom.y();
-                        let monitor_width = geom.width();
-                        let monitor_height = geom.height();
-                        // dbg!(monitor_width);
-                        // dbg!(monitor_height);
-                        // dbg!(width);
-                        // dbg!(height);
-                        unsafe { x::set_position(&display, &surface,
-                            (monitor_x + monitor_width / 2 - width / 2).clamp(0, monitor_x + monitor_width - 1),
-                            (monitor_y + monitor_height / 2 - height / 2).clamp(0, monitor_y + monitor_height - 1))};
-                    }
-                });
-                let s = window.surface();
-                let resize_height = resize.clone();
-                s.connect_height_notify(move |_s| {
-                    glib::source::idle_add_local_once(resize_height.clone());
-                });
-                let resize_width = resize.clone();
-                s.connect_width_notify(move |_s| {
-                    glib::source::idle_add_local_once(resize_width.clone());
-                });
-                s.connect_scale_factor_notify(move |_s| {
-                    glib::source::idle_add_local_once(resize.clone());
-                });
-            } else {
-                println!("failed to get X11 window");
-            }
-            });
-        });
 
         let action_quit = gio::SimpleAction::new("quit", None);
         // TODO clear state instead of closing

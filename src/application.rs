@@ -259,11 +259,4 @@ fn load_css() {
         &theme_provider,
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
-
-    // Load the css file and add it to the provider
-    glib::MainContext::default().spawn_local(async move {
-        if let Err(e) = cosmic_theme::load_cosmic_gtk4_theme(theme_provider).await {
-            eprintln!("{}", e);
-        }
-    });
 }
