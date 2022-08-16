@@ -75,7 +75,6 @@ mod imp {
             let window = CosmicLauncherWindow::new(app);
             window.show();
 
-            let app_clone = app.clone();
             glib::MainContext::default().spawn_local(async move {
                 while let Some(event) = rx.recv().await {
                     match event {

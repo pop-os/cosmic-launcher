@@ -12,6 +12,7 @@ cascade = "1.0.0"
 relm4-macros = { git = "https://github.com/Relm4/Relm4" }
 gtk4 = { git = "https://github.com/gtk-rs/gtk4-rs", features=["v4_4"] }
 adw = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs", package = "libadwaita"}
+libcosmic = { git = "https://github.com/pop-os/libcosmic", default-features = false }
 serde = { version = "1.0.134", features = ["derive"] }
 pop-launcher-service = { git = "https://github.com/wash2/launcher.git" }
 pop-launcher = { git = "https://github.com/wash2/launcher.git" }
