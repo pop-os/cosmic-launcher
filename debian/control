@@ -11,6 +11,7 @@ Build-Depends:
   libadwaita-1-dev,
   just,
   pkg-config,
+  desktop-file-utils,
 Standards-Version: 4.3.0
 Homepage: https://github.com/pop-os/cosmic-launcher
 
