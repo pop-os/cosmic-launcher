@@ -30,7 +30,7 @@ fn main() {
     // Initialize logger
     pretty_env_logger::init();
     
-    let _ = libcosmic::init();
+    let _monitors = libcosmic::init();
 
     localize();
     gio::resources_register_include!("compiled.gresource").unwrap();

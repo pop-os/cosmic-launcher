@@ -68,7 +68,7 @@ mod imp {
             let rt = self.rt.get().unwrap();
             rt.spawn(spawn_launcher(tx.clone(), launcher_rx));
             if TX.set(tx).is_err() {
-                println!("failed to set global Sender. Exiting");
+                eprintln!("failed to set global Sender. Exiting");
                 std::process::exit(1);
             };
 

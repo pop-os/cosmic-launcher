@@ -143,7 +143,7 @@ impl CosmicLauncherWindow {
         let model = self.model();
 
         if position >= model.n_items() {
-            dbg!("index out of range");
+            // dbg!("index out of range");
             return;
         }
         let obj = match model.item(position) {
@@ -154,7 +154,7 @@ impl CosmicLauncherWindow {
             }
         };
         if let Some(search_result) = obj.data() {
-            println!("activating... {}", position + 1);
+            // println!("activating... {}", position + 1);
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
                     let _ = tx.send(Event::Activate(search_result.id)).await;
@@ -215,9 +215,8 @@ impl CosmicLauncherWindow {
             dbg!(&search);
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
-                    println!("searching...");
                     if let Err(e) = tx.send(Event::Search(search)).await {
-                        println!("{}", e);
+                        eprintln!("{}", e);
                     }
                 }
             });
@@ -227,10 +226,9 @@ impl CosmicLauncherWindow {
             let search = search.text().to_string();
 
             glib::MainContext::default().spawn_local(async move {
-                println!("searching...");
                 if let Some(tx) = TX.get() {
                     if let Err(e) = tx.send(Event::Search(search)).await {
-                        println!("{}", e);
+                        eprintln!("{}", e);
                     }
                 }
             });
