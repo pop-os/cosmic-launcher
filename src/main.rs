@@ -29,7 +29,7 @@ pub fn localize() {
 fn main() {
     // Initialize logger
     pretty_env_logger::init();
-    
+
     let _monitors = libcosmic::init();
 
     localize();
