@@ -17,6 +17,27 @@ pub fn icon_source(
     if !in_flatpak() {
         match source {
             Some(pop_launcher::IconSource::Name(name)) => {
+                if name == "new-window-symbolic" && !icon_theme.has_icon(&name) {
+                    // icon doesn't always seem to be available normally?
+                    let icon_size = icon_theme
+                    .icon_sizes("new-window-symbolic")
+                    .into_iter()
+                        .chain(icon_theme.icon_sizes("window-new-symbolic")
+                        .into_iter()
+                    )
+                    .max()
+                    .unwrap_or(1);
+                    
+                    let icon = icon_theme.lookup_icon(
+                        "new-window-symbolic",
+                        &["window-new-symbolic"],
+                        icon_size,
+                        1,
+                        gtk4::TextDirection::Ltr,
+                        gtk4::IconLookupFlags::PRELOAD,
+                    );
+                    image.borrow().set_paintable(Some(&icon));
+                }
                 image.borrow().set_from_icon_name(Some(name));
             }
             Some(pop_launcher::IconSource::Mime(content_type)) => {

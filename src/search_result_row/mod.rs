@@ -37,28 +37,19 @@ impl SearchResultRow {
         cascade! {
             &self_;
             ..set_orientation(Orientation::Horizontal);
-            ..set_spacing(12);
-            ..set_margin_top(4);
-            ..set_margin_start(4);
-            ..set_margin_end(4);
-            ..set_margin_bottom(4);
+            ..set_spacing(8);
             ..set_hexpand(true);
-            ..add_css_class("primary-container-component");
-            ..add_css_class("padding-small");
-            ..add_css_class("border-radius-small");
         };
 
         let category_image = cascade! {
             Image::new();
-            ..set_pixel_size(24);
+            ..set_pixel_size(16);
         };
         self_.append(&category_image);
 
         let image = cascade! {
             Image::new();
-            ..set_margin_top(4);
-            ..set_margin_bottom(4);
-            ..set_pixel_size(40);
+            ..set_pixel_size(32);
         };
         self_.append(&image);
 
@@ -66,9 +57,6 @@ impl SearchResultRow {
             Box::new(Orientation::Vertical, 0);
             ..set_halign(Align::Fill);
             ..set_hexpand(true);
-            ..set_margin_top(4);
-            ..set_margin_end(4);
-            ..set_margin_bottom(4);
         };
         self_.append(&text_container);
 
@@ -85,7 +73,7 @@ impl SearchResultRow {
             ..set_halign(Align::Start);
             ..set_ellipsize(EllipsizeMode::End);
             ..set_max_width_chars(40);
-            ..add_css_class("title-4");
+            ..add_css_class("body");
         };
         text_container.append(&name);
 
@@ -94,9 +82,15 @@ impl SearchResultRow {
             ..set_halign(Align::Start);
             ..set_ellipsize(EllipsizeMode::End);
             ..set_max_width_chars(50);
-            ..add_css_class("body");
+            ..add_css_class("caption");
         };
         text_container.append(&description);
+
+        self_.connect_parent_notify(|self_| {
+            if let Some(p) = self_.parent() {
+                p.set_margin_bottom(16);
+            }
+        });
 
         imp.category_image.replace(category_image);
         imp.image.replace(image);

@@ -1,4 +1,20 @@
 window {
-    padding: 8px;
+    padding: 24px 32px;
+    border-radius: 16px;
+}
+
+entry {
+    border-radius: 9999;
+    outline-offset: 2px;
+}
+
+listview row {
+    outline-offset: 2px;
+    padding: 8px 16px;
     border-radius: 8px;
+    outline-style: dotted;
+}
+
+listview {
+    padding: 4px;
 }

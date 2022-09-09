@@ -82,6 +82,7 @@ impl CosmicLauncherWindow {
 
         let entry = cascade! {
             Entry::new();
+            ..set_margin_bottom(16);
         };
         container.append(&entry);
 
@@ -89,10 +90,6 @@ impl CosmicLauncherWindow {
             ListView::default();
             ..set_orientation(Orientation::Vertical);
             ..set_single_click_activate(true);
-            ..set_margin_top(8);
-            ..set_margin_start(8);
-            ..set_margin_end(8);
-            ..set_margin_bottom(8);
         };
         container.append(&list_view);
 
@@ -212,7 +209,6 @@ impl CosmicLauncherWindow {
 
         entry.connect_changed(glib::clone!(@weak lv => move |search: &gtk4::Entry| {
             let search = search.text().to_string();
-            dbg!(&search);
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
                     if let Err(e) = tx.send(Event::Search(search)).await {
