@@ -4,7 +4,7 @@ window {
 }
 
 entry {
-    border-radius: 9999;
+    border-radius: 9999px;
     outline-offset: 2px;
 }
 
