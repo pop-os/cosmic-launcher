@@ -11,7 +11,7 @@ use crate::{
 use cascade::cascade;
 use gtk4::{
     gdk, gio, glib, glib::Object, prelude::*, subclass::prelude::*, Box, Entry, ListView,
-    Orientation, SignalListItemFactory,
+    Orientation, SignalListItemFactory, INVALID_LIST_POSITION,
 };
 use std::path::Path;
 
@@ -189,6 +189,8 @@ impl CosmicLauncherWindow {
         let list_view = &imp.list_view;
         let entry = &imp.entry.get().unwrap();
         let lv = list_view.get().unwrap();
+        let model = imp.model.get().unwrap();
+        let selection = imp.selection_model.get().unwrap();
         for i in 1..10 {
             let action_launchi = gio::SimpleAction::new(&format!("launch{}", i), None);
             self.add_action(&action_launchi);
@@ -237,10 +239,20 @@ impl CosmicLauncherWindow {
         }));
         self.add_action(&action_quit);
 
-        // TODO clear the search state on fucus loss
-        window.connect_is_active_notify(glib::clone!(@weak entry => move |win| {
+        // clear the search state on focus loss & init search when regaining focus
+        window.connect_is_active_notify(glib::clone!(@weak entry, @weak model, @weak selection => move |win| {
             if !win.is_active() {
+                model.remove_all();
+                selection.set_selected(INVALID_LIST_POSITION);
                 entry.set_text("");
+            } else {
+                glib::MainContext::default().spawn_local(async move {
+                    if let Some(tx) = TX.get() {
+                        if let Err(e) = tx.send(Event::Search("".to_string())).await {
+                            eprintln!("{}", e);
+                        }
+                    }
+                });
             }
         }));
     }
