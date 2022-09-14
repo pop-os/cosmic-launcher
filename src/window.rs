@@ -10,7 +10,7 @@ use crate::{
 
 use cascade::cascade;
 use gtk4::{
-    gdk, gio, glib, glib::Object, prelude::*, subclass::prelude::*, Box, Entry, ListView,
+    gdk, gio, glib, glib::Object, prelude::*, subclass::prelude::*, Box, SearchEntry, ListView,
     Orientation, SignalListItemFactory, INVALID_LIST_POSITION,
 };
 use std::path::Path;
@@ -18,13 +18,13 @@ use std::path::Path;
 mod imp {
     use super::*;
     use gtk4::{gio, glib};
-    use gtk4::{Entry, ListView};
+    use gtk4::{SearchEntry, ListView};
     use once_cell::sync::OnceCell;
 
     // Object holding the state
     #[derive(Default)]
     pub struct CosmicLauncherWindow {
-        pub entry: OnceCell<Entry>,
+        pub entry: OnceCell<SearchEntry>,
         pub list_view: OnceCell<ListView>,
         pub model: OnceCell<gio::ListStore>,
         pub selection_model: OnceCell<gtk4::SingleSelection>,
@@ -81,7 +81,10 @@ impl CosmicLauncherWindow {
         self_.set_child(Some(&container));
 
         let entry = cascade! {
-            Entry::new();
+            SearchEntry::new();
+            ..set_placeholder_text(
+                Some("Type to search for apps or type \"?\" for more options")
+            );
             ..set_margin_bottom(16);
         };
         container.append(&entry);
@@ -209,7 +212,7 @@ impl CosmicLauncherWindow {
             window.activate_result(window.selected());
         }));
 
-        entry.connect_changed(glib::clone!(@weak lv => move |search: &gtk4::Entry| {
+        entry.connect_changed(glib::clone!(@weak lv => move |search: &gtk4::SearchEntry| {
             let search = search.text().to_string();
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
@@ -220,7 +223,7 @@ impl CosmicLauncherWindow {
             });
         }));
 
-        entry.connect_realize(glib::clone!(@weak lv => move |search: &gtk4::Entry| {
+        entry.connect_realize(glib::clone!(@weak lv => move |search: &gtk4::SearchEntry| {
             let search = search.text().to_string();
 
             glib::MainContext::default().spawn_local(async move {

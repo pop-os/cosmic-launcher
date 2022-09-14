@@ -17,4 +17,5 @@ listview row {
 
 listview {
     padding: 4px;
+    background-color: transparent;
 }
