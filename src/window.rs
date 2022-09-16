@@ -14,8 +14,10 @@ use gtk4::{
     Orientation, SignalListItemFactory, INVALID_LIST_POSITION,
 };
 use std::path::Path;
+use zbus::Connection;
 
 mod imp {
+    use std::rc::Rc;
     use super::*;
     use gtk4::{gio, glib};
     use gtk4::{SearchEntry, ListView};
@@ -29,6 +31,7 @@ mod imp {
         pub model: OnceCell<gio::ListStore>,
         pub selection_model: OnceCell<gtk4::SingleSelection>,
         pub icon_theme: OnceCell<gtk4::IconTheme>,
+        pub dbus_conn: Rc<OnceCell<Connection>>,
     }
 
     // The central trait for subclassing a GObject
@@ -66,7 +69,13 @@ impl CosmicLauncherWindow {
     pub fn new(app: &CosmicLauncherApplication) -> Self {
         let self_: Self = Object::new(&[("application", app)]).expect("Failed to create `Window`.");
         let imp = imp::CosmicLauncherWindow::from_instance(&self_);
-
+        
+        glib::MainContext::default().spawn_local(glib::clone!(@weak self_ => async move {
+            let connection = Connection::session().await.unwrap();
+            let imp = self_.imp();
+            imp.dbus_conn.set(connection).unwrap();
+        }));
+        
         cascade! {
             &self_;
             ..set_width_request(600);
@@ -121,6 +130,39 @@ impl CosmicLauncherWindow {
         // dbg!(icon_theme.icon_names());
         imp.icon_theme.set(icon_theme).unwrap();
 
+        self_.connect_realize(|window| {
+            let state = window.surface().downcast::<gdk::Toplevel>().unwrap().state();
+            glib::MainContext::default().spawn_local(async move {
+                if let Some(tx) = TX.get() {
+                    if let Err(e) = tx.send(Event::Search("".to_string())).await {
+                        eprintln!("{}", e);
+                    }
+                }
+            });
+            window.surface().downcast::<gdk::Toplevel>().unwrap().connect_state_notify(glib::clone!( @weak window => move |toplevel| {
+                let state = toplevel.state();
+                if state.contains(gdk::ToplevelState::FOCUSED) {
+                    glib::MainContext::default().spawn_local(async move {
+                        if let Some(tx) = TX.get() {
+                            if let Err(e) = tx.send(Event::Search("".to_string())).await {
+                                eprintln!("{}", e);
+                            }
+                        }
+                    });
+                    window.show();
+                } else {
+                    window.reset();
+                }
+            }));
+        });
+        glib::MainContext::default().spawn_local(async move {
+            if let Some(tx) = TX.get() {
+                if let Err(e) = tx.send(Event::Search("".to_string())).await {
+                    eprintln!("{}", e);
+                }
+            }
+        });
+
         // Setup
         self_.setup_model();
         self_.setup_callbacks();
@@ -143,13 +185,11 @@ impl CosmicLauncherWindow {
         let model = self.model();
 
         if position >= model.n_items() {
-            // dbg!("index out of range");
             return;
         }
         let obj = match model.item(position) {
             Some(obj) => obj.downcast::<SearchResultObject>().unwrap(),
             None => {
-                dbg!(model.item(position));
                 return;
             }
         };
@@ -187,11 +227,12 @@ impl CosmicLauncherWindow {
 
     fn setup_callbacks(&self) {
         // Get state
-        let imp = imp::CosmicLauncherWindow::from_instance(self);
+        let imp = self.imp();
         let window = self.clone();
         let list_view = &imp.list_view;
         let entry = &imp.entry.get().unwrap();
         let lv = list_view.get().unwrap();
+        let conn = &imp.dbus_conn;
 
         for i in 1..10 {
             let action_launchi = gio::SimpleAction::new(&format!("launch{}", i), None);
@@ -222,22 +263,14 @@ impl CosmicLauncherWindow {
             });
         }));
 
-        entry.connect_realize(glib::clone!(@weak lv => move |search: &gtk4::SearchEntry| {
-            let search = search.text().to_string();
-
-            glib::MainContext::default().spawn_local(async move {
-                if let Some(tx) = TX.get() {
-                    if let Err(e) = tx.send(Event::Search(search)).await {
-                        eprintln!("{}", e);
-                    }
-                }
-            });
-        }));
-
         let action_quit = gio::SimpleAction::new("quit", None);
         // TODO clear state instead of closing
-        action_quit.connect_activate(glib::clone!(@weak self as self_  => move |_, _| {
-            self_.reset();
+        action_quit.connect_activate(glib::clone!(@weak conn  => move |_, _| {
+            glib::MainContext::default().spawn_local(glib::clone!(@weak conn => async move {
+                if let Some(conn) = conn.get() {
+                    let _ = conn.call_method(Some("com.system76.CosmicAppletHost"), "/com/system76/CosmicAppletHost", Some("com.system76.CosmicAppletHost"), "Hide", &("com.system76.CosmicLauncher")).await;
+                }
+            }));
         }));
         self.add_action(&action_quit);
 
@@ -245,37 +278,27 @@ impl CosmicLauncherWindow {
         window.connect_is_active_notify(glib::clone!(@weak self as self_ => move |win| {
             if !win.is_active() {
                 self_.reset();
-            } else {
-                glib::MainContext::default().spawn_local(async move {
-                    if let Some(tx) = TX.get() {
-                        if let Err(e) = tx.send(Event::Search("".to_string())).await {
-                            eprintln!("{}", e);
-                        }
-                    }
-                });
-                self_.show();
             }
         }));
     }
 
     pub fn reset(&self) {
-        // ideally we could hide the window here, but it seems that in gtk active window must have focus
-        // wayland spec says that active toplevel does not necessarily have focus though
         self.hide();
         let imp = self.imp();
-        glib::MainContext::default().spawn_local(async move {
-            if let Some(tx) = TX.get() {
-                if let Err(e) = tx.send(Event::Search("".to_string())).await {
-                    eprintln!("{}", e);
-                }
-            }
-        });
         if let Some(selection) = imp.selection_model.get() {
             selection.set_selected(INVALID_LIST_POSITION);
         }
         if let Some(entry) = imp.entry.get() {
             entry.set_text("");
         }
+        // toggle launcher to hide
+        let conn = &self.imp().dbus_conn;
+        glib::MainContext::default().spawn_local(glib::clone!(@weak conn => async move {
+            if let Some(conn) = conn.get() {
+                let _ = conn.call_method(Some("com.system76.CosmicAppletHost"), "/com/system76/CosmicAppletHost", Some("com.system76.CosmicAppletHost"), "Hide", &("com.system76.CosmicLauncher")).await;
+            }
+        }));
+        // who knows why this is necessary
         self.show();
     }
 

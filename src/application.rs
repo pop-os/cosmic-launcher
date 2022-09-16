@@ -33,13 +33,11 @@ mod imp {
     use super::*;
     use glib::WeakRef;
     use once_cell::sync::OnceCell;
-    use zbus::Connection;
 
     #[derive(Debug, Default)]
     pub struct CosmicLauncherApplication {
         pub window: OnceCell<WeakRef<CosmicLauncherWindow>>,
         pub rt: OnceCell<Runtime>,
-        pub dbus_conn: Rc<OnceCell<Connection>>,
     }
 
     #[glib::object_subclass]
@@ -77,9 +75,9 @@ mod imp {
             };
 
             let window = CosmicLauncherWindow::new(app);
-            window.show();
+            window.present();
 
-            glib::MainContext::default().spawn_local(glib::clone!(@weak self.dbus_conn as dbus_conn => async move {
+            glib::MainContext::default().spawn_local(async move {
                 while let Some(event) = rx.recv().await {
                     match event {
                         Event::Search(search) => {
@@ -105,6 +103,9 @@ mod imp {
                                     })
                                     .collect();
                                 model.splice(0, model_len, &new_results[..]);
+                                if !window.is_visible() {
+                                    window.show();
+                                }
                             } else if let pop_launcher::Response::DesktopEntry {
                                 mut path,
                                 gpu_preference: _gpu_preference, // TODO use GPU preference when launching app
@@ -139,17 +140,13 @@ mod imp {
                                         let _ = app_info
                                             .launch();
                                     }
-                                }
-                                // toggle launcher to hide
-                                if let Some(conn) = dbus_conn.get() {
-                                    let _ = conn.call_method(Some("com.system76.CosmicAppletHost"), "/com/system76/CosmicAppletHost", Some("com.system76.CosmicAppletHost"), "Hide", &("com.system76.CosmicLauncher")).await;
                                     window.reset();
                                 }
                             }
                         }
                     }
                 }
-            }));
+            });
         }
 
         fn startup(&self, app: &Self::Type) {
@@ -181,11 +178,6 @@ impl CosmicLauncherApplication {
             ("resource-base-path", &Some("/com/system76/CosmicLauncher/")),
         ])
         .expect("Application initialization failed...");
-        glib::MainContext::default().spawn_local(glib::clone!(@weak self_ => async move {
-            let connection = Connection::session().await.unwrap();
-            let imp = self_.imp();
-            imp.dbus_conn.set(connection).unwrap();
-        }));
         self_.imp().rt.set(rt).unwrap();
         self_
     }
