@@ -142,7 +142,8 @@ mod imp {
                                 }
                                 // toggle launcher to hide
                                 if let Some(conn) = dbus_conn.get() {
-                                    let _ = conn.call_method(Some("com.system76.CosmicAppletHost"), "/com/system76/CosmicAppletHost", Some("com.system76.CosmicAppletHost"), "Toggle", &("com.system76.CosmicLauncher")).await;
+                                    let _ = conn.call_method(Some("com.system76.CosmicAppletHost"), "/com/system76/CosmicAppletHost", Some("com.system76.CosmicAppletHost"), "Hide", &("com.system76.CosmicLauncher")).await;
+                                    window.reset();
                                 }
                             }
                         }

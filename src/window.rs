@@ -192,8 +192,7 @@ impl CosmicLauncherWindow {
         let list_view = &imp.list_view;
         let entry = &imp.entry.get().unwrap();
         let lv = list_view.get().unwrap();
-        let model = imp.model.get().unwrap();
-        let selection = imp.selection_model.get().unwrap();
+
         for i in 1..10 {
             let action_launchi = gio::SimpleAction::new(&format!("launch{}", i), None);
             self.add_action(&action_launchi);
@@ -237,17 +236,15 @@ impl CosmicLauncherWindow {
 
         let action_quit = gio::SimpleAction::new("quit", None);
         // TODO clear state instead of closing
-        action_quit.connect_activate(glib::clone!(@weak entry  => move |_, _| {
-            entry.set_text("");
+        action_quit.connect_activate(glib::clone!(@weak self as self_  => move |_, _| {
+            self_.reset();
         }));
         self.add_action(&action_quit);
 
         // clear the search state on focus loss & init search when regaining focus
-        window.connect_is_active_notify(glib::clone!(@weak entry, @weak model, @weak selection => move |win| {
+        window.connect_is_active_notify(glib::clone!(@weak self as self_ => move |win| {
             if !win.is_active() {
-                model.remove_all();
-                selection.set_selected(INVALID_LIST_POSITION);
-                entry.set_text("");
+                self_.reset();
             } else {
                 glib::MainContext::default().spawn_local(async move {
                     if let Some(tx) = TX.get() {
@@ -256,8 +253,30 @@ impl CosmicLauncherWindow {
                         }
                     }
                 });
+                self_.show();
             }
         }));
+    }
+
+    pub fn reset(&self) {
+        // ideally we could hide the window here, but it seems that in gtk active window must have focus
+        // wayland spec says that active toplevel does not necessarily have focus though
+        self.hide();
+        let imp = self.imp();
+        glib::MainContext::default().spawn_local(async move {
+            if let Some(tx) = TX.get() {
+                if let Err(e) = tx.send(Event::Search("".to_string())).await {
+                    eprintln!("{}", e);
+                }
+            }
+        });
+        if let Some(selection) = imp.selection_model.get() {
+            selection.set_selected(INVALID_LIST_POSITION);
+        }
+        if let Some(entry) = imp.entry.get() {
+            entry.set_text("");
+        }
+        self.show();
     }
 
     fn setup_factory(&self) {
