@@ -131,7 +131,6 @@ impl CosmicLauncherWindow {
         imp.icon_theme.set(icon_theme).unwrap();
 
         self_.connect_realize(|window| {
-            let state = window.surface().downcast::<gdk::Toplevel>().unwrap().state();
             glib::MainContext::default().spawn_local(async move {
                 if let Some(tx) = TX.get() {
                     if let Err(e) = tx.send(Event::Search("".to_string())).await {
