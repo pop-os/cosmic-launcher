@@ -1,0 +1,42 @@
+{
+    "app-id": "com.system76.CosmicLauncher.Devel",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "42",
+    "sdk": "org.gnome.Sdk",
+    "sdk-extensions": ["org.freedesktop.Sdk.Extension.rust-stable"],
+    "command": "cosmic-launcher",
+    "finish-args" : [
+        "--socket=wayland",
+        "--talk-name=org.gtk.vfs.*",
+        "--filesystem=xdg-run/gvfsd",
+        "--device=dri",
+        "--env=RUST_LOG=user_color_editor=debug",
+        "--env=G_MESSAGES_DEBUG=none",
+        "--env=RUST_BACKTRACE=1",
+        "--filesystem=xdg-config/gtk-4.0:ro"
+    ],
+    "build-options" : {
+        "append-path" : "/usr/lib/sdk/rust-stable/bin",
+        "build-args" : [
+            "--share=network"
+        ],
+        "test-args": [
+            "--socket=x11",
+            "--share=network"
+        ]
+    },
+    "modules": [
+        {
+            "name": "cosmic-launcher",
+            "buildsystem": "meson",
+            "run-tests": true,
+            "config-opts": ["-Dvendor=false"],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "../"
+                }
+            ]
+        }
+    ]
+}

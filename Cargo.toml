@@ -5,37 +5,33 @@ authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2021"
 
 [dependencies]
+freedesktop-icons = {git = "https://github.com/wash2/freedestkop-icons"}
+libcosmic = { git = "https://github.com/pop-os/libcosmic/", branch = "sctk-cosmic-design-system", default-features = false, features = ["wayland"] }
+iced_sctk = { git = "https://github.com/pop-os/iced-sctk" }
+serde = { version = "1.0.134", features = ["derive"] }
+pop-launcher-service = { git = "https://github.com/wash2/launcher.git", branch = "cosmic-toplevel" }
+pop-launcher = { git = "https://github.com/wash2/launcher.git", branch = "cosmic-toplevel" }
+serde_json = "1.0.75"
+tokio-stream = "0.1.8"
+tokio = { version = "1.17.0", features = ["sync", "rt", "rt-multi-thread", "process"] }
 log = "0.4"
 pretty_env_logger = "0.4"
-gettext-rs = { version = "0.7", features = ["gettext-system"] }
-cascade = "1.0.0"
-relm4-macros = { git = "https://github.com/Relm4/Relm4" }
-gtk4 = { git = "https://github.com/gtk-rs/gtk4-rs", features=["v4_4"] }
-adw = { git = "https://gitlab.gnome.org/World/Rust/libadwaita-rs", package = "libadwaita"}
-libcosmic = { git = "https://github.com/pop-os/libcosmic", default-features = false }
-serde = { version = "1.0.134", features = ["derive"] }
-pop-launcher-service = { git = "https://github.com/wash2/launcher.git" }
-pop-launcher = { git = "https://github.com/wash2/launcher.git" }
-serde_json = "1.0.75"
-tokio = { version = "1.17.0", features = ["sync", "rt", "rt-multi-thread"] }
-futures = "0.3.19"
-futures-util = "0.3.19"
-once_cell = "1.9.0"
-tokio-stream = "0.1.8"
-async-stream = "0.3.3"
-#cosmic-theme = { path = "../cosmic-theme" }
+once_cell = "1.9"
+futures = "0.3.21"
 xdg = "2.4.0"
-anyhow = "1.0.56"
-freedesktop-desktop-entry = "0.5.0"
+anyhow = "1.0"
+# Application i18n
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6.4"
 rust-embed = "6.3.0"
-zbus = "3.0.0"
+zbus = "3.5.0"
+glob = "0.3.0"
+freedesktop-desktop-entry = "0.5.0"
+shlex = "1.1.0"
 
-[build-dependencies]
-glib-build-tools = { git = "https://github.com/gtk-rs/gtk-rs-core" }
-
-[profile.release]
-incremental = true
-debug = 1
-
+[dependencies.iced]
+git = "https://github.com/pop-os/iced.git"
+branch = "sctk-cosmic"
+# path = "../iced"
+default-features = false
+features = ["image", "svg", "tokio", "wayland"]

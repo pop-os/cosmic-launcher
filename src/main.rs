@@ -1,41 +1,26 @@
-// SPDX-License-Identifier: MPL-2.0-only
-
-mod application;
+mod components;
+#[rustfmt::skip]
 mod config;
-mod desktop_entry_data;
-mod search_result_object;
-mod search_result_row;
-
 mod localize;
-mod utils;
-mod window;
-use gtk4::gio;
-use tokio::runtime::Runtime;
+mod subscriptions;
+use config::APP_ID;
+use log::info;
 
-use self::application::CosmicLauncherApplication;
+use localize::localize;
 
-pub fn localize() {
-    let localizer = crate::localize::localizer();
-    let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
+use crate::{
+    components::app,
+    config::{PROFILE, VERSION},
+};
 
-    if let Err(error) = localizer.select(&requested_languages) {
-        eprintln!(
-            "Error while loading language for pop-desktop-widget {}",
-            error
-        );
-    }
-}
-
-fn main() {
+fn main() -> cosmic::iced::Result {
     // Initialize logger
     pretty_env_logger::init();
+    info!("Iced Launcher ({})", APP_ID);
+    info!("Version: {} ({})", VERSION, PROFILE);
 
-    let _monitors = libcosmic::init();
-
+    // Prepare i18n
     localize();
-    gio::resources_register_include!("compiled.gresource").unwrap();
-    let rt = Runtime::new().unwrap();
 
-    let app = CosmicLauncherApplication::new(rt);
-    app.run();
+    app::run()
 }
