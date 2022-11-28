@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0-only
+
 use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
     DefaultLocalizer, LanguageLoader, Localizer,
@@ -33,4 +35,13 @@ macro_rules! fl {
 // Get the `Localizer` to be used for localizing this library.
 pub fn localizer() -> Box<dyn Localizer> {
     Box::from(DefaultLocalizer::new(&*LANGUAGE_LOADER, &Localizations))
+}
+
+pub fn localize() {
+    let localizer = localizer();
+    let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
+
+    if let Err(error) = localizer.select(&requested_languages) {
+        eprintln!("Error while loading language for App List {}", error);
+    }
 }

@@ -1,21 +1,25 @@
-# Cargo
-.cargo/
 target/
-vendor/
+build/
+_build/
+builddir/
+build-aux/app
+build-aux/.flatpak-builder/
+src/config.rs
+*.ui.in~
+*.ui~
+.flatpak/
+.flatpak-builder/
+flatpak_app/
+vendor
 vendor.tar
+.cargo/
 
-# Debian
 debian/*
 !debian/*install
 !debian/*postinst
 !debian/changelog
+!debian/copyright
 !debian/control
 !debian/links
 !debian/rules
 !debian/source
-
-# Flatpak
-build-aux/app
-build-aux/.flatpak-builder/
-.flatpak/
-flatpak_app

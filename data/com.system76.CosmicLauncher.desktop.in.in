@@ -1,13 +1,13 @@
 [Desktop Entry]
-Name=Cosmic Launcher
-Comment=GTK4 application runner frontend for pop-launcher
+Name=Iced Launcher
+Comment=Write a GTK + Rust application
 Type=Application
 Exec=cosmic-launcher
 Terminal=false
 Categories=GNOME;GTK;
+# Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
 Keywords=Gnome;GTK;
 # Translators: Do NOT translate or transliterate this text (this is an icon file name)!
-Icon=com.system76.CosmicLauncher
+Icon=@icon@
 StartupNotify=true
-NoDisplay=true
 X-HostWaylandDisplay=true
