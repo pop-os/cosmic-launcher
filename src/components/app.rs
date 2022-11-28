@@ -374,7 +374,7 @@ impl Application for CosmicLauncher {
                 button_content.push(column![name, description].into());
                 button_content.push(
                     container(
-                        text(format!("Ctrl + {}", i + 1))
+                        text(format!("Ctrl + {}", (i + 1) % 10))
                             .vertical_alignment(Vertical::Center)
                             .horizontal_alignment(Horizontal::Right),
                     )
@@ -445,34 +445,34 @@ impl Application for CosmicLauncher {
                     }) => match key_code {
                         KeyCode::Escape => Some(Message::Hide),
                         KeyCode::Key1 | KeyCode::Numpad1 if modifiers.control() => {
-                            Some(Message::Activate(Some(1)))
+                            Some(Message::Activate(Some(0)))
                         }
                         KeyCode::Key2 | KeyCode::Numpad2 if modifiers.control() => {
-                            Some(Message::Activate(Some(2)))
+                            Some(Message::Activate(Some(1)))
                         }
                         KeyCode::Key3 | KeyCode::Numpad3 if modifiers.control() => {
-                            Some(Message::Activate(Some(3)))
+                            Some(Message::Activate(Some(2)))
                         }
                         KeyCode::Key4 | KeyCode::Numpad4 if modifiers.control() => {
-                            Some(Message::Activate(Some(4)))
+                            Some(Message::Activate(Some(3)))
                         }
                         KeyCode::Key5 | KeyCode::Numpad5 if modifiers.control() => {
-                            Some(Message::Activate(Some(5)))
+                            Some(Message::Activate(Some(4)))
                         }
                         KeyCode::Key6 | KeyCode::Numpad6 if modifiers.control() => {
-                            Some(Message::Activate(Some(6)))
+                            Some(Message::Activate(Some(5)))
                         }
                         KeyCode::Key7 | KeyCode::Numpad7 if modifiers.control() => {
-                            Some(Message::Activate(Some(7)))
+                            Some(Message::Activate(Some(6)))
                         }
                         KeyCode::Key8 | KeyCode::Numpad7 if modifiers.control() => {
-                            Some(Message::Activate(Some(8)))
+                            Some(Message::Activate(Some(7)))
                         }
                         KeyCode::Key9 | KeyCode::Numpad9 if modifiers.control() => {
-                            Some(Message::Activate(Some(9)))
+                            Some(Message::Activate(Some(8)))
                         }
                         KeyCode::Key0 | KeyCode::Numpad0 if modifiers.control() => {
-                            Some(Message::Activate(Some(0)))
+                            Some(Message::Activate(Some(9)))
                         }
                         KeyCode::Up => {
                             Some(Message::SelectPrev)
