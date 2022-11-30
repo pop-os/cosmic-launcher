@@ -298,7 +298,7 @@ impl Application for CosmicLauncher {
             &self.input_value,
             Message::InputChanged,
         )
-        .on_submit(Message::Activate(None))
+        // .on_submit(Message::Activate(None))
         .padding(8)
         .size(20)
         .id(INPUT_ID.clone());
@@ -485,6 +485,9 @@ impl Application for CosmicLauncher {
                         }
                         KeyCode::Tab => {
                             Some(Message::SelectNext)
+                        }
+                        KeyCode::Enter => {
+                            Some(Message::Activate(None))
                         }
                         _ => None,
                     },
