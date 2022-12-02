@@ -334,15 +334,15 @@ impl Application for CosmicLauncher {
                 }) {
                     if path.extension() == Some(&OsStr::new("svg")) {
                         button_content.push(svg::Svg::from_path(path)
-                        .width(Length::Units(24))
-                        .height(Length::Units(24))
+                        .width(Length::Units(16))
+                        .height(Length::Units(16))
                         .style(Svg::Custom(|theme| iced_style::svg::Appearance {
                             fill: Some(theme.palette().text),
                         })).into())
                     } else {
                         button_content.push(Image::new(path)
-                        .width(Length::Units(24))
-                        .height(Length::Units(24)).into())
+                        .width(Length::Units(16))
+                        .height(Length::Units(16)).into())
                     }
                 }
 
@@ -358,12 +358,12 @@ impl Application for CosmicLauncher {
                 }) {
                     if path.extension() == Some(&OsStr::new("svg")) {
                         button_content.push(svg::Svg::from_path(path)
-                        .width(Length::Units(24))
-                        .height(Length::Units(24)).into())
+                        .width(Length::Units(32))
+                        .height(Length::Units(32)).into())
                     } else {
                         button_content.push(Image::new(path)
-                        .width(Length::Units(24))
-                        .height(Length::Units(24)).into())
+                        .width(Length::Units(32))
+                        .height(Length::Units(32)).into())
                     }
                 }
 
