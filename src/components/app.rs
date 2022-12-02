@@ -315,15 +315,15 @@ impl Application for CosmicLauncher {
                 let name = text(item.name.to_string())
                     .horizontal_alignment(Horizontal::Left)
                     .vertical_alignment(Vertical::Center)
-                    .size(10);
+                    .size(12);
                 let description = text(if item.description.len() > 40 {
-                    format!("{:.65}...", item.description)
+                    format!("{:.50}...", item.description)
                 } else {
                     item.description.to_string()
                 })
                 .horizontal_alignment(Horizontal::Left)
                 .vertical_alignment(Vertical::Center)
-                .size(14);
+                .size(16);
 
                 let mut button_content = Vec::new();
                 if let Some(path) = item.category_icon.as_ref().and_then(|s| {
@@ -354,6 +354,13 @@ impl Application for CosmicLauncher {
                                 .into(),
                         )
                     }
+                } else {
+                    button_content.push(
+                        svg::Svg::new(svg::Handle::from_memory(Vec::new()))
+                            .width(Length::Units(16))
+                            .height(Length::Units(16))
+                            .into(),
+                    )
                 }
 
                 if let Some(path) = item.icon.as_ref().and_then(|s| {
@@ -381,6 +388,13 @@ impl Application for CosmicLauncher {
                                 .into(),
                         )
                     }
+                } else {
+                    button_content.push(
+                        svg::Svg::new(svg::Handle::from_memory(Vec::new()))
+                            .width(Length::Units(32))
+                            .height(Length::Units(32))
+                            .into(),
+                    )
                 }
 
                 button_content.push(column![description, name].into());
@@ -394,6 +408,7 @@ impl Application for CosmicLauncher {
                     .center_y()
                     .align_y(Vertical::Center)
                     .align_x(Horizontal::Right)
+                    .padding([8, 16])
                     .into(),
                 );
 
