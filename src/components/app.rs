@@ -294,7 +294,7 @@ impl Application for CosmicLauncher {
         }
 
         let launcher_entry = text_input(
-            "Type something...",
+            "Type to search apps or type “?” for more options...",
             &self.input_value,
             Message::InputChanged,
         )
