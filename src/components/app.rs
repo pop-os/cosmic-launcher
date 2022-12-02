@@ -15,8 +15,8 @@ use cosmic::{settings, widget, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
 use iced::wayland::Appearance;
-use iced::widget::{vertical_space, svg, Image};
-use iced::{Color, Alignment};
+use iced::widget::{svg, vertical_space, Image};
+use iced::{Alignment, Color};
 use iced_sctk::application::SurfaceIdWrapper;
 use iced_sctk::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings;
 use iced_sctk::commands;
@@ -160,7 +160,9 @@ impl Application for CosmicLauncher {
                                     _ => return Command::none(),
                                 };
                                 let mut cmd = match exec.next() {
-                                    Some(cmd) if !cmd.contains("=") => tokio::process::Command::new(cmd),
+                                    Some(cmd) if !cmd.contains("=") => {
+                                        tokio::process::Command::new(cmd)
+                                    }
                                     _ => return Command::none(),
                                 };
                                 for arg in exec {
@@ -312,19 +314,21 @@ impl Application for CosmicLauncher {
             .map(|(i, item)| {
                 let name = text(item.name.to_string())
                     .horizontal_alignment(Horizontal::Left)
-                    .vertical_alignment(Vertical::Center);
-                let description = if item.description.len() > 40 {
-                    format!("{:.45}...", item.description)
+                    .vertical_alignment(Vertical::Center)
+                    .size(10);
+                let description = text(if item.description.len() > 40 {
+                    format!("{:.65}...", item.description)
                 } else {
                     item.description.to_string()
-                };
-
-
+                })
+                .horizontal_alignment(Horizontal::Left)
+                .vertical_alignment(Vertical::Center)
+                .size(14);
 
                 let mut button_content = Vec::new();
                 if let Some(path) = item.category_icon.as_ref().and_then(|s| {
                     let name = match s {
-                        IconSource::Name(name) | IconSource::Mime(name) => name
+                        IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
                     freedesktop_icons::lookup(&name)
                         .with_theme("Pop")
@@ -333,22 +337,28 @@ impl Application for CosmicLauncher {
                         .find()
                 }) {
                     if path.extension() == Some(&OsStr::new("svg")) {
-                        button_content.push(svg::Svg::from_path(path)
-                        .width(Length::Units(16))
-                        .height(Length::Units(16))
-                        .style(Svg::Custom(|theme| iced_style::svg::Appearance {
-                            fill: Some(theme.palette().text),
-                        })).into())
+                        button_content.push(
+                            svg::Svg::from_path(path)
+                                .width(Length::Units(16))
+                                .height(Length::Units(16))
+                                .style(Svg::Custom(|theme| iced_style::svg::Appearance {
+                                    fill: Some(theme.palette().text),
+                                }))
+                                .into(),
+                        )
                     } else {
-                        button_content.push(Image::new(path)
-                        .width(Length::Units(16))
-                        .height(Length::Units(16)).into())
+                        button_content.push(
+                            Image::new(path)
+                                .width(Length::Units(16))
+                                .height(Length::Units(16))
+                                .into(),
+                        )
                     }
                 }
 
                 if let Some(path) = item.icon.as_ref().and_then(|s| {
                     let name = match s {
-                        IconSource::Name(name) | IconSource::Mime(name) => name
+                        IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
                     freedesktop_icons::lookup(&name)
                         .with_theme("Pop")
@@ -357,21 +367,23 @@ impl Application for CosmicLauncher {
                         .find()
                 }) {
                     if path.extension() == Some(&OsStr::new("svg")) {
-                        button_content.push(svg::Svg::from_path(path)
-                        .width(Length::Units(32))
-                        .height(Length::Units(32)).into())
+                        button_content.push(
+                            svg::Svg::from_path(path)
+                                .width(Length::Units(32))
+                                .height(Length::Units(32))
+                                .into(),
+                        )
                     } else {
-                        button_content.push(Image::new(path)
-                        .width(Length::Units(32))
-                        .height(Length::Units(32)).into())
+                        button_content.push(
+                            Image::new(path)
+                                .width(Length::Units(32))
+                                .height(Length::Units(32))
+                                .into(),
+                        )
                     }
                 }
 
-                let description = text(description)
-                    .horizontal_alignment(Horizontal::Left)
-                    .vertical_alignment(Vertical::Center);
-
-                button_content.push(column![name, description].into());
+                button_content.push(column![description, name].into());
                 button_content.push(
                     container(
                         text(format!("Ctrl + {}", (i + 1) % 10))
@@ -385,11 +397,15 @@ impl Application for CosmicLauncher {
                     .into(),
                 );
 
-                let btn = button(helpers::row(button_content).spacing(8).align_items(Alignment::Center))
-                    .width(Length::Fill)
-                    .on_press(Message::Activate(Some(i)))
-                    .padding([8, 16])
-                    .style(Button::Text);
+                let btn = button(
+                    helpers::row(button_content)
+                        .spacing(8)
+                        .align_items(Alignment::Center),
+                )
+                .width(Length::Fill)
+                .on_press(Message::Activate(Some(i)))
+                .padding([8, 16])
+                .style(Button::Text);
 
                 btn.into()
             })
@@ -397,7 +413,7 @@ impl Application for CosmicLauncher {
 
         let content = column![
             row![launcher_entry, clear_button].spacing(16),
-            helpers::column(buttons).spacing(8),
+            helpers::column(buttons).spacing(16),
         ]
         .spacing(16)
         .max_width(600);
@@ -416,7 +432,7 @@ impl Application for CosmicLauncher {
                     border_width: 0.0,
                     border_color: Color::TRANSPARENT,
                 }))
-                .padding([16, 24]),
+                .padding([24, 32]),
             button(vertical_space(Length::Units(1)))
                 .height(Length::Fill)
                 .width(Length::Fill)
@@ -474,21 +490,11 @@ impl Application for CosmicLauncher {
                         KeyCode::Key0 | KeyCode::Numpad0 if modifiers.control() => {
                             Some(Message::Activate(Some(9)))
                         }
-                        KeyCode::Up => {
-                            Some(Message::SelectPrev)
-                        },
-                        KeyCode::Down => {
-                            Some(Message::SelectNext)
-                        },
-                        KeyCode::Tab if modifiers.shift() => {
-                            Some(Message::SelectPrev)
-                        }
-                        KeyCode::Tab => {
-                            Some(Message::SelectNext)
-                        }
-                        KeyCode::Enter => {
-                            Some(Message::Activate(None))
-                        }
+                        KeyCode::Up => Some(Message::SelectPrev),
+                        KeyCode::Down => Some(Message::SelectNext),
+                        KeyCode::Tab if modifiers.shift() => Some(Message::SelectPrev),
+                        KeyCode::Tab => Some(Message::SelectNext),
+                        KeyCode::Enter => Some(Message::Activate(None)),
                         _ => None,
                     },
                     _ => None,
