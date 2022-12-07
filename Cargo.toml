@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 freedesktop-icons = {git = "https://github.com/wash2/freedestkop-icons"}
-libcosmic = { git = "https://github.com/pop-os/libcosmic/", branch = "sctk-cosmic-design-system", default-features = false, features = ["wayland"] }
+libcosmic = { git = "https://github.com/pop-os/libcosmic/", branch = "master", default-features = false, features = ["wayland"] }
 iced_sctk = { git = "https://github.com/pop-os/iced-sctk" }
 serde = { version = "1.0.134", features = ["derive"] }
 pop-launcher-service = { git = "https://github.com/wash2/launcher.git", branch = "cosmic-toplevel" }

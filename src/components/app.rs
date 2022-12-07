@@ -5,13 +5,13 @@ use std::process::exit;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::futures::{channel::mpsc, SinkExt};
 use cosmic::iced::subscription::events_with;
-use cosmic::iced::widget::{button, column, container, row, text, text_input};
+use cosmic::iced::widget::{button, column, container, text, text_input};
 use cosmic::iced::{executor, Application, Command, Length, Subscription};
 use cosmic::iced_native::widget::helpers;
 use cosmic::iced_native::window::Id as SurfaceId;
 use cosmic::iced_style::{self, application};
 use cosmic::theme::{Button, Container, Svg};
-use cosmic::{settings, widget, Element, Theme};
+use cosmic::{settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
 use iced::wayland::Appearance;
@@ -305,8 +305,6 @@ impl Application for CosmicLauncher {
         .size(20)
         .id(INPUT_ID.clone());
 
-        let clear_button = button("X").padding(10).on_press(Message::Clear);
-
         let buttons = self
             .launcher_items
             .iter()
@@ -332,7 +330,7 @@ impl Application for CosmicLauncher {
                     };
                     freedesktop_icons::lookup(&name)
                         .with_theme("Pop")
-                        .with_size(32)
+                        .with_size(64)
                         .with_cache()
                         .find()
                 }) {
@@ -369,7 +367,7 @@ impl Application for CosmicLauncher {
                     };
                     freedesktop_icons::lookup(&name)
                         .with_theme("Pop")
-                        .with_size(24)
+                        .with_size(64)
                         .with_cache()
                         .find()
                 }) {
@@ -427,7 +425,7 @@ impl Application for CosmicLauncher {
             .collect();
 
         let content = column![
-            row![launcher_entry, clear_button].spacing(16),
+            launcher_entry,
             helpers::column(buttons).spacing(16),
         ]
         .spacing(16)
@@ -439,7 +437,7 @@ impl Application for CosmicLauncher {
                 .width(Length::Fill)
                 .on_press(Message::Hide)
                 .style(Button::Transparent),
-            widget::widget::container(content)
+            container(content)
                 .style(Container::Custom(|theme| container::Appearance {
                     text_color: Some(theme.cosmic().on_bg_color().into()),
                     background: Some(theme.extended_palette().background.base.color.into()),
