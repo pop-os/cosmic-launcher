@@ -5,25 +5,26 @@ use std::process::exit;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::futures::{channel::mpsc, SinkExt};
 use cosmic::iced::subscription::events_with;
+use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
+use cosmic::iced::wayland::layer_surface::{
+    destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity, Layer,
+};
+use cosmic::iced::wayland::{InitialSurface, SurfaceIdWrapper};
 use cosmic::iced::widget::{button, column, container, text, text_input};
-use cosmic::iced::{executor, Application, Command, Length, Subscription};
+use cosmic::iced::{self, executor, Application, Command, Length, Subscription};
+use cosmic::iced_native::event::wayland::LayerEvent;
+use cosmic::iced_native::event::{wayland, PlatformSpecific};
 use cosmic::iced_native::widget::helpers;
 use cosmic::iced_native::window::Id as SurfaceId;
 use cosmic::iced_style::{self, application};
 use cosmic::theme::{Button, Container, Svg};
+use cosmic::widget::icon;
 use cosmic::{settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
 use iced::wayland::Appearance;
 use iced::widget::{svg, vertical_space, Image};
 use iced::{Alignment, Color};
-use iced_sctk::application::SurfaceIdWrapper;
-use iced_sctk::command::platform_specific::wayland::layer_surface::SctkLayerSurfaceSettings;
-use iced_sctk::commands;
-use iced_sctk::commands::layer_surface::{Anchor, KeyboardInteractivity, Layer};
-use iced_sctk::event::wayland::LayerEvent;
-use iced_sctk::event::{wayland, PlatformSpecific};
-use iced_sctk::settings::InitialSurface;
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
 
@@ -39,7 +40,7 @@ pub fn run() -> cosmic::iced::Result {
     settings.initial_surface = InitialSurface::LayerSurface(SctkLayerSurfaceSettings {
         keyboard_interactivity: KeyboardInteractivity::None,
         namespace: "ignore".into(),
-        size: (Some(1), Some(1)),
+        size: Some((Some(1), Some(1))),
         layer: Layer::Background,
         ..Default::default()
     });
@@ -82,7 +83,7 @@ impl Application for CosmicLauncher {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         (
             CosmicLauncher::default(),
-            commands::layer_surface::destroy_layer_surface(SurfaceId::new(0)),
+            destroy_layer_surface(SurfaceId::new(0)),
         )
     }
 
@@ -222,12 +223,12 @@ impl Application for CosmicLauncher {
                 }
             }
             Message::Layer(e) => match e {
-                LayerEvent::Focused(_) => {
+                LayerEvent::Focused => {
                     return text_input::focus(INPUT_ID.clone());
                 }
-                LayerEvent::Unfocused(_) => {
+                LayerEvent::Unfocused => {
                     if let Some(id) = self.active_surface {
-                        return commands::layer_surface::destroy_layer_surface(id);
+                        return destroy_layer_surface(id);
                     }
                 }
                 _ => {}
@@ -250,7 +251,7 @@ impl Application for CosmicLauncher {
             }
             Message::Toggle => {
                 if let Some(id) = self.active_surface {
-                    return commands::layer_surface::destroy_layer_surface(id);
+                    return destroy_layer_surface(id);
                 } else {
                     self.id_ctr += 1;
                     let mut cmds = Vec::new();
@@ -267,22 +268,20 @@ impl Application for CosmicLauncher {
                     let id = SurfaceId::new(self.id_ctr);
                     self.active_surface.replace(id);
                     cmds.push(text_input::focus(INPUT_ID.clone()));
-                    cmds.push(commands::layer_surface::get_layer_surface(
-                        SctkLayerSurfaceSettings {
-                            id,
-                            keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                            anchor: Anchor::TOP.union(Anchor::BOTTOM),
-                            namespace: "launcher".into(),
-                            size: (Some(600), None),
-                            ..Default::default()
-                        },
-                    ));
+                    cmds.push(get_layer_surface(SctkLayerSurfaceSettings {
+                        id,
+                        keyboard_interactivity: KeyboardInteractivity::Exclusive,
+                        anchor: Anchor::TOP.union(Anchor::BOTTOM),
+                        namespace: "launcher".into(),
+                        size: Some((Some(600), None)),
+                        ..Default::default()
+                    }));
                     return Command::batch(cmds);
                 }
             }
             Message::Hide => {
                 if let Some(id) = self.active_surface {
-                    return commands::layer_surface::destroy_layer_surface(id);
+                    return destroy_layer_surface(id);
                 }
             }
         }
@@ -324,71 +323,27 @@ impl Application for CosmicLauncher {
                 .size(16);
 
                 let mut button_content = Vec::new();
-                if let Some(path) = item.category_icon.as_ref().and_then(|s| {
-                    let name = match s {
+                if let Some(source) = item.category_icon.as_ref() {
+                    let name = match source {
                         IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
-                    freedesktop_icons::lookup(&name)
-                        .with_theme("Pop")
-                        .with_size(64)
-                        .with_cache()
-                        .find()
-                }) {
-                    if path.extension() == Some(&OsStr::new("svg")) {
-                        button_content.push(
-                            svg::Svg::from_path(path)
-                                .width(Length::Units(16))
-                                .height(Length::Units(16))
-                                .style(Svg::Custom(|theme| iced_style::svg::Appearance {
-                                    fill: Some(theme.palette().text),
-                                }))
-                                .into(),
-                        )
-                    } else {
-                        button_content.push(
-                            Image::new(path)
-                                .width(Length::Units(16))
-                                .height(Length::Units(16))
-                                .into(),
-                        )
-                    }
-                } else {
                     button_content.push(
-                        svg::Svg::new(svg::Handle::from_memory(Vec::new()))
+                        icon(name.clone(), 64)
+                            .theme("Pop")
                             .width(Length::Units(16))
                             .height(Length::Units(16))
+                            .style(Svg::Symbolic)
                             .into(),
                     )
                 }
 
-                if let Some(path) = item.icon.as_ref().and_then(|s| {
-                    let name = match s {
+                if let Some(source) = item.icon.as_ref() {
+                    let name = match source {
                         IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
-                    freedesktop_icons::lookup(&name)
-                        .with_theme("Pop")
-                        .with_size(64)
-                        .with_cache()
-                        .find()
-                }) {
-                    if path.extension() == Some(&OsStr::new("svg")) {
-                        button_content.push(
-                            svg::Svg::from_path(path)
-                                .width(Length::Units(32))
-                                .height(Length::Units(32))
-                                .into(),
-                        )
-                    } else {
-                        button_content.push(
-                            Image::new(path)
-                                .width(Length::Units(32))
-                                .height(Length::Units(32))
-                                .into(),
-                        )
-                    }
-                } else {
                     button_content.push(
-                        svg::Svg::new(svg::Handle::from_memory(Vec::new()))
+                        icon(name.clone(), 64)
+                            .theme("Pop")
                             .width(Length::Units(32))
                             .height(Length::Units(32))
                             .into(),
@@ -424,12 +379,9 @@ impl Application for CosmicLauncher {
             })
             .collect();
 
-        let content = column![
-            launcher_entry,
-            helpers::column(buttons).spacing(16),
-        ]
-        .spacing(16)
-        .max_width(600);
+        let content = column![launcher_entry, helpers::column(buttons).spacing(16),]
+            .spacing(16)
+            .max_width(600);
 
         column![
             button(vertical_space(Length::Units(1)))
@@ -466,7 +418,7 @@ impl Application for CosmicLauncher {
                 launcher(0).map(|(_, msg)| Message::LauncherEvent(msg)),
                 events_with(|e, _status| match e {
                     cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
-                        wayland::Event::Layer(e),
+                        wayland::Event::Layer(e, ..),
                     )) => Some(Message::Layer(e)),
                     cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
                         key_code,
@@ -528,7 +480,7 @@ impl Application for CosmicLauncher {
         self.theme
     }
 
-    fn close_requested(&self, _id: iced_sctk::application::SurfaceIdWrapper) -> Self::Message {
+    fn close_requested(&self, _id: SurfaceIdWrapper) -> Self::Message {
         Message::Closed
     }
 }

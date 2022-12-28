@@ -1,14 +1,14 @@
+use cosmic::iced::subscription;
 use futures::{
     channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender},
     StreamExt,
 };
-use iced::subscription;
 use std::{fmt::Debug, hash::Hash};
 use zbus::{dbus_interface, Connection, ConnectionBuilder};
 
 pub fn dbus_toggle<I: 'static + Hash + Copy + Send + Sync + Debug>(
     id: I,
-) -> iced::Subscription<(I, LauncherDbusEvent)> {
+) -> cosmic::iced::Subscription<(I, LauncherDbusEvent)> {
     subscription::unfold(id, State::Ready, move |state| start_listening(id, state))
 }
 
@@ -48,7 +48,7 @@ async fn start_listening<I: Copy>(id: I, state: State) -> (Option<(I, LauncherDb
                 (None, State::Finished)
             }
         }
-        State::Finished => iced::futures::future::pending().await,
+        State::Finished => cosmic::iced::futures::future::pending().await,
     }
 }
 
