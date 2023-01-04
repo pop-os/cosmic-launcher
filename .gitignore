@@ -13,6 +13,7 @@ flatpak_app/
 vendor
 vendor.tar
 .cargo/
+/result
 
 debian/*
 !debian/*install
