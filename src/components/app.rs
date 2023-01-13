@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::fs;
 use std::process::exit;
 
@@ -14,16 +13,17 @@ use cosmic::iced::widget::{button, column, container, text, text_input};
 use cosmic::iced::{self, executor, Application, Command, Length, Subscription};
 use cosmic::iced_native::event::wayland::LayerEvent;
 use cosmic::iced_native::event::{wayland, PlatformSpecific};
+use cosmic::iced_native::layout::Limits;
 use cosmic::iced_native::widget::helpers;
 use cosmic::iced_native::window::Id as SurfaceId;
-use cosmic::iced_style::{self, application};
+use cosmic::iced_style::application;
 use cosmic::theme::{Button, Container, Svg};
 use cosmic::widget::icon;
-use cosmic::{settings, Element, Theme};
+use cosmic::{keyboard_nav, settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
 use iced::wayland::Appearance;
-use iced::widget::{svg, vertical_space, Image};
+use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
@@ -63,15 +63,13 @@ enum Message {
     InputChanged(String),
     Activate(Option<usize>),
     Hide,
-    SelectPrev,
-    SelectNext,
-    Clear,
     LauncherEvent(LauncherEvent),
     SentRequest,
     Error(String),
     Layer(LayerEvent),
     Toggle,
     Closed,
+    KeyboardNav(keyboard_nav::Message),
 }
 
 impl Application for CosmicLauncher {
@@ -188,39 +186,9 @@ impl Application for CosmicLauncher {
                     log::error!("{}", err);
                 }
             },
-            Message::Clear => {
-                self.input_value.clear();
-                if let Some(tx) = self.tx.as_ref() {
-                    let mut tx = tx.clone();
-                    let cmd = async move { tx.send(LauncherRequest::Search("".to_string())).await };
-                    return Command::perform(cmd, |res| match res {
-                        Ok(_) => Message::SentRequest,
-                        Err(err) => Message::Error(err.to_string()),
-                    });
-                }
-            }
             Message::SentRequest => {}
             Message::Error(err) => {
                 log::error!("{}", err);
-            }
-            Message::SelectPrev => {
-                if let Some(prev_i) = self.selected_item {
-                    if prev_i == 0 {
-                        self.selected_item = None;
-                        return text_input::focus(INPUT_ID.clone());
-                    } else {
-                        self.selected_item = Some(prev_i - 1);
-                    }
-                }
-            }
-            Message::SelectNext => {
-                if let Some(prev_i) = self.selected_item {
-                    if prev_i < 10 {
-                        self.selected_item = Some(prev_i + 1);
-                    }
-                } else {
-                    self.selected_item = Some(0);
-                }
             }
             Message::Layer(e) => match e {
                 LayerEvent::Focused => {
@@ -271,9 +239,10 @@ impl Application for CosmicLauncher {
                     cmds.push(get_layer_surface(SctkLayerSurfaceSettings {
                         id,
                         keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                        anchor: Anchor::TOP.union(Anchor::BOTTOM),
+                        anchor: Anchor::empty(),
                         namespace: "launcher".into(),
-                        size: Some((Some(600), None)),
+                        size: None,
+                        size_limits: Limits::NONE.min_width(1).min_height(1).max_width(600),
                         ..Default::default()
                     }));
                     return Command::batch(cmds);
@@ -283,6 +252,28 @@ impl Application for CosmicLauncher {
                 if let Some(id) = self.active_surface {
                     return destroy_layer_surface(id);
                 }
+            }
+            Message::KeyboardNav(e) => {
+                match e {
+                    keyboard_nav::Message::FocusNext => return iced::widget::focus_next(),
+                    keyboard_nav::Message::FocusPrevious => return iced::widget::focus_previous(),
+                    keyboard_nav::Message::Unfocus => {
+                        return {
+                            self.input_value.clear();
+                            if let Some(tx) = self.tx.as_ref() {
+                                let mut tx = tx.clone();
+                                let cmd = async move {
+                                    tx.send(LauncherRequest::Search("".to_string())).await
+                                };
+                                return Command::perform(cmd, |res| match res {
+                                    Ok(_) => Message::SentRequest,
+                                    Err(err) => Message::Error(err.to_string()),
+                                });
+                            }
+                            keyboard_nav::unfocus()
+                        }
+                    }
+                };
             }
         }
         Command::none()
@@ -383,35 +374,22 @@ impl Application for CosmicLauncher {
             .spacing(16)
             .max_width(600);
 
-        column![
-            button(vertical_space(Length::Units(1)))
-                .height(Length::Fill)
-                .width(Length::Fill)
-                .on_press(Message::Hide)
-                .style(Button::Transparent),
-            container(content)
-                .style(Container::Custom(|theme| container::Appearance {
-                    text_color: Some(theme.cosmic().on_bg_color().into()),
-                    background: Some(theme.extended_palette().background.base.color.into()),
-                    border_radius: 16.0,
-                    border_width: 0.0,
-                    border_color: Color::TRANSPARENT,
-                }))
-                .padding([24, 32]),
-            button(vertical_space(Length::Units(1)))
-                .height(Length::Fill)
-                .width(Length::Fill)
-                .on_press(Message::Hide)
-                .style(Button::Transparent),
-        ]
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        container(content)
+            .style(Container::Custom(|theme| container::Appearance {
+                text_color: Some(theme.cosmic().on_bg_color().into()),
+                background: Some(theme.extended_palette().background.base.color.into()),
+                border_radius: 16.0,
+                border_width: 0.0,
+                border_color: Color::TRANSPARENT,
+            }))
+            .padding([24, 32])
+            .into()
     }
 
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(
             vec![
+                keyboard_nav::subscription().map(|e| Message::KeyboardNav(e)),
                 dbus_toggle(0).map(|e| match e {
                     (_, LauncherDbusEvent::Toggle) => Message::Toggle,
                 }),
@@ -455,10 +433,12 @@ impl Application for CosmicLauncher {
                         KeyCode::Key0 | KeyCode::Numpad0 if modifiers.control() => {
                             Some(Message::Activate(Some(9)))
                         }
-                        KeyCode::Up => Some(Message::SelectPrev),
-                        KeyCode::Down => Some(Message::SelectNext),
-                        KeyCode::Tab if modifiers.shift() => Some(Message::SelectPrev),
-                        KeyCode::Tab => Some(Message::SelectNext),
+                        KeyCode::Up => {
+                            Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
+                        }
+                        KeyCode::Down => {
+                            Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
+                        }
                         KeyCode::Enter => Some(Message::Activate(None)),
                         _ => None,
                     },
