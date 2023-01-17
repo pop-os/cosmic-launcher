@@ -8,7 +8,10 @@ Build-Depends:
   rustc (>=1.63),
   cargo,
   meson,
-  libgtk-4-dev,
+  intltool,
+  appstream-util,
+  desktop-file-utils,
+  libxkbcommon-dev,
   pkg-config,
   desktop-file-utils,
 Standards-Version: 4.3.0
