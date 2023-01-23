@@ -6,7 +6,7 @@ use cosmic::iced::futures::{channel::mpsc, SinkExt};
 use cosmic::iced::subscription::events_with;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
-    destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity, Layer,
+    destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
 use cosmic::iced::wayland::{InitialSurface, SurfaceIdWrapper};
 use cosmic::iced::widget::{button, column, container, text, text_input};
@@ -37,13 +37,7 @@ static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
 pub fn run() -> cosmic::iced::Result {
     let mut settings = settings();
     settings.exit_on_close_request = false;
-    settings.initial_surface = InitialSurface::LayerSurface(SctkLayerSurfaceSettings {
-        keyboard_interactivity: KeyboardInteractivity::None,
-        namespace: "ignore".into(),
-        size: Some((Some(1), Some(1))),
-        layer: Layer::Background,
-        ..Default::default()
-    });
+    settings.initial_surface = InitialSurface::None;
     CosmicLauncher::run(settings.into())
 }
 
@@ -79,10 +73,7 @@ impl Application for CosmicLauncher {
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
-        (
-            CosmicLauncher::default(),
-            destroy_layer_surface(SurfaceId::new(0)),
-        )
+        (CosmicLauncher::default(), Command::none())
     }
 
     fn title(&self) -> String {
