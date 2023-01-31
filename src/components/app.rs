@@ -226,7 +226,6 @@ impl Application for CosmicLauncher {
                     self.input_value = "".to_string();
                     let id = SurfaceId::new(self.id_ctr);
                     self.active_surface.replace(id);
-                    cmds.push(text_input::focus(INPUT_ID.clone()));
                     cmds.push(get_layer_surface(SctkLayerSurfaceSettings {
                         id,
                         keyboard_interactivity: KeyboardInteractivity::Exclusive,
@@ -236,6 +235,7 @@ impl Application for CosmicLauncher {
                         size_limits: Limits::NONE.min_width(1).min_height(1).max_width(600),
                         ..Default::default()
                     }));
+                    cmds.push(text_input::focus(INPUT_ID.clone()));
                     return Command::batch(cmds);
                 }
             }
@@ -264,6 +264,7 @@ impl Application for CosmicLauncher {
                             keyboard_nav::unfocus()
                         }
                     }
+                    _ => {}
                 };
             }
         }
