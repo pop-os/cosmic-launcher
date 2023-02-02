@@ -1,3 +1,0 @@
-pub const APP_ID: &str = @APP_ID@;
-pub const PROFILE: &str = @PROFILE@;
-pub const VERSION: &str = @VERSION@;
