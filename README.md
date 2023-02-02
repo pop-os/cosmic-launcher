@@ -4,12 +4,12 @@ Layer Shell frontend for https://github.com/pop-os/launcher. Currently the under
 
 # Building
 
-Cosmic Launcher is set up to build a deb and a Nix flake, but it can be built using meson.
+Cosmic Launcher is set up to build a deb and a Nix flake, but it can be built using just.
 
 Some Build Dependencies:
-```  
+```
   cargo,
-  meson,
+  just,
   intltool,
   appstream-util,
   desktop-file-utils,
@@ -18,6 +18,24 @@ Some Build Dependencies:
   desktop-file-utils,
 ```
 
+## Build Commands
+
+For a typical install from source, use `just` followed with `sudo just install`.
+```sh
+just
+sudo just install
+```
+
+If you are packaging, run `just vendor` outside of your build chroot, then use `just build-vendored` inside the build-chroot. Then you can specify a custom root directory and prefix.
+```sh
+# Outside build chroot
+just clean-dist
+just vendor
+
+# Inside build chroot
+just build-vendored
+sudo just rootdir=debian/cosmic-launcher prefix=/usr install
+```
 
 # Translators
 

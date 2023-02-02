@@ -10,14 +10,14 @@ use localize::localize;
 
 use crate::{
     components::app,
-    config::{PROFILE, VERSION},
+    config::VERSION,
 };
 
 fn main() -> cosmic::iced::Result {
     // Initialize logger
     pretty_env_logger::init();
     info!("Iced Launcher ({})", APP_ID);
-    info!("Version: {} ({})", VERSION, PROFILE);
+    info!("Version: {} ({})", VERSION, config::profile());
 
     // Prepare i18n
     localize();

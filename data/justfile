@@ -1,0 +1,15 @@
+appid := env_var('APPID')
+install-dir := env_var('INSTALL_DIR')
+
+desktop-src := appid + '.desktop'
+desktop-dst := install-dir / 'applications' / desktop-src
+
+metainfo-src := appid + '.metainfo.xml'
+metainfo-dst := install-dir / 'metainfo' / metainfo-src
+
+install:
+    install -Dm0644 {{desktop-src}} {{desktop-dst}}
+    install -Dm0644 {{metainfo-src}} {{metainfo-dst}}
+
+uninstall:
+    rm {{desktop-dst}} {{metainfo-dst}}

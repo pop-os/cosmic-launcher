@@ -22,3 +22,9 @@ override_dh_auto_clean:
 		tar pcf vendor.tar vendor; \
 		rm -rf vendor; \
 	fi
+
+override_dh_auto_build:
+	just build-vendored
+
+override_dh_install:
+	just rootdir=$(DESTDIR) install

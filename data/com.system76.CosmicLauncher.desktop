@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=COSMIC Launcher
+Comment=COSMIC Launcher
+Type=Application
+Exec=cosmic-launcher
+Terminal=false
+Categories=GNOME;GTK;
+Keywords=Gnome;GTK;
+Icon=com.system76.CosmicLauncher
+StartupNotify=true
+X-HostWaylandDisplay=true

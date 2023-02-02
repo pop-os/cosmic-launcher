@@ -29,15 +29,14 @@
               ./Cargo.lock
               ./i18n
               ./i18n.toml
-              ./meson.build
-              ./meson_options.txt
+              ./justfile
               ./build-aux
               ./data
               ./po
             ];
           };
           nativeBuildInputs = with pkgs; [
-            meson
+            just
             pkg-config
             autoPatchelfHook
           ];
@@ -46,7 +45,6 @@
             glib
             gtk4
             desktop-file-utils
-            ninja # Makes Meson happy
            ];
           runtimeDependencies = with pkgs; [
             wayland
