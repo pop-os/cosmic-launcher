@@ -28,11 +28,9 @@ else
 endif
 
 if get_option('vendor') == true
-  cargo_options += [ '--locked' ]
+  cargo_options += [ '--frozen', '--offline' ]
   message('Building with vendoring')
 endif
-
-cargo_env = [ 'CARGO_HOME=' + meson.project_build_root() / 'cargo-home' ]
 
 cargo_build = custom_target(
   'cargo-build',
@@ -43,8 +41,6 @@ cargo_build = custom_target(
   install: true,
   install_dir: bindir,
   command: [
-    'env',
-    cargo_env,
     cargo, 'build',
     cargo_options,
     '&&',
