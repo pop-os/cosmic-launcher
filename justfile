@@ -4,10 +4,12 @@ export APPID := 'com.system76.CosmicLauncher'
 rootdir := ''
 prefix := '/usr'
 
-export INSTALL_DIR := clean(justfile_directory() / rootdir / prefix / 'share')
+base-dir := absolute_path(clean(rootdir / prefix))
+
+export INSTALL_DIR := base-dir / 'share'
 
 bin-src := 'target' / 'release' / name
-bin-dst := INSTALL_DIR / 'bin' / name
+bin-dst := base-dir / 'bin' / name
 
 # Default recipe which runs `just build-release`
 default: build-release
