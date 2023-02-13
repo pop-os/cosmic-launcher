@@ -2700,7 +2700,7 @@ dependencies = [
 [[package]]
 name = "pop-launcher"
 version = "1.2.2"
-source = "git+https://github.com/wash2/launcher.git?tag=toplevel#b2c1bbb191c4adde9075b7e7c3cbf5dee8fb73a1"
+source = "git+https://github.com/pop-os/launcher/?rev=f8ec5b8#f8ec5b8083ff748f3c4ff695fcbb4df0eaebdb5f"
 dependencies = [
  "const_format",
  "dirs 4.0.0",
@@ -2715,7 +2715,7 @@ dependencies = [
 [[package]]
 name = "pop-launcher-service"
 version = "1.2.2"
-source = "git+https://github.com/wash2/launcher.git?tag=toplevel#b2c1bbb191c4adde9075b7e7c3cbf5dee8fb73a1"
+source = "git+https://github.com/pop-os/launcher/?rev=f8ec5b8#f8ec5b8083ff748f3c4ff695fcbb4df0eaebdb5f"
 dependencies = [
  "anyhow",
  "async-oneshot",
