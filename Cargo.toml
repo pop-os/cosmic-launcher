@@ -8,8 +8,8 @@ edition = "2021"
 freedesktop-icons = "0.2.3"
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", branch = "master", default-features = false, features = ["wayland", "tokio"] }
 serde = { version = "1.0.152", features = ["derive"] }
-pop-launcher-service = { git = "https://github.com/wash2/launcher.git", tag = "toplevel" }
-pop-launcher = { git = "https://github.com/wash2/launcher.git", tag = "toplevel" }
+pop-launcher-service = { git = "https://github.com/pop-os/launcher/", rev = "f8ec5b8" }
+pop-launcher = { git = "https://github.com/pop-os/launcher/", rev = "f8ec5b8" }
 serde_json = "1.0.91"
 tokio-stream = "0.1.8"
 tokio = { version = "1.24.1", features = ["sync", "rt", "rt-multi-thread", "process"] }
