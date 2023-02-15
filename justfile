@@ -41,7 +41,7 @@ check-json: (check '--message-format=json')
 
 # Installs files
 install:
-    install -Dm0644 {{bin-src}} {{bin-dst}}
+    install -Dm0755 {{bin-src}} {{bin-dst}}
     @just data/install
     @just data/icons/install
 
