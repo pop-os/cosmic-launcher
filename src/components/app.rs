@@ -17,7 +17,7 @@ use cosmic::iced_native::layout::Limits;
 use cosmic::iced_native::widget::helpers;
 use cosmic::iced_native::window::Id as SurfaceId;
 use cosmic::iced_style::application;
-use cosmic::theme::{Button, Container, Svg};
+use cosmic::theme::{Button, Container, Svg, TextInput};
 use cosmic::widget::icon;
 use cosmic::{keyboard_nav, settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
@@ -282,9 +282,9 @@ impl Application for CosmicLauncher {
             &self.input_value,
             Message::InputChanged,
         )
-        // .on_submit(Message::Activate(None))
-        .padding(8)
         .size(20)
+        .style(TextInput::Search)
+        .padding([8, 24])
         .id(INPUT_ID.clone());
 
         let buttons = self
@@ -369,7 +369,7 @@ impl Application for CosmicLauncher {
         container(content)
             .style(Container::Custom(|theme| container::Appearance {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
-                background: Some(theme.extended_palette().background.base.color.into()),
+                background: Some(Color::from(theme.cosmic().background.base).into()),
                 border_radius: 16.0,
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
