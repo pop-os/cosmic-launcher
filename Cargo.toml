@@ -12,7 +12,7 @@ pop-launcher-service = { git = "https://github.com/pop-os/launcher/", rev = "f8e
 pop-launcher = { git = "https://github.com/pop-os/launcher/", rev = "f8ec5b8" }
 serde_json = "1.0.91"
 tokio-stream = "0.1.8"
-tokio = { version = "1.24.1", features = ["sync", "rt", "rt-multi-thread", "process"] }
+tokio = { version = "1.24.1", features = ["sync", "rt", "process"] }
 log = "0.4"
 pretty_env_logger = "0.4"
 once_cell = "1.17"
