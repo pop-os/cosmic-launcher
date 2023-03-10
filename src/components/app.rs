@@ -1,6 +1,9 @@
 use std::fs;
 use std::process::exit;
 
+use crate::config;
+use crate::subscriptions::launcher::{launcher, LauncherEvent, LauncherRequest};
+use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::futures::{channel::mpsc, SinkExt};
 use cosmic::iced::subscription::events_with;
@@ -18,7 +21,7 @@ use cosmic::iced_native::widget::helpers;
 use cosmic::iced_native::window::Id as SurfaceId;
 use cosmic::iced_style::application;
 use cosmic::theme::{Button, Container, Svg, TextInput};
-use cosmic::widget::icon;
+use cosmic::widget::{divider, icon, list_column};
 use cosmic::{keyboard_nav, settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
@@ -27,10 +30,6 @@ use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
-
-use crate::config;
-use crate::subscriptions::launcher::{launcher, LauncherEvent, LauncherRequest};
-use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
 
 static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
 
@@ -229,9 +228,10 @@ impl Application for CosmicLauncher {
                     cmds.push(get_layer_surface(SctkLayerSurfaceSettings {
                         id,
                         keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                        anchor: Anchor::empty(),
+                        anchor: Anchor::TOP,
                         namespace: "launcher".into(),
                         size: None,
+                        margin: iced::wayland::actions::layer_surface::IcedMargin { top: 32, ..Default::default() },
                         size_limits: Limits::NONE.min_width(1).min_height(1).max_width(600),
                         ..Default::default()
                     }));
@@ -291,7 +291,7 @@ impl Application for CosmicLauncher {
             .launcher_items
             .iter()
             .enumerate()
-            .map(|(i, item)| {
+            .flat_map(|(i, item)| {
                 let name = text(item.name.to_string())
                     .horizontal_alignment(Horizontal::Left)
                     .vertical_alignment(Vertical::Center)
@@ -337,6 +337,7 @@ impl Application for CosmicLauncher {
                 button_content.push(
                     container(
                         text(format!("Ctrl + {}", (i + 1) % 10))
+                            .size(16)
                             .vertical_alignment(Vertical::Center)
                             .horizontal_alignment(Horizontal::Right),
                     )
@@ -356,13 +357,31 @@ impl Application for CosmicLauncher {
                 .width(Length::Fill)
                 .on_press(Message::Activate(Some(i)))
                 .padding([8, 16])
-                .style(Button::Text);
-
-                btn.into()
+                .style(Button::Custom {
+                    active: |theme| {
+                        let text = button::StyleSheet::active(theme, &Button::Text);
+                        button::Appearance {
+                            border_radius: 8.0.into(),
+                            ..text
+                        }
+                    },
+                    hover: |theme| {
+                        let text = button::StyleSheet::hovered(theme, &Button::Text);
+                        button::Appearance {
+                            border_radius: 8.0.into(),
+                            ..text
+                        }
+                    },
+                });
+                if i != self.launcher_items.len() - 1 {
+                    vec![btn.into(), divider::horizontal::light().into()]
+                } else {
+                    vec![btn.into()]
+                }
             })
             .collect();
 
-        let content = column![launcher_entry, helpers::column(buttons).spacing(16),]
+        let content = column![launcher_entry, helpers::column(buttons),]
             .spacing(16)
             .max_width(600);
 
@@ -371,8 +390,8 @@ impl Application for CosmicLauncher {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
                 background: Some(Color::from(theme.cosmic().background.base).into()),
                 border_radius: 16.0,
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
+                border_width: 1.0,
+                border_color: theme.cosmic().bg_divider().into(),
             }))
             .padding([24, 32])
             .into()
