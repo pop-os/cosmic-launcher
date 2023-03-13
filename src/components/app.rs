@@ -231,7 +231,10 @@ impl Application for CosmicLauncher {
                         anchor: Anchor::TOP,
                         namespace: "launcher".into(),
                         size: None,
-                        margin: iced::wayland::actions::layer_surface::IcedMargin { top: 32, ..Default::default() },
+                        margin: iced::wayland::actions::layer_surface::IcedMargin {
+                            top: 16,
+                            ..Default::default()
+                        },
                         size_limits: Limits::NONE.min_width(1).min_height(1).max_width(600),
                         ..Default::default()
                     }));
@@ -287,7 +290,7 @@ impl Application for CosmicLauncher {
         .padding([8, 24])
         .id(INPUT_ID.clone());
 
-        let buttons = self
+        let buttons: Vec<_> = self
             .launcher_items
             .iter()
             .enumerate()
@@ -381,10 +384,11 @@ impl Application for CosmicLauncher {
             })
             .collect();
 
-        let content = column![launcher_entry, helpers::column(buttons),]
-            .spacing(16)
-            .max_width(600);
+        let mut content = column![launcher_entry].max_width(600).spacing(16);
 
+        if !buttons.is_empty() {
+            content = content.push(helpers::column(buttons));
+        }
         container(content)
             .style(Container::Custom(|theme| container::Appearance {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
