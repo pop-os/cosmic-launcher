@@ -454,10 +454,10 @@ impl Application for CosmicLauncher {
                         KeyCode::Down => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                         }
-                        KeyCode::P if modifiers.control() => {
+                        KeyCode::P | KeyCode::K if modifiers.control() => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
                         }
-                        KeyCode::N if modifiers.control() => {
+                        KeyCode::N | KeyCode::J if modifiers.control() => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                         }
                         KeyCode::Enter => Some(Message::Activate(None)),
