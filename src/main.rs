@@ -8,10 +8,7 @@ use log::info;
 
 use localize::localize;
 
-use crate::{
-    components::app,
-    config::VERSION,
-};
+use crate::{components::app, config::VERSION};
 
 fn main() -> cosmic::iced::Result {
     // Initialize logger

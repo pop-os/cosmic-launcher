@@ -165,7 +165,12 @@ impl Application for CosmicLauncher {
                             }
                         }
                     }
-                    pop_launcher::Response::Update(list) => {
+                    pop_launcher::Response::Update(mut list) => {
+                        list.sort_by(|a, b| {
+                            let a = if a.window.is_some() { 0 } else { 1 };
+                            let b = if b.window.is_some() { 0 } else { 1 };
+                            a.cmp(&b)
+                        });
                         self.launcher_items.splice(.., list);
                     }
                     pop_launcher::Response::Fill(s) => {
@@ -295,14 +300,25 @@ impl Application for CosmicLauncher {
             .iter()
             .enumerate()
             .flat_map(|(i, item)| {
-                let name = text(item.name.to_string())
-                    .horizontal_alignment(Horizontal::Left)
-                    .vertical_alignment(Vertical::Center)
-                    .size(12);
-                let description = text(if item.description.len() > 40 {
-                    format!("{:.50}...", item.description)
+                let (name, desc) = if item.window.is_some() {
+                    (&item.description, &item.name)
                 } else {
-                    item.description.to_string()
+                    (&item.name, &item.description)
+                };
+
+                let name = text(if name.len() > 40 {
+                    format!("{:.50}...", name)
+                } else {
+                    name.to_string()
+                })
+                .horizontal_alignment(Horizontal::Left)
+                .vertical_alignment(Vertical::Center)
+                .size(12);
+
+                let description = text(if desc.len() > 40 {
+                    format!("{:.50}...", desc)
+                } else {
+                    desc.to_string()
                 })
                 .horizontal_alignment(Horizontal::Left)
                 .vertical_alignment(Vertical::Center)
@@ -336,7 +352,7 @@ impl Application for CosmicLauncher {
                     )
                 }
 
-                button_content.push(column![description, name].into());
+                button_content.push(column![name, description].into());
                 button_content.push(
                     container(
                         text(format!("Ctrl + {}", (i + 1) % 10))
