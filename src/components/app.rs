@@ -313,7 +313,7 @@ impl Application for CosmicLauncher {
                 })
                 .horizontal_alignment(Horizontal::Left)
                 .vertical_alignment(Vertical::Center)
-                .size(12);
+                .size(16);
 
                 let description = text(if desc.len() > 40 {
                     format!("{:.50}...", desc)
@@ -322,7 +322,7 @@ impl Application for CosmicLauncher {
                 })
                 .horizontal_alignment(Horizontal::Left)
                 .vertical_alignment(Vertical::Center)
-                .size(16);
+                .size(12);
 
                 let mut button_content = Vec::new();
                 if let Some(source) = item.category_icon.as_ref() {
