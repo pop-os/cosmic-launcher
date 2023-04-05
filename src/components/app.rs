@@ -11,7 +11,7 @@ use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
-use cosmic::iced::wayland::{InitialSurface, SurfaceIdWrapper};
+use cosmic::iced::wayland::InitialSurface;
 use cosmic::iced::widget::{button, column, container, text, text_input};
 use cosmic::iced::{self, executor, Application, Command, Length, Subscription};
 use cosmic::iced_native::event::wayland::LayerEvent;
@@ -279,8 +279,8 @@ impl Application for CosmicLauncher {
         Command::none()
     }
 
-    fn view(&self, id: SurfaceIdWrapper) -> Element<Message> {
-        if id.inner() == SurfaceId::new(0) {
+    fn view(&self, id: SurfaceId) -> Element<Message> {
+        if id == SurfaceId::new(0) {
             // TODO just delete the original surface if possible
             return vertical_space(Length::Units(1)).into();
         }
@@ -497,7 +497,7 @@ impl Application for CosmicLauncher {
         self.theme
     }
 
-    fn close_requested(&self, _id: SurfaceIdWrapper) -> Self::Message {
+    fn close_requested(&self, _id: SurfaceId) -> Self::Message {
         Message::Closed
     }
 }
