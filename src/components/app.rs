@@ -12,7 +12,7 @@ use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
 use cosmic::iced::wayland::InitialSurface;
-use cosmic::iced::widget::{button, column, container, text, text_input};
+use cosmic::iced::widget::{button, column, container, text, text_input, Column};
 use cosmic::iced::{self, executor, Application, Command, Length, Subscription};
 use cosmic::iced_native::event::wayland::LayerEvent;
 use cosmic::iced_native::event::{wayland, PlatformSpecific};
@@ -306,23 +306,36 @@ impl Application for CosmicLauncher {
                     (&item.name, &item.description)
                 };
 
-                let name = text(if name.len() > 40 {
-                    format!("{:.50}...", name)
-                } else {
-                    name.to_string()
-                })
-                .horizontal_alignment(Horizontal::Left)
-                .vertical_alignment(Vertical::Center)
-                .size(16);
-
-                let description = text(if desc.len() > 40 {
-                    format!("{:.50}...", desc)
-                } else {
-                    desc.to_string()
-                })
-                .horizontal_alignment(Horizontal::Left)
-                .vertical_alignment(Vertical::Center)
-                .size(12);
+                let name = Column::with_children(
+                    name.lines()
+                        .map(|line| {
+                            text(if line.len() > 45 {
+                                format!("{:.50}...", line)
+                            } else {
+                                line.to_string()
+                            })
+                            .horizontal_alignment(Horizontal::Left)
+                            .vertical_alignment(Vertical::Center)
+                            .size(16)
+                            .into()
+                        })
+                        .collect(),
+                );
+                let desc = Column::with_children(
+                    desc.lines()
+                        .map(|line| {
+                            text(if line.len() > 60 {
+                                format!("{:.65}", line)
+                            } else {
+                                line.to_string()
+                            })
+                            .horizontal_alignment(Horizontal::Left)
+                            .vertical_alignment(Vertical::Center)
+                            .size(12)
+                            .into()
+                        })
+                        .collect(),
+                );
 
                 let mut button_content = Vec::new();
                 if let Some(source) = item.category_icon.as_ref() {
@@ -352,7 +365,7 @@ impl Application for CosmicLauncher {
                     )
                 }
 
-                button_content.push(column![name, description].into());
+                button_content.push(column![name, desc].into());
                 button_content.push(
                     container(
                         text(format!("Ctrl + {}", (i + 1) % 10))
