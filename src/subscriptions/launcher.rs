@@ -24,20 +24,20 @@ pub fn launcher<I: 'static + Hash + Copy + Send + Sync>(
     subscription::unfold(id, State::Ready, move |state| _launcher(id, state))
 }
 
-async fn _launcher<I: Copy>(id: I, state: State) -> (Option<(I, LauncherEvent)>, State) {
+async fn _launcher<I: Copy>(id: I, state: State) -> ((I, LauncherEvent), State) {
     match state {
         State::Ready => {
             if let Ok(launcher_ipc) = LauncherIpc::new() {
                 (
-                    Some((id, LauncherEvent::Started(launcher_ipc.get_sender()))),
+                    (id, LauncherEvent::Started(launcher_ipc.get_sender())),
                     State::Waiting(launcher_ipc),
                 )
             } else {
                 (
-                    Some((
+                    (
                         id,
                         LauncherEvent::Error("Failed to start the ipc client".to_string()),
-                    )),
+                    ),
                     State::Error,
                 )
             }
@@ -45,15 +45,15 @@ async fn _launcher<I: Copy>(id: I, state: State) -> (Option<(I, LauncherEvent)>,
         State::Waiting(mut rx) => {
             if let Some(response) = rx.results().await {
                 (
-                    Some((id, LauncherEvent::Response(response))),
+                    (id, LauncherEvent::Response(response)),
                     State::Waiting(rx),
                 )
             } else {
                 (
-                    Some((
+                    (
                         id,
                         LauncherEvent::Error("channel for ipc client was closed".to_string()),
-                    )),
+                    ),
                     State::Error,
                 )
             }

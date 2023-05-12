@@ -6,6 +6,7 @@ use crate::subscriptions::launcher::{launcher, LauncherEvent, LauncherRequest};
 use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::futures::{channel::mpsc, SinkExt};
+use cosmic::iced::id::Id;
 use cosmic::iced::subscription::events_with;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
@@ -14,12 +15,12 @@ use cosmic::iced::wayland::layer_surface::{
 use cosmic::iced::wayland::InitialSurface;
 use cosmic::iced::widget::{button, column, container, text, text_input, Column};
 use cosmic::iced::{self, executor, Application, Command, Length, Subscription};
-use cosmic::iced_native::event::wayland::LayerEvent;
-use cosmic::iced_native::event::{wayland, PlatformSpecific};
-use cosmic::iced_native::layout::Limits;
-use cosmic::iced_native::widget::helpers;
-use cosmic::iced_native::window::Id as SurfaceId;
+use cosmic::iced_runtime::core::event::wayland::LayerEvent;
+use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
+use cosmic::iced_runtime::core::layout::Limits;
+use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
+use cosmic::iced_widget::row;
 use cosmic::theme::{Button, Container, Svg, TextInput};
 use cosmic::widget::{divider, icon, list_column};
 use cosmic::{keyboard_nav, settings, Element, Theme};
@@ -31,7 +32,7 @@ use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
 
-static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
+static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 
 pub fn run() -> cosmic::iced::Result {
     let mut settings = settings();
@@ -42,7 +43,7 @@ pub fn run() -> cosmic::iced::Result {
 
 #[derive(Default, Clone)]
 struct CosmicLauncher {
-    id_ctr: u64,
+    id_ctr: u128,
     input_value: String,
     selected_item: Option<usize>,
     active_surface: Option<SurfaceId>,
@@ -63,6 +64,7 @@ enum Message {
     Toggle,
     Closed,
     KeyboardNav(keyboard_nav::Message),
+    Ignore,
 }
 
 impl Application for CosmicLauncher {
@@ -228,7 +230,7 @@ impl Application for CosmicLauncher {
                         }));
                     }
                     self.input_value = "".to_string();
-                    let id = SurfaceId::new(self.id_ctr);
+                    let id = SurfaceId(self.id_ctr);
                     self.active_surface.replace(id);
                     cmds.push(get_layer_surface(SctkLayerSurfaceSettings {
                         id,
@@ -240,7 +242,7 @@ impl Application for CosmicLauncher {
                             top: 16,
                             ..Default::default()
                         },
-                        size_limits: Limits::NONE.min_width(1).min_height(1).max_width(600),
+                        size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
                         ..Default::default()
                     }));
                     cmds.push(text_input::focus(INPUT_ID.clone()));
@@ -275,21 +277,23 @@ impl Application for CosmicLauncher {
                     _ => {}
                 };
             }
+            Message::Ignore => {},
         }
         Command::none()
     }
 
     fn view(&self, id: SurfaceId) -> Element<Message> {
-        if id == SurfaceId::new(0) {
+        if id == SurfaceId(0) {
             // TODO just delete the original surface if possible
-            return vertical_space(Length::Units(1)).into();
+            return vertical_space(Length::Fixed(1.0)).into();
         }
 
         let launcher_entry = text_input(
             "Type to search apps or type “?” for more options...",
             &self.input_value,
-            Message::InputChanged,
         )
+        .on_input(Message::InputChanged)
+        .on_paste(Message::InputChanged)
         .size(20)
         .style(TextInput::Search)
         .padding([8, 24])
@@ -309,8 +313,8 @@ impl Application for CosmicLauncher {
                 let name = Column::with_children(
                     name.lines()
                         .map(|line| {
-                            text(if line.len() > 45 {
-                                format!("{:.50}...", line)
+                            text(if line.len() > 32 {
+                                format!("{:.32}...", line)
                             } else {
                                 line.to_string()
                             })
@@ -325,7 +329,7 @@ impl Application for CosmicLauncher {
                     desc.lines()
                         .map(|line| {
                             text(if line.len() > 60 {
-                                format!("{:.65}", line)
+                                format!("{:.60}", line)
                             } else {
                                 line.to_string()
                             })
@@ -345,8 +349,8 @@ impl Application for CosmicLauncher {
                     button_content.push(
                         icon(name.clone(), 64)
                             .theme("Pop")
-                            .width(Length::Units(16))
-                            .height(Length::Units(16))
+                            .width(Length::Fixed(16.0))
+                            .height(Length::Fixed(16.0))
                             .style(Svg::Symbolic)
                             .into(),
                     )
@@ -359,8 +363,8 @@ impl Application for CosmicLauncher {
                     button_content.push(
                         icon(name.clone(), 64)
                             .theme("Pop")
-                            .width(Length::Units(32))
-                            .height(Length::Units(32))
+                            .width(Length::Fixed(32.0))
+                            .height(Length::Fixed(32.0))
                             .into(),
                     )
                 }
@@ -382,7 +386,7 @@ impl Application for CosmicLauncher {
                 );
 
                 let btn = button(
-                    helpers::row(button_content)
+                    row(button_content)
                         .spacing(8)
                         .align_items(Alignment::Center),
                 )
@@ -390,20 +394,20 @@ impl Application for CosmicLauncher {
                 .on_press(Message::Activate(Some(i)))
                 .padding([8, 16])
                 .style(Button::Custom {
-                    active: |theme| {
+                    active: Box::new(|theme| {
                         let text = button::StyleSheet::active(theme, &Button::Text);
                         button::Appearance {
                             border_radius: 8.0.into(),
                             ..text
                         }
-                    },
-                    hover: |theme| {
+                    }),
+                    hover: Box::new(|theme| {
                         let text = button::StyleSheet::hovered(theme, &Button::Text);
                         button::Appearance {
                             border_radius: 8.0.into(),
                             ..text
                         }
-                    },
+                    }),
                 });
                 if i != self.launcher_items.len() - 1 {
                     vec![btn.into(), divider::horizontal::light().into()]
@@ -416,16 +420,16 @@ impl Application for CosmicLauncher {
         let mut content = column![launcher_entry].max_width(600).spacing(16);
 
         if !buttons.is_empty() {
-            content = content.push(helpers::column(buttons));
+            content = content.push(column(buttons));
         }
         container(content)
-            .style(Container::Custom(|theme| container::Appearance {
+            .style(Container::Custom(Box::new(|theme| container::Appearance {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
                 background: Some(Color::from(theme.cosmic().background.base).into()),
                 border_radius: 16.0,
                 border_width: 1.0,
                 border_color: theme.cosmic().bg_divider().into(),
-            }))
+            })))
             .padding([24, 32])
             .into()
     }
@@ -435,7 +439,8 @@ impl Application for CosmicLauncher {
             vec![
                 keyboard_nav::subscription().map(|e| Message::KeyboardNav(e)),
                 dbus_toggle(0).map(|e| match e {
-                    (_, LauncherDbusEvent::Toggle) => Message::Toggle,
+                    Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
+                    None => Message::Ignore,
                 }),
                 launcher(0).map(|(_, msg)| Message::LauncherEvent(msg)),
                 events_with(|e, _status| match e {
@@ -500,10 +505,10 @@ impl Application for CosmicLauncher {
     }
 
     fn style(&self) -> <Self::Theme as application::StyleSheet>::Style {
-        <Self::Theme as application::StyleSheet>::Style::Custom(|theme| Appearance {
+        <Self::Theme as application::StyleSheet>::Style::Custom(Box::new(|theme| Appearance {
             background_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
             text_color: theme.cosmic().on_bg_color().into(),
-        })
+        }))
     }
 
     fn theme(&self) -> Theme {

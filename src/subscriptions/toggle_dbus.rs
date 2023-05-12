@@ -6,9 +6,10 @@ use futures::{
 use std::{fmt::Debug, hash::Hash};
 use zbus::{dbus_interface, Connection, ConnectionBuilder};
 
+// todo refactor to use subscription channel
 pub fn dbus_toggle<I: 'static + Hash + Copy + Send + Sync + Debug>(
     id: I,
-) -> cosmic::iced::Subscription<(I, LauncherDbusEvent)> {
+) -> cosmic::iced::Subscription<Option<(I, LauncherDbusEvent)>> {
     subscription::unfold(id, State::Ready, move |state| start_listening(id, state))
 }
 
