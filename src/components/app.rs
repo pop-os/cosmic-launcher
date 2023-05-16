@@ -21,6 +21,7 @@ use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
+use cosmic::iced_widget::text_input::{Side, Icon};
 use cosmic::theme::{Button, Container, Svg, TextInput};
 use cosmic::widget::{divider, icon, list_column};
 use cosmic::{keyboard_nav, settings, Element, Theme};
@@ -277,7 +278,7 @@ impl Application for CosmicLauncher {
                     _ => {}
                 };
             }
-            Message::Ignore => {},
+            Message::Ignore => {}
         }
         Command::none()
     }
@@ -297,6 +298,13 @@ impl Application for CosmicLauncher {
         .size(14)
         .style(TextInput::Search)
         .padding([8, 24])
+        .icon(Icon {
+            font: iced::Font::default(),
+            code_point: '🔍',
+            size: Some(12.0),
+            spacing: 12.0,
+            side: Side::Left,
+        })
         .id(INPUT_ID.clone());
 
         let buttons: Vec<_> = self
