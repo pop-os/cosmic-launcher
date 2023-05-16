@@ -294,7 +294,7 @@ impl Application for CosmicLauncher {
         )
         .on_input(Message::InputChanged)
         .on_paste(Message::InputChanged)
-        .size(20)
+        .size(14)
         .style(TextInput::Search)
         .padding([8, 24])
         .id(INPUT_ID.clone());
@@ -313,14 +313,14 @@ impl Application for CosmicLauncher {
                 let name = Column::with_children(
                     name.lines()
                         .map(|line| {
-                            text(if line.len() > 32 {
-                                format!("{:.32}...", line)
+                            text(if line.len() > 45 {
+                                format!("{:.45}...", line)
                             } else {
                                 line.to_string()
                             })
                             .horizontal_alignment(Horizontal::Left)
                             .vertical_alignment(Vertical::Center)
-                            .size(16)
+                            .size(14)
                             .into()
                         })
                         .collect(),
@@ -335,7 +335,7 @@ impl Application for CosmicLauncher {
                             })
                             .horizontal_alignment(Horizontal::Left)
                             .vertical_alignment(Vertical::Center)
-                            .size(12)
+                            .size(10)
                             .into()
                         })
                         .collect(),
@@ -373,7 +373,7 @@ impl Application for CosmicLauncher {
                 button_content.push(
                     container(
                         text(format!("Ctrl + {}", (i + 1) % 10))
-                            .size(16)
+                            .size(14)
                             .vertical_alignment(Vertical::Center)
                             .horizontal_alignment(Horizontal::Right),
                     )
