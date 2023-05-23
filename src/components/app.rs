@@ -23,7 +23,7 @@ use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
 use cosmic::iced_widget::text_input::{Side, Icon};
 use cosmic::theme::{Button, Container, Svg, TextInput};
-use cosmic::widget::{divider, icon, list_column};
+use cosmic::widget::{divider, icon};
 use cosmic::{keyboard_nav, settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
@@ -66,6 +66,28 @@ enum Message {
     Closed,
     KeyboardNav(keyboard_nav::Message),
     Ignore,
+}
+
+impl CosmicLauncher {
+    fn hide(&mut self) -> Command<Message> {
+        self.input_value.clear();
+
+        let mut commands: Vec<Command<Message>> = Vec::with_capacity(2);
+
+        if let Some(mut sender) = self.tx.clone() {
+            let cmd = async move { sender.send(LauncherRequest::Close).await };
+            commands.push(Command::perform(cmd, |res| match res {
+                Ok(_) => Message::SentRequest,
+                Err(why) => Message::Error(why.to_string()),
+            }));
+        }
+
+        if let Some(id) = self.active_surface {
+            commands.push(destroy_layer_surface(id));
+        }
+
+        Command::batch(commands.into_iter())
+    }
 }
 
 impl Application for CosmicLauncher {
@@ -137,7 +159,7 @@ impl Application for CosmicLauncher {
                 LauncherEvent::Response(response) => match response {
                     pop_launcher::Response::Close => {
                         exit(0);
-                    }
+                    },
                     pop_launcher::Response::Context { .. } => {
                         // TODO ASHLEY
                     }
@@ -180,9 +202,6 @@ impl Application for CosmicLauncher {
                         self.input_value = s;
                     }
                 },
-                LauncherEvent::Error(err) => {
-                    log::error!("{}", err);
-                }
             },
             Message::SentRequest => {}
             Message::Error(err) => {
@@ -250,11 +269,7 @@ impl Application for CosmicLauncher {
                     return Command::batch(cmds);
                 }
             }
-            Message::Hide => {
-                if let Some(id) = self.active_surface {
-                    return destroy_layer_surface(id);
-                }
-            }
+            Message::Hide => return self.hide(),
             Message::KeyboardNav(e) => {
                 match e {
                     keyboard_nav::Message::FocusNext => return iced::widget::focus_next(),
@@ -450,7 +465,7 @@ impl Application for CosmicLauncher {
                     Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
                     None => Message::Ignore,
                 }),
-                launcher(0).map(|(_, msg)| Message::LauncherEvent(msg)),
+                launcher(0).map(|msg| Message::LauncherEvent(msg)),
                 events_with(|e, _status| match e {
                     cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                         wayland::Event::Layer(e, ..),
