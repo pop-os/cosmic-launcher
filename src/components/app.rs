@@ -1,5 +1,4 @@
 use std::fs;
-use std::process::exit;
 
 use crate::config;
 use crate::subscriptions::launcher::{launcher, LauncherEvent, LauncherRequest};
@@ -157,9 +156,7 @@ impl Application for CosmicLauncher {
                     });
                 }
                 LauncherEvent::Response(response) => match response {
-                    pop_launcher::Response::Close => {
-                        exit(0);
-                    },
+                    pop_launcher::Response::Close => return self.hide(),
                     pop_launcher::Response::Context { .. } => {
                         // TODO ASHLEY
                     }
