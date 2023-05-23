@@ -646,6 +646,7 @@ dependencies = [
  "i18n-embed-fl",
  "libcosmic",
  "log",
+ "nix 0.26.2",
  "once_cell",
  "pop-launcher",
  "pop-launcher-service",

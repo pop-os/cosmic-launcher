@@ -153,7 +153,7 @@ impl Application for CosmicLauncher {
                                 };
                                 let mut cmd = match exec.next() {
                                     Some(cmd) if !cmd.contains("=") => {
-                                        tokio::process::Command::new(cmd)
+                                        std::process::Command::new(cmd)
                                     }
                                     _ => return Command::none(),
                                 };
@@ -163,7 +163,7 @@ impl Application for CosmicLauncher {
                                         cmd.arg(arg);
                                     }
                                 }
-                                let _ = cmd.spawn();
+                                crate::process::spawn(cmd);
                                 return Command::perform(async {}, |_| Message::Hide);
                             }
                         }
