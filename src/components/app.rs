@@ -14,7 +14,7 @@ use cosmic::iced::wayland::layer_surface::{
 };
 use cosmic::iced::wayland::InitialSurface;
 use cosmic::iced::widget::{button, column, container, text, text_input, Column};
-use cosmic::iced::{self, executor, Application, Command, Length, Subscription};
+use cosmic::iced::{self, Application, Command, Length, Subscription};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
@@ -71,7 +71,7 @@ enum Message {
 impl Application for CosmicLauncher {
     type Message = Message;
     type Theme = Theme;
-    type Executor = executor::Default;
+    type Executor = cosmic::executor::single::Executor;
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
