@@ -27,4 +27,4 @@ zbus = "3.7.0"
 glob = "0.3.1"
 freedesktop-desktop-entry = "0.5.0"
 shlex = "1.1.0"
-
+nix = "0.26.2"
