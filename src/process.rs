@@ -4,21 +4,28 @@ use nix::sys::wait::waitpid;
 use nix::unistd::{fork, ForkResult};
 use std::process::{exit, Command, Stdio};
 
+/// Performs a double fork with setsid to spawn and detach a command.
 pub fn spawn(mut command: Command) {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
     unsafe {
-        match fork().expect("failed to fork process") {
-            ForkResult::Parent { child } => {
-                waitpid(Some(child), None).unwrap();
+        match fork() {
+            Ok(ForkResult::Parent { child }) => {
+                let _res = waitpid(Some(child), None);
             }
 
-            ForkResult::Child => {
+            Ok(ForkResult::Child) => {
                 let _res = nix::unistd::setsid();
-                let _res = command
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .spawn();
+                let _res = command.spawn();
+
                 exit(0);
+            }
+
+            Err(why) => {
+                log::warn!("failed to fork and spawn command: {}", why.desc());
             }
         }
     }
