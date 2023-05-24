@@ -1,10 +1,9 @@
 use std::fs;
 
 use crate::config;
-use crate::subscriptions::launcher::{launcher, LauncherEvent, LauncherRequest};
+use crate::subscriptions::launcher;
 use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
 use cosmic::iced::alignment::{Horizontal, Vertical};
-use cosmic::iced::futures::{channel::mpsc, SinkExt};
 use cosmic::iced::id::Id;
 use cosmic::iced::subscription::events_with;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
@@ -20,7 +19,7 @@ use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
-use cosmic::iced_widget::text_input::{Side, Icon};
+use cosmic::iced_widget::text_input::{Icon, Side};
 use cosmic::theme::{Button, Container, Svg, TextInput};
 use cosmic::widget::{divider, icon};
 use cosmic::{keyboard_nav, settings, Element, Theme};
@@ -31,6 +30,7 @@ use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
+use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 
@@ -38,7 +38,7 @@ pub fn run() -> cosmic::iced::Result {
     let mut settings = settings();
     settings.exit_on_close_request = false;
     settings.initial_surface = InitialSurface::None;
-    CosmicLauncher::run(settings.into())
+    CosmicLauncher::run(settings)
 }
 
 #[derive(Default, Clone)]
@@ -49,7 +49,7 @@ struct CosmicLauncher {
     active_surface: Option<SurfaceId>,
     theme: Theme,
     launcher_items: Vec<SearchResult>,
-    tx: Option<mpsc::Sender<LauncherRequest>>,
+    tx: Option<mpsc::Sender<launcher::Request>>,
 }
 
 #[derive(Debug, Clone)]
@@ -57,9 +57,7 @@ enum Message {
     InputChanged(String),
     Activate(Option<usize>),
     Hide,
-    LauncherEvent(LauncherEvent),
-    SentRequest,
-    Error(String),
+    LauncherEvent(launcher::Event),
     Layer(LayerEvent),
     Toggle,
     Closed,
@@ -73,12 +71,8 @@ impl CosmicLauncher {
 
         let mut commands: Vec<Command<Message>> = Vec::with_capacity(2);
 
-        if let Some(mut sender) = self.tx.clone() {
-            let cmd = async move { sender.send(LauncherRequest::Close).await };
-            commands.push(Command::perform(cmd, |res| match res {
-                Ok(_) => Message::SentRequest,
-                Err(why) => Message::Error(why.to_string()),
-            }));
+        if let Some(ref sender) = &self.tx {
+            let _res = sender.blocking_send(launcher::Request::Close);
         }
 
         if let Some(id) = self.active_surface {
@@ -103,59 +97,36 @@ impl Application for CosmicLauncher {
         config::APP_ID.to_string()
     }
 
+    #[allow(clippy::too_many_lines)]
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::InputChanged(value) => {
                 self.input_value = value.clone();
-                if let Some(tx) = self.tx.as_ref() {
-                    let mut tx = tx.clone();
-                    let cmd = async move { tx.send(LauncherRequest::Search(value)).await };
-
-                    return Command::perform(cmd, |res| match res {
-                        Ok(_) => Message::SentRequest,
-                        Err(err) => Message::Error(err.to_string()),
-                    });
+                if let Some(tx) = &self.tx {
+                    let _res = tx.blocking_send(launcher::Request::Search(value));
                 }
             }
             Message::Activate(Some(i)) => {
-                if let (Some(tx), Some(item)) = (self.tx.as_ref(), self.launcher_items.get(i)) {
-                    let mut tx = tx.clone();
-                    let id = item.id;
-                    let cmd = async move { tx.send(LauncherRequest::Activate(id)).await };
-                    return Command::batch(vec![Command::perform(cmd, |res| match res {
-                        Ok(_) => Message::Hide,
-                        Err(err) => Message::Error(err.to_string()),
-                    })]);
+                if let (Some(tx), Some(item)) = (&self.tx, self.launcher_items.get(i)) {
+                    let _res = tx.blocking_send(launcher::Request::Activate(item.id));
+                    return Command::perform(async {}, |_| Message::Hide);
                 }
             }
             Message::Activate(None) => {
                 if let (Some(tx), Some(item)) = (
-                    self.tx.as_ref(),
+                    &self.tx,
                     self.launcher_items
                         .get(self.selected_item.unwrap_or_default()),
                 ) {
-                    let mut tx = tx.clone();
-                    let id = item.id;
-                    let cmd = async move { tx.send(LauncherRequest::Activate(id)).await };
-                    return Command::perform(cmd, |res| match res {
-                        Ok(_) => Message::SentRequest,
-                        Err(err) => Message::Error(err.to_string()),
-                    });
+                    let _res = tx.blocking_send(launcher::Request::Activate(item.id));
                 }
             }
             Message::LauncherEvent(e) => match e {
-                LauncherEvent::Started(tx) => {
-                    let mut tx_clone = tx.clone();
-                    let cmd =
-                        async move { tx_clone.send(LauncherRequest::Search("".to_string())).await };
+                launcher::Event::Started(tx) => {
+                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                     self.tx.replace(tx);
-                    // TODO send the thing as a command
-                    return Command::perform(cmd, |res| match res {
-                        Ok(_) => Message::SentRequest,
-                        Err(err) => Message::Error(err.to_string()),
-                    });
                 }
-                LauncherEvent::Response(response) => match response {
+                launcher::Event::Response(response) => match response {
                     pop_launcher::Response::Close => return self.hide(),
                     pop_launcher::Response::Context { .. } => {
                         // TODO ASHLEY
@@ -171,14 +142,14 @@ impl Application for CosmicLauncher {
                                     _ => return Command::none(),
                                 };
                                 let mut cmd = match exec.next() {
-                                    Some(cmd) if !cmd.contains("=") => {
+                                    Some(cmd) if !cmd.contains('=') => {
                                         std::process::Command::new(cmd)
                                     }
                                     _ => return Command::none(),
                                 };
                                 for arg in exec {
                                     // TODO handle "%" args?
-                                    if !arg.starts_with("%") {
+                                    if !arg.starts_with('%') {
                                         cmd.arg(arg);
                                     }
                                 }
@@ -189,8 +160,8 @@ impl Application for CosmicLauncher {
                     }
                     pop_launcher::Response::Update(mut list) => {
                         list.sort_by(|a, b| {
-                            let a = if a.window.is_some() { 0 } else { 1 };
-                            let b = if b.window.is_some() { 0 } else { 1 };
+                            let a = i32::from(a.window.is_none());
+                            let b = i32::from(b.window.is_none());
                             a.cmp(&b)
                         });
                         self.launcher_items.splice(.., list);
@@ -200,10 +171,6 @@ impl Application for CosmicLauncher {
                     }
                 },
             },
-            Message::SentRequest => {}
-            Message::Error(err) => {
-                log::error!("{}", err);
-            }
             Message::Layer(e) => match e {
                 LayerEvent::Focused => {
                     return text_input::focus(INPUT_ID.clone());
@@ -213,43 +180,35 @@ impl Application for CosmicLauncher {
                         return destroy_layer_surface(id);
                     }
                 }
-                _ => {}
+                LayerEvent::Done => {}
             },
             Message::Closed => {
                 self.active_surface.take();
                 let mut cmds = Vec::new();
-                if let Some(tx) = self.tx.as_ref() {
-                    let mut tx = tx.clone();
-                    let search_cmd =
-                        async move { tx.send(LauncherRequest::Search("".to_string())).await };
-                    cmds.push(Command::perform(search_cmd, |res| match res {
-                        Ok(_) => Message::SentRequest,
-                        Err(err) => Message::Error(err.to_string()),
-                    }));
+                if let Some(tx) = &self.tx {
+                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                 }
-                self.input_value = "".to_string();
+                self.input_value = String::new();
                 cmds.push(text_input::focus(INPUT_ID.clone()));
                 return Command::batch(cmds);
             }
             Message::Toggle => {
                 if let Some(id) = self.active_surface {
                     return destroy_layer_surface(id);
-                } else {
-                    self.id_ctr += 1;
-                    let mut cmds = Vec::new();
-                    if let Some(tx) = self.tx.as_ref() {
-                        let mut tx = tx.clone();
-                        let search_cmd =
-                            async move { tx.send(LauncherRequest::Search("".to_string())).await };
-                        cmds.push(Command::perform(search_cmd, |res| match res {
-                            Ok(_) => Message::SentRequest,
-                            Err(err) => Message::Error(err.to_string()),
-                        }));
-                    }
-                    self.input_value = "".to_string();
-                    let id = SurfaceId(self.id_ctr);
-                    self.active_surface.replace(id);
-                    cmds.push(get_layer_surface(SctkLayerSurfaceSettings {
+                }
+
+                self.id_ctr += 1;
+
+                if let Some(tx) = &self.tx {
+                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
+                }
+
+                self.input_value = String::new();
+                let id = SurfaceId(self.id_ctr);
+                self.active_surface.replace(id);
+
+                return Command::batch(vec![
+                    get_layer_surface(SctkLayerSurfaceSettings {
                         id,
                         keyboard_interactivity: KeyboardInteractivity::Exclusive,
                         anchor: Anchor::TOP,
@@ -261,10 +220,9 @@ impl Application for CosmicLauncher {
                         },
                         size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
                         ..Default::default()
-                    }));
-                    cmds.push(text_input::focus(INPUT_ID.clone()));
-                    return Command::batch(cmds);
-                }
+                    }),
+                    text_input::focus(INPUT_ID.clone()),
+                ]);
             }
             Message::Hide => return self.hide(),
             Message::KeyboardNav(e) => {
@@ -274,15 +232,9 @@ impl Application for CosmicLauncher {
                     keyboard_nav::Message::Unfocus => {
                         return {
                             self.input_value.clear();
-                            if let Some(tx) = self.tx.as_ref() {
-                                let mut tx = tx.clone();
-                                let cmd = async move {
-                                    tx.send(LauncherRequest::Search("".to_string())).await
-                                };
-                                return Command::perform(cmd, |res| match res {
-                                    Ok(_) => Message::SentRequest,
-                                    Err(err) => Message::Error(err.to_string()),
-                                });
+                            if let Some(tx) = &self.tx {
+                                let _res =
+                                    tx.blocking_send(launcher::Request::Search(String::new()));
                             }
                             keyboard_nav::unfocus()
                         }
@@ -295,6 +247,7 @@ impl Application for CosmicLauncher {
         Command::none()
     }
 
+    #[allow(clippy::too_many_lines)]
     fn view(&self, id: SurfaceId) -> Element<Message> {
         if id == SurfaceId(0) {
             // TODO just delete the original surface if possible
@@ -334,7 +287,7 @@ impl Application for CosmicLauncher {
                     name.lines()
                         .map(|line| {
                             text(if line.len() > 45 {
-                                format!("{:.45}...", line)
+                                format!("{line:.45}...")
                             } else {
                                 line.to_string()
                             })
@@ -349,7 +302,7 @@ impl Application for CosmicLauncher {
                     desc.lines()
                         .map(|line| {
                             text(if line.len() > 60 {
-                                format!("{:.60}", line)
+                                format!("{line:.60}")
                             } else {
                                 line.to_string()
                             })
@@ -373,7 +326,7 @@ impl Application for CosmicLauncher {
                             .height(Length::Fixed(16.0))
                             .style(Svg::Symbolic)
                             .into(),
-                    )
+                    );
                 }
 
                 if let Some(source) = item.icon.as_ref() {
@@ -386,7 +339,7 @@ impl Application for CosmicLauncher {
                             .width(Length::Fixed(32.0))
                             .height(Length::Fixed(32.0))
                             .into(),
-                    )
+                    );
                 }
 
                 button_content.push(column![name, desc].into());
@@ -417,22 +370,22 @@ impl Application for CosmicLauncher {
                     active: Box::new(|theme| {
                         let text = button::StyleSheet::active(theme, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0.into(),
+                            border_radius: 8.0,
                             ..text
                         }
                     }),
                     hover: Box::new(|theme| {
                         let text = button::StyleSheet::hovered(theme, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0.into(),
+                            border_radius: 8.0,
                             ..text
                         }
                     }),
                 });
-                if i != self.launcher_items.len() - 1 {
-                    vec![btn.into(), divider::horizontal::light().into()]
-                } else {
+                if i == self.launcher_items.len() - 1 {
                     vec![btn.into()]
+                } else {
+                    vec![btn.into(), divider::horizontal::light().into()]
                 }
             })
             .collect();
@@ -457,12 +410,12 @@ impl Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(
             vec![
-                keyboard_nav::subscription().map(|e| Message::KeyboardNav(e)),
+                keyboard_nav::subscription().map(Message::KeyboardNav),
                 dbus_toggle(0).map(|e| match e {
                     Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
                     None => Message::Ignore,
                 }),
-                launcher(0).map(|msg| Message::LauncherEvent(msg)),
+                launcher::subscription(0).map(Message::LauncherEvent),
                 events_with(|e, _status| match e {
                     cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                         wayland::Event::Layer(e, ..),
