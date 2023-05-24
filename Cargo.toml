@@ -26,6 +26,5 @@ serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 shlex = "1.1.0"
 tokio = { version = "1.24.1", features = ["sync", "rt", "tracing"] }
-tokio-stream = "0.1.8"
 xdg = "2.4.1"
 zbus = "3.7.0"
