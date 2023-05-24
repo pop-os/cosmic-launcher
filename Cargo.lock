@@ -761,7 +761,6 @@ dependencies = [
  "serde_json",
  "shlex",
  "tokio",
- "tokio-stream",
  "xdg",
  "zbus",
 ]
