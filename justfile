@@ -18,7 +18,7 @@ ld-args := if `which lld || true` != '' {
     ''
 }
 
-export RUSTFLAGS := env_var_or_default('RUSTFLAGS', '') + ' ' + ld-args
+export RUSTFLAGS := env_var_or_default('RUSTFLAGS', '') + ' --cfg tokio_unstable ' + ld-args
 
 # Default recipe which runs `just build-release`
 default: build-release
@@ -47,6 +47,14 @@ check *args:
 
 # Runs a clippy check with JSON message format
 check-json: (check '--message-format=json')
+
+# Runs after compiling a release build
+run: build-release
+    ./target/release/cosmic-launcher
+
+# Build and run with tokio-console enabled
+tokio-console: build-release
+    env TOKIO_CONSOLE=1 ./target/release/cosmic-launcher
 
 # Installs files
 install:
