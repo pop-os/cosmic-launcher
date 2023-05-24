@@ -14,7 +14,7 @@ use crate::{components::app, config::VERSION};
 fn main() -> cosmic::iced::Result {
     // Initialize logger
     pretty_env_logger::init();
-    info!("Iced Launcher ({})", APP_ID);
+    info!("cosmic-launcher ({})", APP_ID);
     info!("Version: {} ({})", VERSION, config::profile());
 
     // Prepare i18n
