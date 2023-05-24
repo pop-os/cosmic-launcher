@@ -121,7 +121,6 @@ impl Application for CosmicLauncher {
             }
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
-                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                     self.tx.replace(tx);
                 }
                 launcher::Event::Response(response) => match response {
@@ -182,9 +181,6 @@ impl Application for CosmicLauncher {
             },
             Message::Closed => {
                 self.active_surface.take();
-                if let Some(tx) = &self.tx {
-                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
-                }
                 self.input_value = String::new();
                 return text_input::focus(INPUT_ID.clone());
             }
@@ -197,6 +193,8 @@ impl Application for CosmicLauncher {
 
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
+                } else {
+                    log::info!("NOT FOUND");
                 }
 
                 self.input_value = String::new();
