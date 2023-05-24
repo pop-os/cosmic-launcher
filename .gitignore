@@ -12,7 +12,6 @@ src/config.rs
 flatpak_app/
 vendor
 vendor.tar
-.cargo/
 /result
 
 debian/*

@@ -29,7 +29,7 @@ clean:
 
 # `cargo clean` and removes vendored dependencies
 clean-dist: clean
-    rm -rf .cargo vendor vendor.tar
+    rm -rf vendor vendor.tar
 
 # Compiles with debug profile
 build-debug *args:
@@ -70,10 +70,11 @@ uninstall:
 
 # Vendor dependencies locally
 vendor:
-    mkdir -p .cargo
+    cp .cargo/config.default .cargo/config.toml
     cargo vendor --sync Cargo.toml \
-        | head -n -1 > .cargo/config
-    echo 'directory = "vendor"' >> .cargo/config
+        | head -n -1 >> .cargo/config.toml
+    echo 'directory = "vendor"' >> .cargo/config.toml
+    rm -rf vendor/winapi*gnu*/lib/*.a; \
     tar pcf vendor.tar vendor
     rm -rf vendor
 
