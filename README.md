@@ -40,3 +40,9 @@ sudo just rootdir=debian/cosmic-launcher prefix=/usr install
 # Translators
 
 Translation files may be found in the i18n directory. New translations may copy the English (en) localization of the project and rename `en` to the desired [ISO 639-1 language code](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes). Translations may be submitted through GitHub as an issue or pull request. Submissions by email or other means are also acceptable; with the preferred name and email to associate with the changes.
+
+# Debugging & Profiling
+
+## Profiling async tasks with tokio-console
+
+To debug issues with asynchronous code, install [tokio-console](https://github.com/tokio-rs/console) and run it within a separate terminal. Then kill the **cosmic-launcher** process a couple times in quick succession to prevent **cosmic-session** from spawning it again. Then you can start **cosmic-launcher** with **tokio-console** support either by running `just tokio-console` from this repository to test code changes, or `env TOKIO_CONSOLE=1 cosmic-launcher` to enable it with the installed version of **cosmic-launcher**.
