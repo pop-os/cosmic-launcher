@@ -1,31 +1,31 @@
-use cosmic::{iced::futures::{channel::mpsc, StreamExt}, iced_runtime::futures::MaybeSend};
-use futures::{Stream, SinkExt};
-use pop_launcher::Request;
+use cosmic::{iced::futures::StreamExt, iced_runtime::futures::MaybeSend};
+use futures::{SinkExt, Stream};
 use pop_launcher_service::IpcClient;
 use std::hash::Hash;
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
-pub enum LauncherRequest {
+pub enum Request {
     Search(String),
     Activate(u32),
     Close,
 }
 
 #[derive(Debug, Clone)]
-pub enum LauncherEvent {
-    Started(mpsc::Sender<LauncherRequest>),
+pub enum Event {
+    Started(mpsc::Sender<Request>),
     Response(pop_launcher::Response),
 }
 
-pub fn launcher<I: 'static + Hash + Copy + Send + Sync>(
+pub fn subscription<I: 'static + Hash + Copy + Send + Sync>(
     id: I,
-) -> cosmic::iced::Subscription<LauncherEvent> {
+) -> cosmic::iced::Subscription<Event> {
     use cosmic::iced::subscription;
 
     subscription::channel(id, 1, |mut output| async move {
         loop {
             log::info!("starting pop-launcher service");
-            let mut responses = service();
+            let mut responses = std::pin::pin!(service());
             while let Some(message) = responses.next().await {
                 let _res = output.send(message).await;
             }
@@ -34,21 +34,24 @@ pub fn launcher<I: 'static + Hash + Copy + Send + Sync>(
 }
 
 /// Initializes pop-launcher if it is not running, and returns a handle to its client.
-fn client_request<'a>(tx: &mpsc::Sender<LauncherEvent>, client: &'a mut Option<IpcClient>) -> &'a mut Option<IpcClient> {
+fn client_request<'a>(
+    tx: &mpsc::Sender<Event>,
+    client: &'a mut Option<IpcClient>,
+) -> &'a mut Option<IpcClient> {
     if client.is_none() {
         *client = match pop_launcher_service::IpcClient::new() {
             Ok((new_client, responses)) => {
-                let mut tx = tx.clone();
+                let tx = tx.clone();
 
                 tokio::spawn(async move {
                     let mut responses = std::pin::pin!(responses);
                     while let Some(response) = responses.next().await {
-                        let _res = tx.send(LauncherEvent::Response(response)).await;
+                        let _res = tx.send(Event::Response(response)).await;
                     }
                 });
 
                 Some(new_client)
-            },
+            }
             Err(why) => {
                 log::error!("pop-launcher failed to start: {}", why);
                 None
@@ -59,28 +62,28 @@ fn client_request<'a>(tx: &mpsc::Sender<LauncherEvent>, client: &'a mut Option<I
     client
 }
 
-pub fn service() -> impl Stream<Item = LauncherEvent> + MaybeSend {
+pub fn service() -> impl Stream<Item = Event> + MaybeSend {
     let (requests_tx, mut requests_rx) = mpsc::channel(4);
-    let (mut responses_tx, responses_rx) = mpsc::channel(4);
+    let (responses_tx, mut responses_rx) = mpsc::channel(4);
 
     tokio::spawn(async move {
-        let _res = responses_tx.send(LauncherEvent::Started(requests_tx.clone())).await;
+        let _res = responses_tx.send(Event::Started(requests_tx.clone())).await;
 
         let client = &mut None;
 
-        while let Some(request) = requests_rx.next().await {
+        while let Some(request) = requests_rx.recv().await {
             match request {
-                LauncherRequest::Search(s) => {
+                Request::Search(s) => {
                     if let Some(client) = client_request(&responses_tx, client) {
-                        let _res = client.send(Request::Search(s)).await;
+                        let _res = client.send(pop_launcher::Request::Search(s)).await;
                     }
                 }
-                LauncherRequest::Activate(i) => {
+                Request::Activate(i) => {
                     if let Some(client) = client_request(&responses_tx, client) {
-                        let _res = client.send(Request::Activate(i)).await;
+                        let _res = client.send(pop_launcher::Request::Activate(i)).await;
                     }
                 }
-                LauncherRequest::Close => {
+                Request::Close => {
                     if let Some(mut client) = client.take() {
                         log::info!("closing pop-launcher service");
                         let _res = client.child.kill().await;
@@ -91,5 +94,9 @@ pub fn service() -> impl Stream<Item = LauncherEvent> + MaybeSend {
         }
     });
 
-    responses_rx
+    async_stream::stream! {
+        while let Some(message) = responses_rx.recv().await {
+            yield message;
+        }
+    }
 }
