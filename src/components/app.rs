@@ -69,17 +69,15 @@ impl CosmicLauncher {
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
 
-        let mut commands: Vec<Command<Message>> = Vec::with_capacity(2);
-
         if let Some(ref sender) = &self.tx {
             let _res = sender.blocking_send(launcher::Request::Close);
         }
 
         if let Some(id) = self.active_surface {
-            commands.push(destroy_layer_surface(id));
+            return destroy_layer_surface(id);
         }
 
-        Command::batch(commands.into_iter())
+        Command::none()
     }
 }
 
@@ -109,7 +107,7 @@ impl Application for CosmicLauncher {
             Message::Activate(Some(i)) => {
                 if let (Some(tx), Some(item)) = (&self.tx, self.launcher_items.get(i)) {
                     let _res = tx.blocking_send(launcher::Request::Activate(item.id));
-                    return Command::perform(async {}, |_| Message::Hide);
+                    return self.hide();
                 }
             }
             Message::Activate(None) => {
@@ -154,7 +152,7 @@ impl Application for CosmicLauncher {
                                     }
                                 }
                                 crate::process::spawn(cmd);
-                                return Command::perform(async {}, |_| Message::Hide);
+                                return self.hide();
                             }
                         }
                     }
@@ -184,13 +182,11 @@ impl Application for CosmicLauncher {
             },
             Message::Closed => {
                 self.active_surface.take();
-                let mut cmds = Vec::new();
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                 }
                 self.input_value = String::new();
-                cmds.push(text_input::focus(INPUT_ID.clone()));
-                return Command::batch(cmds);
+                return text_input::focus(INPUT_ID.clone());
             }
             Message::Toggle => {
                 if let Some(id) = self.active_surface {
