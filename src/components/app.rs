@@ -393,7 +393,7 @@ impl Application for CosmicLauncher {
             .style(Container::Custom(Box::new(|theme| container::Appearance {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
                 background: Some(Color::from(theme.cosmic().background.base).into()),
-                border_radius: 16.0,
+                border_radius: 16.0.into(),
                 border_width: 1.0,
                 border_color: theme.cosmic().bg_divider().into(),
             })))
@@ -479,7 +479,7 @@ impl Application for CosmicLauncher {
     }
 
     fn theme(&self) -> Theme {
-        self.theme
+        self.theme.clone()
     }
 
     fn close_requested(&self, _id: SurfaceId) -> Self::Message {
