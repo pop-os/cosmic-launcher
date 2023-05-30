@@ -69,10 +69,6 @@ impl CosmicLauncher {
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
 
-        if let Some(ref sender) = &self.tx {
-            let _res = sender.blocking_send(launcher::Request::Close);
-        }
-
         if let Some(id) = self.active_surface {
             return destroy_layer_surface(id);
         }
@@ -121,6 +117,7 @@ impl Application for CosmicLauncher {
             }
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
+                    _ = tx.blocking_send(launcher::Request::Search(String::new()));
                     self.tx.replace(tx);
                 }
                 launcher::Event::Response(response) => match response {
