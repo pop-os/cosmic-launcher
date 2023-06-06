@@ -20,7 +20,7 @@ use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
 use cosmic::iced_widget::text_input::{Icon, Side};
-use cosmic::theme::{Button, Container, Svg, TextInput};
+use cosmic::theme::{self, Button, Container, Svg, TextInput};
 use cosmic::widget::{divider, icon};
 use cosmic::{keyboard_nav, settings, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
@@ -34,6 +34,8 @@ use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 
+const WINDOW_ID: SurfaceId = SurfaceId(1);
+
 pub fn run() -> cosmic::iced::Result {
     let mut settings = settings();
     settings.exit_on_close_request = false;
@@ -43,10 +45,9 @@ pub fn run() -> cosmic::iced::Result {
 
 #[derive(Default, Clone)]
 struct CosmicLauncher {
-    id_ctr: u128,
     input_value: String,
     selected_item: Option<usize>,
-    active_surface: Option<SurfaceId>,
+    active_surface: bool,
     theme: Theme,
     launcher_items: Vec<SearchResult>,
     tx: Option<mpsc::Sender<launcher::Request>>,
@@ -69,8 +70,9 @@ impl CosmicLauncher {
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
 
-        if let Some(id) = self.active_surface {
-            return destroy_layer_surface(id);
+        if self.active_surface {
+            self.active_surface = false;
+            return destroy_layer_surface(WINDOW_ID);
         }
 
         Command::none()
@@ -170,23 +172,23 @@ impl Application for CosmicLauncher {
                     return text_input::focus(INPUT_ID.clone());
                 }
                 LayerEvent::Unfocused => {
-                    if let Some(id) = self.active_surface {
-                        return destroy_layer_surface(id);
+                    if self.active_surface {
+                        self.active_surface = false;
+                        return destroy_layer_surface(WINDOW_ID);
                     }
                 }
                 LayerEvent::Done => {}
             },
             Message::Closed => {
-                self.active_surface.take();
+                self.active_surface = false;
                 self.input_value = String::new();
                 return text_input::focus(INPUT_ID.clone());
             }
             Message::Toggle => {
-                if let Some(id) = self.active_surface {
-                    return destroy_layer_surface(id);
+                if self.active_surface {
+                    self.active_surface = false;
+                    return destroy_layer_surface(WINDOW_ID);
                 }
-
-                self.id_ctr += 1;
 
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
@@ -195,12 +197,11 @@ impl Application for CosmicLauncher {
                 }
 
                 self.input_value = String::new();
-                let id = SurfaceId(self.id_ctr);
-                self.active_surface.replace(id);
+                self.active_surface = true;
 
                 return Command::batch(vec![
                     get_layer_surface(SctkLayerSurfaceSettings {
-                        id,
+                        id: WINDOW_ID,
                         keyboard_interactivity: KeyboardInteractivity::Exclusive,
                         anchor: Anchor::TOP,
                         namespace: "launcher".into(),
@@ -300,6 +301,7 @@ impl Application for CosmicLauncher {
                             .horizontal_alignment(Horizontal::Left)
                             .vertical_alignment(Vertical::Center)
                             .size(10)
+                            .style(theme::Text::Accent)
                             .into()
                         })
                         .collect(),
