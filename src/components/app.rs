@@ -105,7 +105,6 @@ impl Application for CosmicLauncher {
             Message::Activate(Some(i)) => {
                 if let (Some(tx), Some(item)) = (&self.tx, self.launcher_items.get(i)) {
                     let _res = tx.blocking_send(launcher::Request::Activate(item.id));
-                    return self.hide();
                 }
             }
             Message::Activate(None) => {
@@ -164,6 +163,7 @@ impl Application for CosmicLauncher {
                     }
                     pop_launcher::Response::Fill(s) => {
                         self.input_value = s;
+                        return text_input::focus(INPUT_ID.clone());
                     }
                 },
             },
@@ -252,6 +252,7 @@ impl Application for CosmicLauncher {
         )
         .on_input(Message::InputChanged)
         .on_paste(Message::InputChanged)
+        .on_submit(Message::Activate(None))
         .size(14)
         .style(TextInput::Search)
         .padding([8, 24])
@@ -460,7 +461,6 @@ impl Application for CosmicLauncher {
                         KeyCode::N | KeyCode::J if modifiers.control() => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                         }
-                        KeyCode::Enter => Some(Message::Activate(None)),
                         _ => None,
                     },
                     _ => None,
