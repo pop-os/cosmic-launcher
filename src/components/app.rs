@@ -1,3 +1,4 @@
+
 use std::fs;
 
 use crate::config;
@@ -18,6 +19,7 @@ use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
+
 use cosmic::iced_widget::row;
 use cosmic::iced_widget::text_input::{Icon, Side};
 use cosmic::theme::{self, Button, Container, Svg, TextInput};
@@ -43,20 +45,31 @@ pub fn run() -> cosmic::iced::Result {
     CosmicLauncher::run(settings)
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct CosmicLauncher {
     input_value: String,
-    selected_item: Option<usize>,
     active_surface: bool,
     theme: Theme,
     launcher_items: Vec<SearchResult>,
     tx: Option<mpsc::Sender<launcher::Request>>,
 }
 
+impl Default for CosmicLauncher {
+    fn default() -> Self {
+        Self {
+            input_value: String::new(),
+            active_surface: false,
+            theme: Theme::default(),
+            launcher_items: Vec::new(),
+            tx: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Message {
     InputChanged(String),
-    Activate(Option<usize>),
+    Activate(usize),
     Hide,
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
@@ -102,17 +115,8 @@ impl Application for CosmicLauncher {
                     let _res = tx.blocking_send(launcher::Request::Search(value));
                 }
             }
-            Message::Activate(Some(i)) => {
+            Message::Activate(i) => {
                 if let (Some(tx), Some(item)) = (&self.tx, self.launcher_items.get(i)) {
-                    let _res = tx.blocking_send(launcher::Request::Activate(item.id));
-                }
-            }
-            Message::Activate(None) => {
-                if let (Some(tx), Some(item)) = (
-                    &self.tx,
-                    self.launcher_items
-                        .get(self.selected_item.unwrap_or_default()),
-                ) {
                     let _res = tx.blocking_send(launcher::Request::Activate(item.id));
                 }
             }
@@ -219,17 +223,18 @@ impl Application for CosmicLauncher {
             Message::Hide => return self.hide(),
             Message::KeyboardNav(e) => {
                 match e {
-                    keyboard_nav::Message::FocusNext => return iced::widget::focus_next(),
-                    keyboard_nav::Message::FocusPrevious => return iced::widget::focus_previous(),
+                    keyboard_nav::Message::FocusNext => {
+                        return iced::widget::focus_next();
+                    }
+                    keyboard_nav::Message::FocusPrevious => {
+                        return iced::widget::focus_previous();
+                    }
                     keyboard_nav::Message::Unfocus => {
-                        return {
-                            self.input_value.clear();
-                            if let Some(tx) = &self.tx {
-                                let _res =
-                                    tx.blocking_send(launcher::Request::Search(String::new()));
-                            }
-                            keyboard_nav::unfocus()
+                        self.input_value.clear();
+                        if let Some(tx) = &self.tx {
+                            let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                         }
+                        return keyboard_nav::unfocus();
                     }
                     _ => {}
                 };
@@ -252,7 +257,7 @@ impl Application for CosmicLauncher {
         )
         .on_input(Message::InputChanged)
         .on_paste(Message::InputChanged)
-        .on_submit(Message::Activate(None))
+        .on_submit(Message::Activate(0))
         .size(14)
         .style(TextInput::Search)
         .padding([8, 24])
@@ -358,7 +363,7 @@ impl Application for CosmicLauncher {
                         .align_items(Alignment::Center),
                 )
                 .width(Length::Fill)
-                .on_press(Message::Activate(Some(i)))
+                .on_press(Message::Activate(i))
                 .padding([8, 16])
                 .style(Button::Custom {
                     active: Box::new(|theme| {
@@ -420,34 +425,34 @@ impl Application for CosmicLauncher {
                     }) => match key_code {
                         KeyCode::Escape => Some(Message::Hide),
                         KeyCode::Key1 | KeyCode::Numpad1 if modifiers.control() => {
-                            Some(Message::Activate(Some(0)))
+                            Some(Message::Activate(0))
                         }
                         KeyCode::Key2 | KeyCode::Numpad2 if modifiers.control() => {
-                            Some(Message::Activate(Some(1)))
+                            Some(Message::Activate(1))
                         }
                         KeyCode::Key3 | KeyCode::Numpad3 if modifiers.control() => {
-                            Some(Message::Activate(Some(2)))
+                            Some(Message::Activate(2))
                         }
                         KeyCode::Key4 | KeyCode::Numpad4 if modifiers.control() => {
-                            Some(Message::Activate(Some(3)))
+                            Some(Message::Activate(3))
                         }
                         KeyCode::Key5 | KeyCode::Numpad5 if modifiers.control() => {
-                            Some(Message::Activate(Some(4)))
+                            Some(Message::Activate(4))
                         }
                         KeyCode::Key6 | KeyCode::Numpad6 if modifiers.control() => {
-                            Some(Message::Activate(Some(5)))
+                            Some(Message::Activate(5))
                         }
                         KeyCode::Key7 | KeyCode::Numpad7 if modifiers.control() => {
-                            Some(Message::Activate(Some(6)))
+                            Some(Message::Activate(6))
                         }
                         KeyCode::Key8 | KeyCode::Numpad7 if modifiers.control() => {
-                            Some(Message::Activate(Some(7)))
+                            Some(Message::Activate(7))
                         }
                         KeyCode::Key9 | KeyCode::Numpad9 if modifiers.control() => {
-                            Some(Message::Activate(Some(8)))
+                            Some(Message::Activate(8))
                         }
                         KeyCode::Key0 | KeyCode::Numpad0 if modifiers.control() => {
-                            Some(Message::Activate(Some(9)))
+                            Some(Message::Activate(9))
                         }
                         KeyCode::Up => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
