@@ -1,5 +1,6 @@
 use std::fs;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::config;
 use crate::subscriptions::launcher;
@@ -183,7 +184,11 @@ impl Application for CosmicLauncher {
                                     }
                                 }
                                 crate::process::spawn(cmd);
-                                return self.hide();
+                                // FIXME not sure why immediately hiding causes the launcher to receive an extra submit from the text_input
+                                return Command::perform(
+                                    tokio::time::sleep(Duration::from_millis(100)),
+                                    |_| Message::Hide,
+                                );
                             }
                         }
                     }
