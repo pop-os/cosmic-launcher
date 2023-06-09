@@ -1,9 +1,11 @@
-
 use std::fs;
+use std::sync::Arc;
 
 use crate::config;
 use crate::subscriptions::launcher;
 use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
+use cosmic::cosmic_config::{config_subscription, CosmicConfigEntry};
+use cosmic::cosmic_theme::util::CssColor;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::id::Id;
 use cosmic::iced::subscription::events_with;
@@ -66,6 +68,24 @@ impl Default for CosmicLauncher {
     }
 }
 
+fn theme() -> Theme {
+    let Ok(helper) = cosmic::cosmic_config::Config::new(
+        cosmic::cosmic_theme::NAME,
+        cosmic::cosmic_theme::Theme::<CssColor>::version() as u64,
+    ) else {
+        return cosmic::theme::Theme::dark();
+    };
+    let t = cosmic::cosmic_theme::Theme::get_entry(&helper)
+        .map(|t| t.into_srgba())
+        .unwrap_or_else(|(errors, theme)| {
+            for err in errors {
+                log::error!("{:?}", err);
+            }
+            theme.into_srgba()
+        });
+    cosmic::theme::Theme::custom(Arc::new(t))
+}
+
 #[derive(Debug, Clone)]
 enum Message {
     InputChanged(String),
@@ -77,6 +97,7 @@ enum Message {
     Closed,
     KeyboardNav(keyboard_nav::Message),
     Ignore,
+    Theme(Theme),
 }
 
 impl CosmicLauncher {
@@ -99,7 +120,13 @@ impl Application for CosmicLauncher {
     type Flags = ();
 
     fn new(_flags: ()) -> (Self, Command<Message>) {
-        (CosmicLauncher::default(), Command::none())
+        (
+            CosmicLauncher {
+                theme: theme(),
+                ..Default::default()
+            },
+            Command::none(),
+        )
     }
 
     fn title(&self) -> String {
@@ -109,6 +136,9 @@ impl Application for CosmicLauncher {
     #[allow(clippy::too_many_lines)]
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
+            Message::Theme(t) => {
+                self.theme = t;
+            }
             Message::InputChanged(value) => {
                 self.input_value = value.clone();
                 if let Some(tx) = &self.tx {
@@ -409,6 +439,22 @@ impl Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(
             vec![
+                config_subscription::<u64, cosmic::cosmic_theme::Theme<CssColor>>(
+                    0,
+                    cosmic::cosmic_theme::NAME.into(),
+                    cosmic::cosmic_theme::Theme::<CssColor>::version() as u64,
+                )
+                .map(|(_, res)| {
+                    let theme =
+                        res.map(|theme| theme.into_srgba())
+                            .unwrap_or_else(|(errors, theme)| {
+                                for err in errors {
+                                    log::error!("{:?}", err);
+                                }
+                                theme.into_srgba()
+                            });
+                    Message::Theme(cosmic::theme::Theme::custom(Arc::new(theme)))
+                }),
                 keyboard_nav::subscription().map(Message::KeyboardNav),
                 dbus_toggle(0).map(|e| match e {
                     Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
