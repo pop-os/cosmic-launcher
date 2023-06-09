@@ -445,14 +445,14 @@ impl Application for CosmicLauncher {
                     cosmic::cosmic_theme::Theme::<CssColor>::version() as u64,
                 )
                 .map(|(_, res)| {
-                    let theme =
-                        res.map(|theme| theme.into_srgba())
-                            .unwrap_or_else(|(errors, theme)| {
-                                for err in errors {
-                                    log::error!("{:?}", err);
-                                }
-                                theme.into_srgba()
-                            });
+                    let theme = res
+                        .map(cosmic::cosmic_theme::Theme::into_srgba)
+                        .unwrap_or_else(|(errors, theme)| {
+                            for err in errors {
+                                log::error!("{:?}", err);
+                            }
+                            theme.into_srgba()
+                        });
                     Message::Theme(cosmic::theme::Theme::custom(Arc::new(theme)))
                 }),
                 keyboard_nav::subscription().map(Message::KeyboardNav),
