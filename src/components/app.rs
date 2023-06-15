@@ -404,14 +404,14 @@ impl Application for CosmicLauncher {
                     active: Box::new(|theme| {
                         let text = button::StyleSheet::active(theme, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0,
+                            border_radius: 8.0.into(),
                             ..text
                         }
                     }),
                     hover: Box::new(|theme| {
                         let text = button::StyleSheet::hovered(theme, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0,
+                            border_radius: 8.0.into(),
                             ..text
                         }
                     }),
