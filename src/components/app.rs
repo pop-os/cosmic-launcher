@@ -1,7 +1,3 @@
-use std::fs;
-use std::sync::Arc;
-use std::time::Duration;
-
 use crate::config;
 use crate::subscriptions::launcher;
 use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
@@ -22,7 +18,6 @@ use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
-
 use cosmic::iced_widget::row;
 use cosmic::iced_widget::text_input::{Icon, Side};
 use cosmic::theme::{self, Button, Container, Svg, TextInput};
@@ -35,6 +30,8 @@ use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
+use std::fs;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
