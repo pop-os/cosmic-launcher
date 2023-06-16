@@ -107,13 +107,21 @@ impl CosmicLauncher {
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
 
+        // XXX The close will reset the launcher, but the search will restart it so it's ready
+        // for the next time it's opened.
+        if let Some(ref sender) = &self.tx {
+            let _res = sender.blocking_send(launcher::Request::Close);
+        }
+
+        if let Some(tx) = &self.tx {
+            let _res = tx.blocking_send(launcher::Request::Search(String::new()));
+        } else {
+            tracing::info!("NOT FOUND");
+        }
+
         if self.active_surface {
             self.active_surface = false;
             return destroy_layer_surface(WINDOW_ID);
-        }
-
-        if let Some(ref sender) = &self.tx {
-            let _res = sender.blocking_send(launcher::Request::Close);
         }
 
         Command::none()
@@ -190,11 +198,7 @@ impl Application for CosmicLauncher {
                                     }
                                 }
                                 crate::process::spawn(cmd);
-                                // FIXME not sure why immediately hiding causes the launcher to receive an extra submit from the text_input
-                                return Command::perform(
-                                    tokio::time::sleep(Duration::from_millis(100)),
-                                    |_| Message::Hide,
-                                );
+                                return self.hide();
                             }
                         }
                     }
@@ -204,6 +208,7 @@ impl Application for CosmicLauncher {
                             let b = i32::from(b.window.is_none());
                             a.cmp(&b)
                         });
+                        list.truncate(10);
                         self.launcher_items.splice(.., list);
 
                         if self.wait_for_result {
@@ -240,10 +245,7 @@ impl Application for CosmicLauncher {
                     return text_input::focus(INPUT_ID.clone());
                 }
                 LayerEvent::Unfocused => {
-                    if self.active_surface {
-                        self.active_surface = false;
-                        return destroy_layer_surface(WINDOW_ID);
-                    }
+                    return self.hide();
                 }
                 LayerEvent::Done => {}
             },
@@ -254,8 +256,7 @@ impl Application for CosmicLauncher {
             }
             Message::Toggle => {
                 if self.active_surface {
-                    self.active_surface = false;
-                    return destroy_layer_surface(WINDOW_ID);
+                    return self.hide();
                 }
 
                 if let Some(tx) = &self.tx {
