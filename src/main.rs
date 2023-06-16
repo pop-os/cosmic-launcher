@@ -5,7 +5,7 @@ mod localize;
 mod process;
 mod subscriptions;
 use config::APP_ID;
-use log::info;
+use tracing::info;
 
 use localize::localize;
 

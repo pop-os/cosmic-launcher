@@ -55,6 +55,7 @@ struct CosmicLauncher {
     theme: Theme,
     launcher_items: Vec<SearchResult>,
     tx: Option<mpsc::Sender<launcher::Request>>,
+    wait_for_result: bool,
 }
 
 impl Default for CosmicLauncher {
@@ -65,6 +66,7 @@ impl Default for CosmicLauncher {
             theme: Theme::default(),
             launcher_items: Vec::new(),
             tx: None,
+            wait_for_result: false,
         }
     }
 }
@@ -80,7 +82,7 @@ fn theme() -> Theme {
         .map(|t| t.into_srgba())
         .unwrap_or_else(|(errors, theme)| {
             for err in errors {
-                log::error!("{:?}", err);
+                tracing::error!("{:?}", err);
             }
             theme.into_srgba()
         });
@@ -108,6 +110,10 @@ impl CosmicLauncher {
         if self.active_surface {
             self.active_surface = false;
             return destroy_layer_surface(WINDOW_ID);
+        }
+
+        if let Some(ref sender) = &self.tx {
+            let _res = sender.blocking_send(launcher::Request::Close);
         }
 
         Command::none()
@@ -199,6 +205,29 @@ impl Application for CosmicLauncher {
                             a.cmp(&b)
                         });
                         self.launcher_items.splice(.., list);
+
+                        if self.wait_for_result {
+                            self.wait_for_result = false;
+                            return Command::batch(vec![
+                                get_layer_surface(SctkLayerSurfaceSettings {
+                                    id: WINDOW_ID,
+                                    keyboard_interactivity: KeyboardInteractivity::Exclusive,
+                                    anchor: Anchor::TOP,
+                                    namespace: "launcher".into(),
+                                    size: None,
+                                    margin: iced::wayland::actions::layer_surface::IcedMargin {
+                                        top: 16,
+                                        ..Default::default()
+                                    },
+                                    size_limits: Limits::NONE
+                                        .min_width(1.0)
+                                        .min_height(1.0)
+                                        .max_width(600.0),
+                                    ..Default::default()
+                                }),
+                                text_input::focus(INPUT_ID.clone()),
+                            ]);
+                        }
                     }
                     pop_launcher::Response::Fill(s) => {
                         self.input_value = s;
@@ -232,28 +261,12 @@ impl Application for CosmicLauncher {
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                 } else {
-                    log::info!("NOT FOUND");
+                    tracing::info!("NOT FOUND");
                 }
 
                 self.input_value = String::new();
                 self.active_surface = true;
-
-                return Command::batch(vec![
-                    get_layer_surface(SctkLayerSurfaceSettings {
-                        id: WINDOW_ID,
-                        keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                        anchor: Anchor::TOP,
-                        namespace: "launcher".into(),
-                        size: None,
-                        margin: iced::wayland::actions::layer_surface::IcedMargin {
-                            top: 16,
-                            ..Default::default()
-                        },
-                        size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
-                        ..Default::default()
-                    }),
-                    text_input::focus(INPUT_ID.clone()),
-                ]);
+                self.wait_for_result = true;
             }
             Message::Hide => return self.hide(),
             Message::KeyboardNav(e) => {
@@ -454,7 +467,7 @@ impl Application for CosmicLauncher {
                         .map(cosmic::cosmic_theme::Theme::into_srgba)
                         .unwrap_or_else(|(errors, theme)| {
                             for err in errors {
-                                log::error!("{:?}", err);
+                                tracing::error!("{:?}", err);
                             }
                             theme.into_srgba()
                         });
