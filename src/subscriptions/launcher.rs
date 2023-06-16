@@ -24,7 +24,7 @@ pub fn subscription<I: 'static + Hash + Copy + Send + Sync>(
 
     subscription::channel(id, 1, |mut output| async move {
         loop {
-            log::info!("starting pop-launcher service");
+            tracing::info!("starting pop-launcher service");
             let mut responses = std::pin::pin!(service());
             while let Some(message) = responses.next().await {
                 let _res = output.send(message).await;
@@ -48,7 +48,7 @@ async fn client_request<'a>(
                 let _res = tokio::task::Builder::new()
                     .name("pop-launcher listener")
                     .spawn(async {
-                        log::info!("starting pop-launcher instance");
+                        tracing::info!("starting pop-launcher instance");
                         let listener = Box::pin(async move {
                             let mut responses = std::pin::pin!(responses);
                             while let Some(response) = responses.next().await {
@@ -70,7 +70,7 @@ async fn client_request<'a>(
                 Some((new_client, kill_tx))
             }
             Err(why) => {
-                log::error!("pop-launcher failed to start: {}", why);
+                tracing::error!("pop-launcher failed to start: {}", why);
                 None
             }
         }
@@ -104,7 +104,7 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
                     }
                     Request::Close => {
                         if let Some((mut client, kill)) = client.take() {
-                            log::info!("closing pop-launcher instance");
+                            tracing::info!("closing pop-launcher instance");
                             let _res = kill.send(());
                             let _res = client.child.kill().await;
                             let _res = client.child.wait().await;

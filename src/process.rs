@@ -25,7 +25,7 @@ pub fn spawn(mut command: Command) {
             }
 
             Err(why) => {
-                log::warn!("failed to fork and spawn command: {}", why.desc());
+                tracing::warn!("failed to fork and spawn command: {}", why.desc());
             }
         }
     }
