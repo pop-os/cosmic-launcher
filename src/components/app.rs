@@ -195,7 +195,6 @@ impl Application for CosmicLauncher {
                                     }
                                 }
                                 crate::process::spawn(cmd);
-                                return self.hide();
                             }
                         }
                     }
@@ -227,7 +226,6 @@ impl Application for CosmicLauncher {
                                         .max_width(600.0),
                                     ..Default::default()
                                 }),
-                                text_input::focus(INPUT_ID.clone()),
                             ]);
                         }
                     }
@@ -527,6 +525,9 @@ impl Application for CosmicLauncher {
                         }
                         KeyCode::N | KeyCode::J if modifiers.control() => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
+                        }
+                        KeyCode::Enter => {
+                            Some(Message::Hide)
                         }
                         _ => None,
                     },
