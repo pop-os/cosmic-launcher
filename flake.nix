@@ -23,16 +23,12 @@
         pkgDef = {
           src = nix-filter.lib.filter {
             root = ./.;
-            include = [
-              ./src
-              ./Cargo.toml
-              ./Cargo.lock
-              ./i18n
-              ./i18n.toml
-              ./justfile
-              ./build-aux
-              ./data
-              ./po
+            exclude = [
+              ./.gitignore
+              ./flake.nix
+              ./flake.lock
+              ./LICENSE
+              ./debian
             ];
           };
           nativeBuildInputs = with pkgs; [
@@ -42,30 +38,40 @@
           ];
           buildInputs = with pkgs; [
             libxkbcommon
-            glib
-            gtk4
+            libxkbcommon
+            freetype
+            fontconfig
+            expat
+            lld
+            desktop-file-utils
+            stdenv.cc.cc.lib
             desktop-file-utils
            ];
           runtimeDependencies = with pkgs; [
             wayland
-            libglvnd # For libEGL
           ];
         };
 
         cargoArtifacts = craneLib.buildDepsOnly pkgDef;
-        cosmic-panel = craneLib.buildPackage (pkgDef // {
+        cosmic-launcher= craneLib.buildPackage (pkgDef // {
           inherit cargoArtifacts;
-          configurePhase = "mesonConfigurePhase"; # Enables Meson for setup
         });
       in {
         checks = {
-          inherit cosmic-panel;
+          inherit cosmic-launcher;
         };
 
-        packages.default = cosmic-panel;
+        packages.default = cosmic-launcher.overrideAttrs (oldAttrs: rec {
+          buildPhase= ''
+            just prefix=$out build-release
+          '';
+          installPhase = ''
+            just prefix=$out install
+          '';
+        });
 
         apps.default = flake-utils.lib.mkApp {
-          drv = cosmic-panel;
+          drv = cosmic-launcher;
         };
 
         devShells.default = pkgs.mkShell rec {
