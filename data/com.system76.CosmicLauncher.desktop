@@ -9,3 +9,4 @@ Keywords=Gnome;GTK;
 Icon=com.system76.CosmicLauncher
 StartupNotify=true
 X-HostWaylandDisplay=true
+NoDisplay=true
