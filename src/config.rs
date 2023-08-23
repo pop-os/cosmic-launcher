@@ -1,4 +1,3 @@
-pub const APP_ID: &str = "com.system76.CosmicLauncher";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn profile() -> &'static str {

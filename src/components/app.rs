@@ -1,8 +1,6 @@
-use crate::config;
 use crate::subscriptions::launcher;
 use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
-use cosmic::cosmic_config::{config_subscription, CosmicConfigEntry};
-use cosmic::cosmic_theme::util::CssColor;
+use cosmic::app::{Command, Core, Settings};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::id::Id;
 use cosmic::iced::subscription::events_with;
@@ -10,9 +8,8 @@ use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
-use cosmic::iced::wayland::InitialSurface;
 use cosmic::iced::widget::{button, column, container, text, text_input, Column};
-use cosmic::iced::{self, Application, Command, Length, Subscription};
+use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
@@ -22,7 +19,7 @@ use cosmic::iced_widget::row;
 use cosmic::iced_widget::text_input::{Icon, Side};
 use cosmic::theme::{self, Button, Container, Svg, TextInput};
 use cosmic::widget::{divider, icon};
-use cosmic::{keyboard_nav, settings, Element, Theme};
+use cosmic::{keyboard_nav, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
 use iced::wayland::Appearance;
@@ -31,7 +28,6 @@ use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
 use std::fs;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
@@ -39,65 +35,40 @@ static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 const WINDOW_ID: SurfaceId = SurfaceId(1);
 
 pub fn run() -> cosmic::iced::Result {
-    let mut settings = settings();
-    settings.exit_on_close_request = false;
-    settings.initial_surface = InitialSurface::None;
-    CosmicLauncher::run(settings)
+    cosmic::app::run::<CosmicLauncher>(
+        Settings::default()
+            .antialiasing(true)
+            .client_decorations(true)
+            .debug(false)
+            .default_icon_theme("Pop")
+            .default_text_size(16.0)
+            .scale_factor(1.0)
+            .no_main_window(true),
+        (),
+    )?;
+    Ok(())
 }
 
-#[derive(Clone)]
-struct CosmicLauncher {
+#[derive(Default, Clone)]
+pub struct CosmicLauncher {
+    core: Core,
     input_value: String,
     active_surface: bool,
-    theme: Theme,
     launcher_items: Vec<SearchResult>,
     tx: Option<mpsc::Sender<launcher::Request>>,
     wait_for_result: bool,
 }
 
-impl Default for CosmicLauncher {
-    fn default() -> Self {
-        Self {
-            input_value: String::new(),
-            active_surface: false,
-            theme: Theme::default(),
-            launcher_items: Vec::new(),
-            tx: None,
-            wait_for_result: false,
-        }
-    }
-}
-
-fn theme() -> Theme {
-    let Ok(helper) = cosmic::cosmic_config::Config::new(
-        cosmic::cosmic_theme::NAME,
-        cosmic::cosmic_theme::Theme::<CssColor>::version() as u64,
-    ) else {
-        return cosmic::theme::Theme::dark();
-    };
-    let t = cosmic::cosmic_theme::Theme::get_entry(&helper)
-        .map(|t| t.into_srgba())
-        .unwrap_or_else(|(errors, theme)| {
-            for err in errors {
-                tracing::error!("{:?}", err);
-            }
-            theme.into_srgba()
-        });
-    cosmic::theme::Theme::custom(Arc::new(t))
-}
-
 #[derive(Debug, Clone)]
-enum Message {
+pub enum Message {
     InputChanged(String),
     Activate(usize),
     Hide,
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
     Toggle,
-    Closed,
     KeyboardNav(keyboard_nav::Message),
     Ignore,
-    Theme(Theme),
 }
 
 impl CosmicLauncher {
@@ -125,32 +96,42 @@ impl CosmicLauncher {
     }
 }
 
-impl Application for CosmicLauncher {
+impl cosmic::Application for CosmicLauncher {
     type Message = Message;
-    type Theme = Theme;
     type Executor = cosmic::executor::single::Executor;
     type Flags = ();
+    const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
-    fn new(_flags: ()) -> (Self, Command<Message>) {
+    fn init(core: Core, _flags: ()) -> (Self, Command<Message>) {
         (
             CosmicLauncher {
-                theme: theme(),
+                core,
                 ..Default::default()
             },
             Command::none(),
         )
     }
 
-    fn title(&self) -> String {
-        config::APP_ID.to_string()
+    fn core(&self) -> &Core {
+        &self.core
+    }
+
+    fn core_mut(&mut self) -> &mut Core {
+        &mut self.core
+    }
+
+    fn style(&self) -> Option<<Theme as application::StyleSheet>::Style> {
+        Some(<Theme as application::StyleSheet>::Style::Custom(Box::new(
+            |theme| Appearance {
+                background_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
+                text_color: theme.cosmic().on_bg_color().into(),
+            },
+        )))
     }
 
     #[allow(clippy::too_many_lines)]
-    fn update(&mut self, message: Message) -> Command<Message> {
+    fn update(&mut self, message: Message) -> Command<Self::Message> {
         match message {
-            Message::Theme(t) => {
-                self.theme = t;
-            }
             Message::InputChanged(value) => {
                 self.input_value = value.clone();
                 if let Some(tx) = &self.tx {
@@ -209,8 +190,8 @@ impl Application for CosmicLauncher {
 
                         if self.wait_for_result {
                             self.wait_for_result = false;
-                            return Command::batch(vec![
-                                get_layer_surface(SctkLayerSurfaceSettings {
+                            return Command::batch(vec![get_layer_surface(
+                                SctkLayerSurfaceSettings {
                                     id: WINDOW_ID,
                                     keyboard_interactivity: KeyboardInteractivity::Exclusive,
                                     anchor: Anchor::TOP,
@@ -225,8 +206,8 @@ impl Application for CosmicLauncher {
                                         .min_height(1.0)
                                         .max_width(600.0),
                                     ..Default::default()
-                                }),
-                            ]);
+                                },
+                            )]);
                         }
                     }
                     pop_launcher::Response::Fill(s) => {
@@ -244,11 +225,6 @@ impl Application for CosmicLauncher {
                 }
                 LayerEvent::Done => {}
             },
-            Message::Closed => {
-                self.active_surface = false;
-                self.input_value = String::new();
-                return text_input::focus(INPUT_ID.clone());
-            }
             Message::Toggle => {
                 if self.active_surface {
                     return self.hide();
@@ -288,8 +264,12 @@ impl Application for CosmicLauncher {
         Command::none()
     }
 
+    fn view(&self) -> Element<Self::Message> {
+        unimplemented!()
+    }
+
     #[allow(clippy::too_many_lines)]
-    fn view(&self, id: SurfaceId) -> Element<Message> {
+    fn view_window(&self, id: SurfaceId) -> Element<Self::Message> {
         if id == SurfaceId(0) {
             // TODO just delete the original surface if possible
             return vertical_space(Length::Fixed(1.0)).into();
@@ -450,25 +430,9 @@ impl Application for CosmicLauncher {
             .into()
     }
 
-    fn subscription(&self) -> Subscription<Message> {
+    fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(
             vec![
-                config_subscription::<u64, cosmic::cosmic_theme::Theme<CssColor>>(
-                    0,
-                    cosmic::cosmic_theme::NAME.into(),
-                    cosmic::cosmic_theme::Theme::<CssColor>::version() as u64,
-                )
-                .map(|(_, res)| {
-                    let theme = res
-                        .map(cosmic::cosmic_theme::Theme::into_srgba)
-                        .unwrap_or_else(|(errors, theme)| {
-                            for err in errors {
-                                tracing::error!("{:?}", err);
-                            }
-                            theme.into_srgba()
-                        });
-                    Message::Theme(cosmic::theme::Theme::custom(Arc::new(theme)))
-                }),
                 keyboard_nav::subscription().map(Message::KeyboardNav),
                 dbus_toggle(0).map(|e| match e {
                     Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
@@ -483,7 +447,6 @@ impl Application for CosmicLauncher {
                         key_code,
                         modifiers,
                     }) => match key_code {
-                        KeyCode::Escape => Some(Message::Hide),
                         KeyCode::Key1 | KeyCode::Numpad1 if modifiers.control() => {
                             Some(Message::Activate(0))
                         }
@@ -526,9 +489,7 @@ impl Application for CosmicLauncher {
                         KeyCode::N | KeyCode::J if modifiers.control() => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                         }
-                        KeyCode::Enter => {
-                            Some(Message::Hide)
-                        }
+                        KeyCode::Enter | KeyCode::Escape => Some(Message::Hide),
                         _ => None,
                     },
                     _ => None,
@@ -536,20 +497,5 @@ impl Application for CosmicLauncher {
             ]
             .into_iter(),
         )
-    }
-
-    fn style(&self) -> <Self::Theme as application::StyleSheet>::Style {
-        <Self::Theme as application::StyleSheet>::Style::Custom(Box::new(|theme| Appearance {
-            background_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
-            text_color: theme.cosmic().on_bg_color().into(),
-        }))
-    }
-
-    fn theme(&self) -> Theme {
-        self.theme.clone()
-    }
-
-    fn close_requested(&self, _id: SurfaceId) -> Self::Message {
-        Message::Closed
     }
 }

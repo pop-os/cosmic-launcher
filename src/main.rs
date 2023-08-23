@@ -4,7 +4,6 @@ mod config;
 mod localize;
 mod process;
 mod subscriptions;
-use config::APP_ID;
 use tracing::info;
 
 use localize::localize;
@@ -20,7 +19,10 @@ fn main() -> cosmic::iced::Result {
         pretty_env_logger::init();
     }
 
-    info!("cosmic-launcher ({})", APP_ID);
+    info!(
+        "cosmic-launcher ({})",
+        <components::app::CosmicLauncher as cosmic::Application>::APP_ID
+    );
     info!("Version: {} ({})", VERSION, config::profile());
 
     // Prepare i18n
