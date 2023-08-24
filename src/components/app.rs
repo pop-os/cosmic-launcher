@@ -8,7 +8,7 @@ use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
-use cosmic::iced::widget::{button, column, container, text, text_input, Column};
+use cosmic::iced::widget::{button, column, container, text, Column};
 use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
@@ -16,9 +16,8 @@ use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
-use cosmic::iced_widget::text_input::{Icon, Side};
-use cosmic::theme::{self, Button, Container, Svg, TextInput};
-use cosmic::widget::{divider, icon};
+use cosmic::theme::{self, Button, Container, Svg};
+use cosmic::widget::{divider, icon, text_input};
 use cosmic::{keyboard_nav, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
@@ -275,23 +274,14 @@ impl cosmic::Application for CosmicLauncher {
             return vertical_space(Length::Fixed(1.0)).into();
         }
 
-        let launcher_entry = text_input(
+        let launcher_entry = text_input::search_input(
             "Type to search apps or type “?” for more options...",
             &self.input_value,
+            None,
         )
         .on_input(Message::InputChanged)
         .on_paste(Message::InputChanged)
         .on_submit(Message::Activate(0))
-        .size(14)
-        .style(TextInput::Search)
-        .padding([8, 24])
-        .icon(Icon {
-            font: iced::Font::default(),
-            code_point: '🔍',
-            size: Some(12.0),
-            spacing: 12.0,
-            side: Side::Left,
-        })
         .id(INPUT_ID.clone());
 
         let buttons: Vec<_> = self
