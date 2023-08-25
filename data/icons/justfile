@@ -4,12 +4,8 @@ install-dir := env_var('INSTALL_DIR')
 scalable-src := appid + '.svg'
 scalable-dst := install-dir / 'icons' / 'hicolor' / 'scalable' / 'apps' / scalable-src
 
-symbolic-src := appid + '-symbolic.svg'
-symbolic-dst := install-dir / 'icons' / 'hicolor' / 'symbolic' / 'apps' / symbolic-src
-
 install:
     install -Dm0644 {{scalable-src}} {{scalable-dst}}
-    install -Dm0644 {{symbolic-src}} {{symbolic-dst}}
 
 uninstall:
-    rm {{scalable-dst}} {{symbolic-dst}}
+    rm {{scalable-dst}}
