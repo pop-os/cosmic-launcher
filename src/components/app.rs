@@ -423,7 +423,6 @@ impl cosmic::Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(
             vec![
-                keyboard_nav::subscription().map(Message::KeyboardNav),
                 dbus_toggle(0).map(|e| match e {
                     Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
                     None => Message::Ignore,
