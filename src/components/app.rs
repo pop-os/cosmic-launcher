@@ -175,6 +175,7 @@ impl cosmic::Application for CosmicLauncher {
                                     }
                                 }
                                 crate::process::spawn(cmd);
+                                return self.hide();
                             }
                         }
                     }
@@ -478,7 +479,7 @@ impl cosmic::Application for CosmicLauncher {
                         KeyCode::N | KeyCode::J if modifiers.control() => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                         }
-                        KeyCode::Enter | KeyCode::Escape => Some(Message::Hide),
+                        KeyCode::Escape => Some(Message::Hide),
                         _ => None,
                     },
                     _ => None,
