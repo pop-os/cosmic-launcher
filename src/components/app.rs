@@ -39,7 +39,6 @@ pub fn run() -> cosmic::iced::Result {
             .antialiasing(true)
             .client_decorations(true)
             .debug(false)
-            .default_icon_theme("Pop")
             .default_text_size(16.0)
             .scale_factor(1.0)
             .no_main_window(true),
@@ -335,7 +334,6 @@ impl cosmic::Application for CosmicLauncher {
                     };
                     button_content.push(
                         icon(name.clone(), 64)
-                            .theme("Pop")
                             .width(Length::Fixed(16.0))
                             .height(Length::Fixed(16.0))
                             .style(Svg::Symbolic)
@@ -349,7 +347,6 @@ impl cosmic::Application for CosmicLauncher {
                     };
                     button_content.push(
                         icon(name.clone(), 64)
-                            .theme("Pop")
                             .width(Length::Fixed(32.0))
                             .height(Length::Fixed(32.0))
                             .into(),
