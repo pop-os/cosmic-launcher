@@ -8,7 +8,7 @@ use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
-use cosmic::iced::widget::{button, column, container, text, Column};
+use cosmic::iced::widget::{column, container, text, Column};
 use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
@@ -16,8 +16,9 @@ use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
-use cosmic::theme::{self, Button, Container, Svg};
-use cosmic::widget::{divider, icon, text_input};
+use cosmic::theme::{self, Button, Container};
+use cosmic::widget::icon::from_name;
+use cosmic::widget::{button, divider, icon, text_input};
 use cosmic::{keyboard_nav, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
@@ -123,6 +124,7 @@ impl cosmic::Application for CosmicLauncher {
             |theme| Appearance {
                 background_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
                 text_color: theme.cosmic().on_bg_color().into(),
+                icon_color: theme.cosmic().on_bg_color().into(),
             },
         )))
     }
@@ -333,10 +335,9 @@ impl cosmic::Application for CosmicLauncher {
                         IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
                     button_content.push(
-                        icon(name.clone(), 64)
+                        icon(from_name(name.clone()).into())
                             .width(Length::Fixed(16.0))
                             .height(Length::Fixed(16.0))
-                            .style(Svg::Symbolic)
                             .into(),
                     );
                 }
@@ -346,7 +347,7 @@ impl cosmic::Application for CosmicLauncher {
                         IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
                     button_content.push(
-                        icon(name.clone(), 64)
+                        icon(from_name(name.clone()).into())
                             .width(Length::Fixed(32.0))
                             .height(Length::Fixed(32.0))
                             .into(),
@@ -369,7 +370,7 @@ impl cosmic::Application for CosmicLauncher {
                     .into(),
                 );
 
-                let btn = button(
+                let btn = cosmic::widget::button(
                     row(button_content)
                         .spacing(8)
                         .align_items(Alignment::Center),
@@ -378,15 +379,29 @@ impl cosmic::Application for CosmicLauncher {
                 .on_press(Message::Activate(i))
                 .padding([8, 16])
                 .style(Button::Custom {
-                    active: Box::new(|theme| {
-                        let text = button::StyleSheet::active(theme, &Button::Text);
+                    active: Box::new(|focused, theme| {
+                        let text = button::StyleSheet::active(theme, focused, &Button::Text);
                         button::Appearance {
                             border_radius: 8.0.into(),
                             ..text
                         }
                     }),
-                    hover: Box::new(|theme| {
-                        let text = button::StyleSheet::hovered(theme, &Button::Text);
+                    hovered: Box::new(|focused, theme| {
+                        let text = button::StyleSheet::hovered(theme, focused, &Button::Text);
+                        button::Appearance {
+                            border_radius: 8.0.into(),
+                            ..text
+                        }
+                    }),
+                    disabled: Box::new(|theme| {
+                        let text = button::StyleSheet::disabled(theme, &Button::Text);
+                        button::Appearance {
+                            border_radius: 8.0.into(),
+                            ..text
+                        }
+                    }),
+                    pressed: Box::new(|focused, theme| {
+                        let text = button::StyleSheet::pressed(theme, focused, &Button::Text);
                         button::Appearance {
                             border_radius: 8.0.into(),
                             ..text
@@ -409,6 +424,7 @@ impl cosmic::Application for CosmicLauncher {
         container(content)
             .style(Container::Custom(Box::new(|theme| container::Appearance {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
+                icon_color: Some(theme.cosmic().on_bg_color().into()),
                 background: Some(Color::from(theme.cosmic().background.base).into()),
                 border_radius: 16.0.into(),
                 border_width: 1.0,

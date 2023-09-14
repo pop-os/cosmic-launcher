@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
+use std::process::{exit, Command, Stdio};
+
 use nix::sys::wait::waitpid;
 use nix::unistd::{fork, ForkResult};
-use std::process::{exit, Command, Stdio};
 
 /// Performs a double fork with setsid to spawn and detach a command.
 pub fn spawn(mut command: Command) {
