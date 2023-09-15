@@ -27,7 +27,7 @@ use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
-use std::fs;
+use std::{fs, rc::Rc};
 use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
@@ -308,6 +308,9 @@ impl cosmic::Application for CosmicLauncher {
                             .horizontal_alignment(Horizontal::Left)
                             .vertical_alignment(Vertical::Center)
                             .size(14)
+                            .style(cosmic::theme::Text::Custom(|t| text::Appearance {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            }))
                             .into()
                         })
                         .collect(),
@@ -323,7 +326,9 @@ impl cosmic::Application for CosmicLauncher {
                             .horizontal_alignment(Horizontal::Left)
                             .vertical_alignment(Vertical::Center)
                             .size(10)
-                            .style(theme::Text::Accent)
+                            .style(theme::Text::Custom(|t| text::Appearance {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            }))
                             .into()
                         })
                         .collect(),
@@ -338,6 +343,11 @@ impl cosmic::Application for CosmicLauncher {
                         icon(from_name(name.clone()).into())
                             .width(Length::Fixed(16.0))
                             .height(Length::Fixed(16.0))
+                            .style(cosmic::theme::Svg::Custom(Rc::new(|theme| {
+                                cosmic::iced_style::svg::Appearance {
+                                    color: Some(theme.cosmic().on_bg_color().into()),
+                                }
+                            })))
                             .into(),
                     );
                 }
@@ -360,7 +370,10 @@ impl cosmic::Application for CosmicLauncher {
                         text(format!("Ctrl + {}", (i + 1) % 10))
                             .size(14)
                             .vertical_alignment(Vertical::Center)
-                            .horizontal_alignment(Horizontal::Right),
+                            .horizontal_alignment(Horizontal::Right)
+                            .style(theme::Text::Custom(|t| text::Appearance {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            })),
                     )
                     .width(Length::Fill)
                     .center_y()
