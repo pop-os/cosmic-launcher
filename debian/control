@@ -10,6 +10,7 @@ Build-Depends:
   just,
   intltool,
   libxkbcommon-dev,
+  libwayland-dev,
   pkg-config,
 Standards-Version: 4.3.0
 Homepage: https://github.com/pop-os/cosmic-launcher
