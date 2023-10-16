@@ -14,7 +14,7 @@ futures = "0.3.21"
 glob = "0.3.1"
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6.4"
-libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio"], branch = "theme-dark-light-switching" }
+libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio"] }
 # libcosmic = { path = "../libcosmic", default-features = false, features = ["wayland", "tokio"] }
 tracing = "0.1"
 nix = {version = "0.27.1", features = ["process"]}
