@@ -14,6 +14,7 @@ use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
+use cosmic::iced_sctk::commands::activation::request_token;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
 use cosmic::theme::{self, Button, Container};
@@ -69,6 +70,7 @@ pub enum Message {
     Toggle,
     KeyboardNav(keyboard_nav::Message),
     Ignore,
+    ActivationToken(Option<String>, String),
 }
 
 impl CosmicLauncher {
@@ -160,24 +162,20 @@ impl cosmic::Application for CosmicLauncher {
                     } => {
                         if let Ok(bytes) = fs::read_to_string(&path) {
                             if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
-                                let mut exec = match entry.exec() {
-                                    Some(exec_str) => shlex::Shlex::new(exec_str),
-                                    _ => return Command::none(),
+                                let exec = match entry.exec() {
+                                    Some(exec) => String::from(exec),
+                                    None => return Command::none(),
                                 };
-                                let mut cmd = match exec.next() {
-                                    Some(cmd) if !cmd.contains('=') => {
-                                        std::process::Command::new(cmd)
-                                    }
-                                    _ => return Command::none(),
-                                };
-                                for arg in exec {
-                                    // TODO handle "%" args?
-                                    if !arg.starts_with('%') {
-                                        cmd.arg(arg);
-                                    }
-                                }
-                                crate::process::spawn(cmd);
-                                return self.hide();
+
+                                return request_token(
+                                    Some(String::from(Self::APP_ID)),
+                                    Some(WINDOW_ID),
+                                    move |token| {
+                                        cosmic::app::Message::App(Message::ActivationToken(
+                                            token, exec,
+                                        ))
+                                    },
+                                );
                             }
                         }
                     }
@@ -260,6 +258,26 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     _ => {}
                 };
+            }
+            Message::ActivationToken(token, exec) => {
+                let mut exec = shlex::Shlex::new(&exec);
+                let mut cmd = match exec.next() {
+                    Some(cmd) if !cmd.contains('=') => std::process::Command::new(cmd),
+                    _ => return Command::none(),
+                };
+                for arg in exec {
+                    // TODO handle "%" args?
+                    if !arg.starts_with('%') {
+                        cmd.arg(arg);
+                    }
+                }
+
+                if let Some(token) = token {
+                    cmd.env("XDG_ACTIVATION_TOKEN", token.clone());
+                    cmd.env("DESKTOP_STARTUP_ID", token);
+                }
+                crate::process::spawn(cmd);
+                return self.hide();
             }
             Message::Ignore => {}
         }
