@@ -5,15 +5,12 @@ authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
 async-stream = "0.3.5"
 console-subscriber = "0.1.9"
 freedesktop-desktop-entry = "0.5.0"
 freedesktop-icons = "0.2.3"
 futures = "0.3.21"
-glob = "0.3.1"
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
-i18n-embed-fl = "0.6.4"
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio"] }
 # libcosmic = { path = "../libcosmic", default-features = false, features = ["wayland", "tokio"] }
 tracing = "0.1"
