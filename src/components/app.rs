@@ -1,6 +1,6 @@
 use crate::subscriptions::launcher;
-use crate::subscriptions::toggle_dbus::{dbus_toggle, LauncherDbusEvent};
-use cosmic::app::{Command, Core, Settings};
+use clap::Parser;
+use cosmic::app::{Command, Core, CosmicFlags, DbusActivationDetails, Settings};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::id::Id;
 use cosmic::iced::subscription::events_with;
@@ -28,15 +28,40 @@ use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
+use serde::{Deserialize, Serialize};
 use std::{fs, rc::Rc};
 use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 
+#[derive(Parser, Debug, Serialize, Deserialize, Clone)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+pub struct Args {}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LauncherCommands;
+
+impl ToString for LauncherCommands {
+    fn to_string(&self) -> String {
+        serde_json::ser::to_string(self).unwrap()
+    }
+}
+
+impl CosmicFlags for Args {
+    type SubCommand = LauncherCommands;
+    type Args = Vec<String>;
+
+    fn action(&self) -> Option<&LauncherCommands> {
+        None
+    }
+}
+
 const WINDOW_ID: SurfaceId = SurfaceId(1);
 
 pub fn run() -> cosmic::iced::Result {
-    cosmic::app::run::<CosmicLauncher>(
+    let args = Args::parse();
+    cosmic::app::run_single_instance::<CosmicLauncher>(
         Settings::default()
             .antialiasing(true)
             .client_decorations(true)
@@ -45,9 +70,8 @@ pub fn run() -> cosmic::iced::Result {
             .scale_factor(1.0)
             .no_main_window(true)
             .exit_on_close(false),
-        (),
-    )?;
-    Ok(())
+        args,
+    )
 }
 
 #[derive(Default, Clone)]
@@ -67,9 +91,7 @@ pub enum Message {
     Hide,
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
-    Toggle,
     KeyboardNav(keyboard_nav::Message),
-    Ignore,
     ActivationToken(Option<String>, String),
 }
 
@@ -101,10 +123,10 @@ impl CosmicLauncher {
 impl cosmic::Application for CosmicLauncher {
     type Message = Message;
     type Executor = cosmic::executor::single::Executor;
-    type Flags = ();
+    type Flags = Args;
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
-    fn init(core: Core, _flags: ()) -> (Self, Command<Message>) {
+    fn init(core: Core, _flags: Args) -> (Self, Command<Message>) {
         (
             CosmicLauncher {
                 core,
@@ -225,21 +247,6 @@ impl cosmic::Application for CosmicLauncher {
                 }
                 LayerEvent::Done => {}
             },
-            Message::Toggle => {
-                if self.active_surface {
-                    return self.hide();
-                }
-
-                if let Some(tx) = &self.tx {
-                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
-                } else {
-                    tracing::info!("NOT FOUND");
-                }
-
-                self.input_value = String::new();
-                self.active_surface = true;
-                self.wait_for_result = true;
-            }
             Message::Hide => return self.hide(),
             Message::KeyboardNav(e) => {
                 match e {
@@ -279,9 +286,32 @@ impl cosmic::Application for CosmicLauncher {
                 crate::process::spawn(cmd);
                 return self.hide();
             }
-            Message::Ignore => {}
         }
         Command::none()
+    }
+
+    fn dbus_activation(
+        &mut self,
+        msg: cosmic::app::DbusActivationMessage,
+    ) -> iced::Command<cosmic::app::Message<Self::Message>> {
+        if let DbusActivationDetails::Activate = msg.msg {
+            if self.active_surface {
+                self.hide()
+            } else {
+                if let Some(tx) = &self.tx {
+                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
+                } else {
+                    tracing::info!("NOT FOUND");
+                }
+
+                self.input_value = String::new();
+                self.active_surface = true;
+                self.wait_for_result = true;
+                Command::none()
+            }
+        } else {
+            Command::none()
+        }
     }
 
     fn view(&self) -> Element<Self::Message> {
@@ -468,10 +498,6 @@ impl cosmic::Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(
             vec![
-                dbus_toggle(0).map(|e| match e {
-                    Some((_, LauncherDbusEvent::Toggle)) => Message::Toggle,
-                    None => Message::Ignore,
-                }),
                 launcher::subscription(0).map(Message::LauncherEvent),
                 events_with(|e, _status| match e {
                     cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
