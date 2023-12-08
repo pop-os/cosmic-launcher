@@ -1,9 +1,9 @@
+use crate::app::iced::event::listen_raw;
 use crate::subscriptions::launcher;
 use clap::Parser;
 use cosmic::app::{Command, Core, CosmicFlags, DbusActivationDetails, Settings};
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::id::Id;
-use cosmic::iced::subscription::events_with;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
@@ -57,8 +57,6 @@ impl CosmicFlags for Args {
     }
 }
 
-const WINDOW_ID: SurfaceId = SurfaceId(1);
-
 pub fn run() -> cosmic::iced::Result {
     let args = Args::parse();
     cosmic::app::run_single_instance::<CosmicLauncher>(
@@ -74,7 +72,7 @@ pub fn run() -> cosmic::iced::Result {
     )
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct CosmicLauncher {
     core: Core,
     input_value: String,
@@ -82,6 +80,7 @@ pub struct CosmicLauncher {
     launcher_items: Vec<SearchResult>,
     tx: Option<mpsc::Sender<launcher::Request>>,
     wait_for_result: bool,
+    id: SurfaceId,
 }
 
 #[derive(Debug, Clone)]
@@ -113,7 +112,7 @@ impl CosmicLauncher {
 
         if self.active_surface {
             self.active_surface = false;
-            return destroy_layer_surface(WINDOW_ID);
+            return destroy_layer_surface(self.id);
         }
 
         Command::none()
@@ -130,7 +129,12 @@ impl cosmic::Application for CosmicLauncher {
         (
             CosmicLauncher {
                 core,
-                ..Default::default()
+                id: SurfaceId::unique(),
+                input_value: String::new(),
+                active_surface: false,
+                launcher_items: Vec::new(),
+                tx: None,
+                wait_for_result: false,
             },
             Command::none(),
         )
@@ -191,7 +195,7 @@ impl cosmic::Application for CosmicLauncher {
 
                                 return request_token(
                                     Some(String::from(Self::APP_ID)),
-                                    Some(WINDOW_ID),
+                                    Some(self.id),
                                     move |token| {
                                         cosmic::app::Message::App(Message::ActivationToken(
                                             token, exec,
@@ -214,7 +218,7 @@ impl cosmic::Application for CosmicLauncher {
                             self.wait_for_result = false;
                             return Command::batch(vec![get_layer_surface(
                                 SctkLayerSurfaceSettings {
-                                    id: WINDOW_ID,
+                                    id: self.id,
                                     keyboard_interactivity: KeyboardInteractivity::Exclusive,
                                     anchor: Anchor::TOP,
                                     namespace: "launcher".into(),
@@ -320,7 +324,7 @@ impl cosmic::Application for CosmicLauncher {
 
     #[allow(clippy::too_many_lines)]
     fn view_window(&self, id: SurfaceId) -> Element<Self::Message> {
-        if id == SurfaceId(0) {
+        if id == SurfaceId::MAIN {
             // TODO just delete the original surface if possible
             return vertical_space(Length::Fixed(1.0)).into();
         }
@@ -499,7 +503,7 @@ impl cosmic::Application for CosmicLauncher {
         Subscription::batch(
             vec![
                 launcher::subscription(0).map(Message::LauncherEvent),
-                events_with(|e, _status| match e {
+                listen_raw(|e, _status| match e {
                     cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                         wayland::Event::Layer(e, ..),
                     )) => Some(Message::Layer(e)),
