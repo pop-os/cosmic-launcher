@@ -38,7 +38,7 @@
           ];
           buildInputs = with pkgs; [
             libxkbcommon
-            libxkbcommon
+            wayland 
             freetype
             fontconfig
             expat
