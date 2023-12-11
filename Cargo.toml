@@ -27,9 +27,3 @@ shlex = "1.1.0"
 tokio = { version = "1.24.1", features = ["sync", "rt", "tracing"] }
 xdg = "2.4.1"
 clap = {version = "4.4.8", features = ["derive"] }
-
-[patch."https://github.com/Smithay/client-toolkit"]
-sctk = { git = "https://github.com/smithay/client-toolkit//", package = "smithay-client-toolkit", rev = "e63ab5f" }
-[patch.crates-io]
-sctk = { package = "smithay-client-toolkit", git = "https://github.com/pop-os/client-toolkit", branch = "wayland-resize" }
-
