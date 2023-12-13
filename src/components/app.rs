@@ -445,30 +445,37 @@ impl cosmic::Application for CosmicLauncher {
                 .padding([8, 16])
                 .style(Button::Custom {
                     active: Box::new(|focused, theme| {
+                        let rad_s = theme.cosmic().corner_radii.radius_s;
                         let text = button::StyleSheet::active(theme, focused, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0.into(),
+                            border_radius: rad_s.into(),
                             ..text
                         }
                     }),
                     hovered: Box::new(|focused, theme| {
+                        let rad_s = theme.cosmic().corner_radii.radius_s;
+
                         let text = button::StyleSheet::hovered(theme, focused, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0.into(),
+                            border_radius: rad_s.into(),
                             ..text
                         }
                     }),
                     disabled: Box::new(|theme| {
+                        let rad_s = theme.cosmic().corner_radii.radius_s;
+
                         let text = button::StyleSheet::disabled(theme, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0.into(),
+                            border_radius: rad_s.into(),
                             ..text
                         }
                     }),
                     pressed: Box::new(|focused, theme| {
+                        let rad_s = theme.cosmic().corner_radii.radius_s;
+
                         let text = button::StyleSheet::pressed(theme, focused, &Button::Text);
                         button::Appearance {
-                            border_radius: 8.0.into(),
+                            border_radius: rad_s.into(),
                             ..text
                         }
                     }),
@@ -491,7 +498,7 @@ impl cosmic::Application for CosmicLauncher {
                 text_color: Some(theme.cosmic().on_bg_color().into()),
                 icon_color: Some(theme.cosmic().on_bg_color().into()),
                 background: Some(Color::from(theme.cosmic().background.base).into()),
-                border_radius: 16.0.into(),
+                border_radius: theme.cosmic().corner_radii.radius_m.into(),
                 border_width: 1.0,
                 border_color: theme.cosmic().bg_divider().into(),
             })))
