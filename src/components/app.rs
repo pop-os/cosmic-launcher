@@ -18,7 +18,7 @@ use cosmic::iced_sctk::commands::activation::request_token;
 use cosmic::iced_style::application;
 use cosmic::iced_widget::row;
 use cosmic::theme::{self, Button, Container};
-use cosmic::widget::icon::from_name;
+use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::{button, divider, icon, text_input};
 use cosmic::{keyboard_nav, Element, Theme};
 use freedesktop_desktop_entry::DesktopEntry;
@@ -409,10 +409,18 @@ impl cosmic::Application for CosmicLauncher {
                         IconSource::Name(name) | IconSource::Mime(name) => name,
                     };
                     button_content.push(
-                        icon(from_name(name.clone()).into())
-                            .width(Length::Fixed(32.0))
-                            .height(Length::Fixed(32.0))
-                            .into(),
+                        icon(
+                            from_name(name.clone())
+                                .size(32)
+                                .fallback(Some(IconFallback::Names(vec![
+                                    "application-default".into(),
+                                    "application-x-executable".into(),
+                                ])))
+                                .into(),
+                        )
+                        .width(Length::Fixed(32.0))
+                        .height(Length::Fixed(32.0))
+                        .into(),
                     );
                 }
 
