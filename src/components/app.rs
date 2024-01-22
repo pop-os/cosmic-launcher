@@ -411,7 +411,7 @@ impl cosmic::Application for CosmicLauncher {
                     button_content.push(
                         icon(
                             from_name(name.clone())
-                                .size(32)
+                                .size(64)
                                 .fallback(Some(IconFallback::Names(vec![
                                     "application-default".into(),
                                     "application-x-executable".into(),
