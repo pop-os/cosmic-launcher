@@ -21,7 +21,6 @@ use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::{button, divider, icon, text_input};
 use cosmic::{keyboard_nav, Element, Theme};
-use freedesktop_desktop_entry::DesktopEntry;
 use iced::keyboard::KeyCode;
 use iced::wayland::Appearance;
 use iced::widget::vertical_space;
@@ -29,7 +28,7 @@ use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
-use std::{fs, rc::Rc};
+use std::rc::Rc;
 use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
@@ -186,23 +185,20 @@ impl cosmic::Application for CosmicLauncher {
                         path,
                         gpu_preference: _,
                     } => {
-                        if let Ok(bytes) = fs::read_to_string(&path) {
-                            if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
-                                let exec = match entry.exec() {
-                                    Some(exec) => String::from(exec),
-                                    None => return Command::none(),
-                                };
+                        if let Some(entry) = cosmic::desktop::load_desktop_file(None, path) {
+                            let Some(exec) = entry.exec else {
+                                return Command::none()
+                            };
 
-                                return request_token(
-                                    Some(String::from(Self::APP_ID)),
-                                    Some(self.id),
-                                    move |token| {
-                                        cosmic::app::Message::App(Message::ActivationToken(
-                                            token, exec,
-                                        ))
-                                    },
-                                );
-                            }
+                            return request_token(
+                                Some(String::from(Self::APP_ID)),
+                                Some(self.id),
+                                move |token| {
+                                    cosmic::app::Message::App(Message::ActivationToken(
+                                        token, exec,
+                                    ))
+                                },
+                            );
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
@@ -271,23 +267,12 @@ impl cosmic::Application for CosmicLauncher {
                 };
             }
             Message::ActivationToken(token, exec) => {
-                let mut exec = shlex::Shlex::new(&exec);
-                let mut cmd = match exec.next() {
-                    Some(cmd) if !cmd.contains('=') => std::process::Command::new(cmd),
-                    _ => return Command::none(),
-                };
-                for arg in exec {
-                    // TODO handle "%" args?
-                    if !arg.starts_with('%') {
-                        cmd.arg(arg);
-                    }
-                }
-
+                let mut envs = Vec::new();
                 if let Some(token) = token {
-                    cmd.env("XDG_ACTIVATION_TOKEN", token.clone());
-                    cmd.env("DESKTOP_STARTUP_ID", token);
+                    envs.push(("XDG_ACTIVATION_TOKEN", token.clone()));
+                    envs.push(("DESKTOP_STARTUP_ID", token));
                 }
-                crate::process::spawn(cmd);
+                cosmic::desktop::spawn_desktop_exec(exec, envs);
                 return self.hide();
             }
         }
@@ -573,8 +558,7 @@ impl cosmic::Application for CosmicLauncher {
                     },
                     _ => None,
                 }),
-            ]
-            .into_iter(),
+            ],
         )
     }
 }

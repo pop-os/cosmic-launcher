@@ -7,12 +7,11 @@ edition = "2021"
 [dependencies]
 async-stream = "0.3.5"
 console-subscriber = "0.1.9"
-freedesktop-desktop-entry = "0.5.0"
 freedesktop-icons = "0.2.3"
 futures = "0.3.21"
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6.4"
-libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio", "single-instance", "dbus-config"] }
+libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio", "single-instance", "dbus-config", "desktop"] }
 # libcosmic = { path = "../libcosmic", default-features = false, features = ["wayland", "tokio", "single-instance"] }
 tracing = "0.1"
 nix = {version = "0.27.1", features = ["process"]}
