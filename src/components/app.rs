@@ -30,8 +30,9 @@ use iced::wayland::Appearance;
 use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
-use pop_launcher::{ContextOption, IconSource, SearchResult};
+use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::rc::Rc;
 use tokio::sync::mpsc;
 
@@ -116,7 +117,7 @@ pub enum Message {
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
     KeyboardNav(keyboard_nav::Message),
-    ActivationToken(Option<String>, String),
+    ActivationToken(Option<String>, String, GpuPreference),
 }
 
 impl CosmicLauncher {
@@ -147,6 +148,30 @@ impl CosmicLauncher {
 
         Command::none()
     }
+}
+
+async fn launch(token: Option<String>, exec: String, gpu: GpuPreference) {
+    let mut envs = Vec::new();
+    if let Some(token) = token {
+        envs.push(("XDG_ACTIVATION_TOKEN".to_string(), token.clone()));
+        envs.push(("DESKTOP_STARTUP_ID".to_string(), token));
+    }
+
+    if let Some(gpu_envs) = try_get_gpu_envs(gpu).await {
+        envs.extend(gpu_envs);
+    }
+    
+    cosmic::desktop::spawn_desktop_exec(exec, envs);
+}
+
+async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>> {
+    let connection = zbus::Connection::system().await.ok()?;
+    let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection).await.ok()?;
+    let gpus = proxy.get_gpus().await.ok()?;
+    match gpu {
+        GpuPreference::Default => gpus.into_iter().find(|gpu| gpu.default),
+        GpuPreference::NonDefault => gpus.into_iter().find(|gpu| !gpu.default),
+    }.map(|gpu| gpu.environment)
 }
 
 impl cosmic::Application for CosmicLauncher {
@@ -268,7 +293,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     pop_launcher::Response::DesktopEntry {
                         path,
-                        gpu_preference: _,
+                        gpu_preference,
                     } => {
                         if let Some(entry) = cosmic::desktop::load_desktop_file(None, path) {
                             let Some(exec) = entry.exec else {
@@ -280,7 +305,7 @@ impl cosmic::Application for CosmicLauncher {
                                 Some(*WINDOW_ID),
                                 move |token| {
                                     cosmic::app::Message::App(Message::ActivationToken(
-                                        token, exec,
+                                        token, exec, gpu_preference
                                     ))
                                 },
                             );
@@ -358,14 +383,8 @@ impl cosmic::Application for CosmicLauncher {
                     _ => {}
                 };
             }
-            Message::ActivationToken(token, exec) => {
-                let mut envs = Vec::new();
-                if let Some(token) = token {
-                    envs.push(("XDG_ACTIVATION_TOKEN", token.clone()));
-                    envs.push(("DESKTOP_STARTUP_ID", token));
-                }
-                cosmic::desktop::spawn_desktop_exec(exec, envs);
-                return self.hide();
+            Message::ActivationToken(token, exec, dgpu) => {
+                return Command::perform(launch(token, exec, dgpu), |()| cosmic::app::message::app(Message::Hide));
             }
         }
         Command::none()
