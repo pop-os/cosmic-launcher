@@ -3829,7 +3829,7 @@ dependencies = [
 [[package]]
 name = "pop-launcher"
 version = "1.2.2"
-source = "git+https://github.com/pop-os/launcher/?rev=f8ec5b8#f8ec5b8083ff748f3c4ff695fcbb4df0eaebdb5f"
+source = "git+https://github.com/pop-os/launcher/?rev=091581c#091581c3620a4cf3979e70f68c4af23654104bec"
 dependencies = [
  "const_format",
  "dirs 4.0.0",
@@ -3844,7 +3844,7 @@ dependencies = [
 [[package]]
 name = "pop-launcher-service"
 version = "1.2.2"
-source = "git+https://github.com/pop-os/launcher/?rev=f8ec5b8#f8ec5b8083ff748f3c4ff695fcbb4df0eaebdb5f"
+source = "git+https://github.com/pop-os/launcher/?rev=091581c#091581c3620a4cf3979e70f68c4af23654104bec"
 dependencies = [
  "anyhow",
  "async-oneshot",

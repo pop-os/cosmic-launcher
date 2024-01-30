@@ -171,6 +171,7 @@ async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>>
     match gpu {
         GpuPreference::Default => gpus.into_iter().find(|gpu| gpu.default),
         GpuPreference::NonDefault => gpus.into_iter().find(|gpu| !gpu.default),
+        GpuPreference::SpecificIdx(idx) => gpus.into_iter().nth(idx as usize),
     }.map(|gpu| gpu.environment)
 }
 
@@ -242,12 +243,12 @@ impl cosmic::Application for CosmicLauncher {
                 self.cursor_position = Some(pos);
             }
             Message::MenuButton(i, context) => {
-                if self.menu.take().is_some() {
-                    return commands::popup::destroy_popup(*MENU_ID);
-                }
-
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::ActivateContext(i, context));
+                }
+
+                if self.menu.take().is_some() {
+                    return commands::popup::destroy_popup(*MENU_ID);
                 }
             }
             Message::LauncherEvent(e) => match e {
@@ -294,9 +295,16 @@ impl cosmic::Application for CosmicLauncher {
                     pop_launcher::Response::DesktopEntry {
                         path,
                         gpu_preference,
+                        action_name,
                     } => {
                         if let Some(entry) = cosmic::desktop::load_desktop_file(None, path) {
-                            let Some(exec) = entry.exec else {
+                            let exec = if let Some(action_name) = action_name {
+                                entry.desktop_actions.into_iter().find(|action| action.name == action_name).map(|action| action.exec)   
+                            } else {
+                                entry.exec
+                            };
+
+                            let Some(exec) = exec else {
                                 return Command::none()
                             };
 
