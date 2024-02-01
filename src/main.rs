@@ -2,7 +2,6 @@ mod components;
 #[rustfmt::skip]
 mod config;
 mod localize;
-mod process;
 mod subscriptions;
 use tracing::info;
 
