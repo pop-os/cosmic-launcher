@@ -12,7 +12,8 @@ use cosmic::iced::wayland::layer_surface::{
 };
 use cosmic::iced::widget::{column, container, text, Column};
 use cosmic::iced::{self, Length, Subscription};
-use cosmic::iced_core::{Padding, Point, Rectangle};
+use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
@@ -25,7 +26,7 @@ use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::{button, divider, horizontal_space, icon, mouse_area, scrollable, text_input};
 use cosmic::{keyboard_nav, Element, Theme};
-use iced::keyboard::KeyCode;
+use iced::keyboard::Key;
 use iced::wayland::Appearance;
 use iced::widget::vertical_space;
 use iced::{Alignment, Color};
@@ -80,7 +81,7 @@ pub fn run() -> cosmic::iced::Result {
 
 pub fn menu_button<'a, Message>(
     content: impl Into<Element<'a, Message>>,
-) -> cosmic::widget::Button<'a, Message, cosmic::Renderer> {
+) -> cosmic::widget::Button<'a, Message, cosmic::Theme, cosmic::Renderer> {
     cosmic::widget::Button::new(content)
         .style(Button::AppletMenu)
         .padding(menu_control_padding())
@@ -465,7 +466,6 @@ impl cosmic::Application for CosmicLauncher {
                                 }))
                                 .into()
                             })
-                            .collect(),
                     );
                     let desc = Column::with_children(
                         desc.lines()
@@ -483,7 +483,6 @@ impl cosmic::Application for CosmicLauncher {
                                 }))
                                 .into()
                             })
-                            .collect(),
                     );
 
                     let mut button_content = Vec::new();
@@ -608,9 +607,12 @@ impl cosmic::Application for CosmicLauncher {
                     text_color: Some(theme.cosmic().on_bg_color().into()),
                     icon_color: Some(theme.cosmic().on_bg_color().into()),
                     background: Some(Color::from(theme.cosmic().background.base).into()),
-                    border_radius: theme.cosmic().corner_radii.radius_m.into(),
-                    border_width: 1.0,
-                    border_color: theme.cosmic().bg_divider().into(),
+                    border: Border {
+                        radius: theme.cosmic().corner_radii.radius_m.into(),
+                        width: 1.0,
+                        color: theme.cosmic().bg_divider().into(),
+                    },
+                    shadow: Shadow::default()
                 })))
                 .padding([24, 32]);
 
@@ -637,7 +639,7 @@ impl cosmic::Application for CosmicLauncher {
             let list_column = Column::with_children(
                 options.iter().map(|option| {
                     menu_button(text(&option.name)).on_press(Message::MenuButton(*i, option.id)).into()
-                }).collect()
+                })
             )
                 .padding([8, 0]);
             
@@ -649,9 +651,12 @@ impl cosmic::Application for CosmicLauncher {
                     ContainerAppearance {
                         text_color: Some(cosmic.background.on.into()),
                         background: Some(Color::from(cosmic.background.base).into()),
-                        border_radius: corners.radius_m.into(),
-                        border_width: 1.0,
-                        border_color: cosmic.background.divider.into(),
+                        border: Border {
+                            radius: corners.radius_m.into(),
+                            width: 1.0,
+                            color: cosmic.background.divider.into()
+                        },
+                        shadow: Shadow::default(),
                         icon_color: Some(cosmic.background.on.into()),
                     }
                 }),
@@ -670,62 +675,35 @@ impl cosmic::Application for CosmicLauncher {
         Subscription::batch(
             vec![
                 launcher::subscription(0).map(Message::LauncherEvent),
-                listen_raw(|e, _status| match e {
+                listen_raw(|e, _status| {
+
+                    match e {
                     cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                         wayland::Event::Layer(e, ..),
                     )) => Some(Message::Layer(e)),
                     cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                        key_code,
+                        key,
                         modifiers,
-                    }) => match key_code {
-                        KeyCode::Key1 | KeyCode::Numpad1 if modifiers.control() => {
-                            Some(Message::Activate(0))
-                        }
-                        KeyCode::Key2 | KeyCode::Numpad2 if modifiers.control() => {
-                            Some(Message::Activate(1))
-                        }
-                        KeyCode::Key3 | KeyCode::Numpad3 if modifiers.control() => {
-                            Some(Message::Activate(2))
-                        }
-                        KeyCode::Key4 | KeyCode::Numpad4 if modifiers.control() => {
-                            Some(Message::Activate(3))
-                        }
-                        KeyCode::Key5 | KeyCode::Numpad5 if modifiers.control() => {
-                            Some(Message::Activate(4))
-                        }
-                        KeyCode::Key6 | KeyCode::Numpad6 if modifiers.control() => {
-                            Some(Message::Activate(5))
-                        }
-                        KeyCode::Key7 | KeyCode::Numpad7 if modifiers.control() => {
-                            Some(Message::Activate(6))
-                        }
-                        KeyCode::Key8 | KeyCode::Numpad7 if modifiers.control() => {
-                            Some(Message::Activate(7))
-                        }
-                        KeyCode::Key9 | KeyCode::Numpad9 if modifiers.control() => {
-                            Some(Message::Activate(8))
-                        }
-                        KeyCode::Key0 | KeyCode::Numpad0 if modifiers.control() => {
-                            Some(Message::Activate(9))
-                        }
-                        KeyCode::Up => {
+                        ..
+                    }) => match key {
+                        Key::Character(c) if modifiers.control() && (c == "p" || c == "k") => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
                         }
-                        KeyCode::Down => {
+                        Key::Character(c) if modifiers.control() && (c == "n" || c == "j") => {
                             Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                         }
-                        KeyCode::P | KeyCode::K if modifiers.control() => {
-                            Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
+                        Key::Character(c) if modifiers.control() => {
+                            let nums = (0..10).map(|n| (n.to_string(), ((n + 10) % 10) - 1)).collect::<Vec<_>>();
+                            nums.iter().find_map(|n| (n.0 == c).then(|| Message::Activate(n.1)))
                         }
-                        KeyCode::N | KeyCode::J if modifiers.control() => {
-                            Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
-                        }
-                        KeyCode::Escape => Some(Message::Hide),
+                        Key::Named(Named::ArrowUp) => Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious)),
+                        Key::Named(Named::ArrowDown) => Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext)), 
+                        Key::Named(Named::Escape) => Some(Message::Hide),
                         _ => None,
                     }
                     cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => Some(Message::CursorMoved(position)),
                     _ => None,
-                }),
+                }}),
             ],
         )
     }
