@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2021"
 
+[features]
+default = []
+wgpu = ["libcosmic/wgpu"]
+
 [dependencies]
 async-stream = "0.3.5"
 console-subscriber = "0.1.9"
@@ -12,7 +16,6 @@ futures = "0.3.21"
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6.4"
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio", "single-instance", "dbus-config", "desktop"] }
-# libcosmic = { path = "../libcosmic", default-features = false, features = ["wayland", "tokio", "single-instance"] }
 tracing = "0.1"
 nix = {version = "0.27.1", features = ["process"]}
 once_cell = "1.17"
@@ -28,3 +31,4 @@ xdg = "2.4.1"
 clap = {version = "4.4.8", features = ["derive"] }
 switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }
 zbus = { version = "3.14", default-features = false, features = ["tokio"] }
+
