@@ -1,4 +1,5 @@
 use crate::app::iced::event::listen_raw;
+use crate::components;
 use crate::subscriptions::launcher;
 use clap::Parser;
 use cosmic::app::{Command, Core, CosmicFlags, DbusActivationDetails, Settings};
@@ -599,7 +600,7 @@ impl cosmic::Application for CosmicLauncher {
             let mut content = column![launcher_entry].max_width(600).spacing(16);
 
             if !buttons.is_empty() {
-                content = content.push(column(buttons));
+                content = content.push(components::list::column(buttons));
             }
             
             let window = container(content)
