@@ -1,13 +1,14 @@
 mod components;
 #[rustfmt::skip]
 mod config;
+mod app;
 mod localize;
 mod subscriptions;
 use tracing::info;
 
 use localize::localize;
 
-use crate::{components::app, config::VERSION};
+use crate::config::VERSION;
 
 fn main() -> cosmic::iced::Result {
     // Initialize logger
@@ -20,7 +21,7 @@ fn main() -> cosmic::iced::Result {
 
     info!(
         "cosmic-launcher ({})",
-        <components::app::CosmicLauncher as cosmic::Application>::APP_ID
+        <app::CosmicLauncher as cosmic::Application>::APP_ID
     );
     info!("Version: {} ({})", VERSION, config::profile());
 
