@@ -1,1 +1,0 @@
-app-name = Запускач Cosmic
