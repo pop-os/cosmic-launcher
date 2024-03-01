@@ -5,6 +5,7 @@ use clap::Parser;
 use cosmic::app::{Command, Core, CosmicFlags, DbusActivationDetails, Settings};
 use cosmic::cctk::sctk;
 use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::event::Status;
 use cosmic::iced::id::Id;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::actions::popup::{SctkPopupSettings, SctkPositioner};
@@ -14,6 +15,7 @@ use cosmic::iced::wayland::layer_surface::{
 use cosmic::iced::widget::{column, container, text, Column};
 use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced_core::widget::operation::focusable::find_focused;
 use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
@@ -39,6 +41,13 @@ use std::rc::Rc;
 use tokio::sync::mpsc;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
+static RESULT_IDS: Lazy<[Id; 10]> = Lazy::new(|| {
+    (0..10)
+        .map(|id| Id::new(id.to_string()))
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap()
+});
 pub(crate) static WINDOW_ID: Lazy<SurfaceId> = Lazy::new(SurfaceId::unique);
 pub(crate) static MENU_ID: Lazy<SurfaceId> = Lazy::new(SurfaceId::unique);
 
@@ -110,6 +119,10 @@ pub struct CosmicLauncher {
 #[derive(Debug, Clone)]
 pub enum Message {
     InputChanged(String),
+    UncapturedInput(String),
+    Backspace,
+    AutoComplete,
+    CompleteFocusedId(Id),
     Activate(usize),
     Context(usize),
     MenuButton(u32, u32),
@@ -186,7 +199,8 @@ impl cosmic::Application for CosmicLauncher {
     type Flags = Args;
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
-    fn init(core: Core, _flags: Args) -> (Self, Command<Message>) {
+    fn init(mut core: Core, _flags: Args) -> (Self, Command<Message>) {
+        core.set_keyboard_nav(false);
         (
             CosmicLauncher {
                 core,
@@ -227,6 +241,40 @@ impl cosmic::Application for CosmicLauncher {
                 self.input_value = value.clone();
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(value));
+                }
+            }
+            Message::Backspace => {
+                let len = self.input_value.len();
+                if len > 0 {
+                    self.input_value.remove(len - 1);
+                }
+                if let Some(tx) = &self.tx {
+                    let _res =
+                        tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
+                }
+            }
+            Message::UncapturedInput(text) => {
+                self.input_value.push_str(&text);
+                if let Some(tx) = &self.tx {
+                    let _res =
+                        tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
+                }
+            }
+            Message::AutoComplete => {
+                return iced::Command::<Id>::widget(find_focused())
+                    .map(|id| Message::CompleteFocusedId(id))
+                    .map(cosmic::app::Message::App);
+            }
+            Message::CompleteFocusedId(id) => {
+                let i = RESULT_IDS
+                    .iter()
+                    .position(|res_id| res_id == &id)
+                    .unwrap_or_default();
+
+                if let Some(id) = self.launcher_items.get(i).map(|res| res.id) {
+                    if let Some(tx) = &self.tx {
+                        let _res = tx.blocking_send(launcher::Request::Complete(id));
+                    }
                 }
             }
             Message::Activate(i) => {
@@ -363,6 +411,10 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     pop_launcher::Response::Fill(s) => {
                         self.input_value = s;
+                        if let Some(tx) = &self.tx {
+                            let _res = tx
+                                .blocking_send(launcher::Request::Search(self.input_value.clone()));
+                        }
                         return text_input::focus(INPUT_ID.clone());
                     }
                 },
@@ -557,17 +609,21 @@ impl cosmic::Application for CosmicLauncher {
                                 .spacing(8)
                                 .align_items(Alignment::Center),
                         )
+                        .id(RESULT_IDS[i].clone())
                         .width(Length::Fill)
                         .on_press(Message::Activate(i))
                         .padding([8, 16])
                         .style(Button::Custom {
                             active: Box::new(|focused, theme| {
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
-                                let text =
-                                    button::StyleSheet::active(theme, focused, &Button::Text);
+                                let a = if focused {
+                                    button::StyleSheet::hovered(theme, focused, &Button::Text)
+                                } else {
+                                    button::StyleSheet::active(theme, focused, &Button::Text)
+                                };
                                 button::Appearance {
                                     border_radius: rad_s.into(),
-                                    ..text
+                                    ..a
                                 }
                             }),
                             hovered: Box::new(|focused, theme| {
@@ -684,7 +740,7 @@ impl cosmic::Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(vec![
             launcher::subscription(0).map(Message::LauncherEvent),
-            listen_raw(|e, _status| match e {
+            listen_raw(|e, status| match e {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, ..),
                 )) => Some(Message::Layer(e)),
@@ -713,6 +769,30 @@ impl cosmic::Application for CosmicLauncher {
                         Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
+                    Key::Named(Named::Tab) => Some(Message::AutoComplete),
+                    _ => None,
+                },
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                    key,
+                    text,
+                    modifiers,
+                    ..
+                }) => match key {
+                    Key::Character(_)
+                        if matches!(status, Status::Ignored)
+                            && modifiers.is_empty()
+                            && text.is_some() =>
+                    {
+                        Some(Message::UncapturedInput(
+                            text.map(|t| t.to_string()).unwrap(),
+                        ))
+                    }
+                    Key::Named(Named::Backspace)
+                        if matches!(status, Status::Ignored) && modifiers.is_empty() =>
+                    {
+                        Some(Message::Backspace)
+                    }
+
                     _ => None,
                 },
                 cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {

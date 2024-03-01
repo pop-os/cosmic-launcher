@@ -9,6 +9,7 @@ pub enum Request {
     Search(String),
     Activate(u32),
     Context(u32),
+    Complete(u32),
     ActivateContext(u32, u32),
     Close,
 }
@@ -122,6 +123,11 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
                             let _res = kill.send(());
                             let _res = client.child.kill().await;
                             let _res = client.child.wait().await;
+                        }
+                    }
+                    Request::Complete(id) => {
+                        if let Some((client, _)) = client_request(&responses_tx, client).await {
+                            let _res = client.send(pop_launcher::Request::Complete(id)).await;
                         }
                     }
                 }
