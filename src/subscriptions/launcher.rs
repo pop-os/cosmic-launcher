@@ -111,7 +111,9 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
                     }
                     Request::ActivateContext(id, context) => {
                         if let Some((client, _)) = client_request(&responses_tx, client).await {
-                            let _res = client.send(pop_launcher::Request::ActivateContext { id, context }).await;
+                            let _res = client
+                                .send(pop_launcher::Request::ActivateContext { id, context })
+                                .await;
                         }
                     }
                     Request::Close => {

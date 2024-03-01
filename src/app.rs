@@ -140,7 +140,7 @@ impl CosmicLauncher {
 
         if self.active_surface {
             self.active_surface = false;
-            
+
             let mut commands = vec![destroy_layer_surface(*WINDOW_ID)];
             if self.menu.take().is_some() {
                 commands.push(commands::popup::destroy_popup(*MENU_ID));
@@ -162,19 +162,22 @@ async fn launch(token: Option<String>, exec: String, gpu: GpuPreference) {
     if let Some(gpu_envs) = try_get_gpu_envs(gpu).await {
         envs.extend(gpu_envs);
     }
-    
+
     cosmic::desktop::spawn_desktop_exec(exec, envs);
 }
 
 async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>> {
     let connection = zbus::Connection::system().await.ok()?;
-    let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection).await.ok()?;
+    let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection)
+        .await
+        .ok()?;
     let gpus = proxy.get_gpus().await.ok()?;
     match gpu {
         GpuPreference::Default => gpus.into_iter().find(|gpu| gpu.default),
         GpuPreference::NonDefault => gpus.into_iter().find(|gpu| !gpu.default),
         GpuPreference::SpecificIdx(idx) => gpus.into_iter().nth(idx as usize),
-    }.map(|gpu| gpu.environment)
+    }
+    .map(|gpu| gpu.environment)
 }
 
 impl cosmic::Application for CosmicLauncher {
@@ -268,7 +271,7 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.menu = Some((id, options));
                         let Some(pos) = self.cursor_position.as_ref() else {
-                            return Command::none()
+                            return Command::none();
                         };
                         let rect = Rectangle {
                             x: pos.x.round() as i32,
@@ -288,7 +291,7 @@ impl cosmic::Application for CosmicLauncher {
                                     sctk::reexports::protocols::xdg::shell::client::xdg_positioner::Anchor::Right,
                                 gravity: sctk::reexports::protocols::xdg::shell::client::xdg_positioner::Gravity::Right,
                                 reactive: true,
-                                ..Default::default() 
+                                ..Default::default()
                             },
                             grab: true,
                             parent_size: None,
@@ -301,13 +304,17 @@ impl cosmic::Application for CosmicLauncher {
                     } => {
                         if let Some(entry) = cosmic::desktop::load_desktop_file(None, path) {
                             let exec = if let Some(action_name) = action_name {
-                                entry.desktop_actions.into_iter().find(|action| action.name == action_name).map(|action| action.exec)   
+                                entry
+                                    .desktop_actions
+                                    .into_iter()
+                                    .find(|action| action.name == action_name)
+                                    .map(|action| action.exec)
                             } else {
                                 entry.exec
                             };
 
                             let Some(exec) = exec else {
-                                return Command::none()
+                                return Command::none();
                             };
 
                             return request_token(
@@ -315,7 +322,9 @@ impl cosmic::Application for CosmicLauncher {
                                 Some(*WINDOW_ID),
                                 move |token| {
                                     cosmic::app::Message::App(Message::ActivationToken(
-                                        token, exec, gpu_preference
+                                        token,
+                                        exec,
+                                        gpu_preference,
                                     ))
                                 },
                             );
@@ -367,13 +376,16 @@ impl cosmic::Application for CosmicLauncher {
                 }
                 LayerEvent::Done => {}
             },
-            Message::CloseContextMenu => if self.menu.take().is_some() {
-                return commands::popup::destroy_popup(*MENU_ID);
+            Message::CloseContextMenu => {
+                if self.menu.take().is_some() {
+                    return commands::popup::destroy_popup(*MENU_ID);
+                }
             }
-            Message::Hide => if self.menu.take().is_some() {
-                return commands::popup::destroy_popup(*MENU_ID);
-            } else {
-                return self.hide()
+            Message::Hide => {
+                if self.menu.take().is_some() {
+                    return commands::popup::destroy_popup(*MENU_ID);
+                }
+                return self.hide();
             }
             Message::KeyboardNav(e) => {
                 match e {
@@ -394,7 +406,9 @@ impl cosmic::Application for CosmicLauncher {
                 };
             }
             Message::ActivationToken(token, exec, dgpu) => {
-                return Command::perform(launch(token, exec, dgpu), |()| cosmic::app::message::app(Message::Hide));
+                return Command::perform(launch(token, exec, dgpu), |()| {
+                    cosmic::app::message::app(Message::Hide)
+                });
             }
         }
         Command::none()
@@ -451,40 +465,34 @@ impl cosmic::Application for CosmicLauncher {
                         (&item.name, &item.description)
                     };
 
-                    let name = Column::with_children(
-                        name.lines()
-                            .map(|line| {
-                                text(if line.len() > 45 {
-                                    format!("{line:.45}...")
-                                } else {
-                                    line.to_string()
-                                })
-                                .horizontal_alignment(Horizontal::Left)
-                                .vertical_alignment(Vertical::Center)
-                                .size(14)
-                                .style(cosmic::theme::Text::Custom(|t| text::Appearance {
-                                    color: Some(t.cosmic().on_bg_color().into()),
-                                }))
-                                .into()
-                            })
-                    );
-                    let desc = Column::with_children(
-                        desc.lines()
-                            .map(|line| {
-                                text(if line.len() > 60 {
-                                    format!("{line:.60}")
-                                } else {
-                                    line.to_string()
-                                })
-                                .horizontal_alignment(Horizontal::Left)
-                                .vertical_alignment(Vertical::Center)
-                                .size(10)
-                                .style(theme::Text::Custom(|t| text::Appearance {
-                                    color: Some(t.cosmic().on_bg_color().into()),
-                                }))
-                                .into()
-                            })
-                    );
+                    let name = Column::with_children(name.lines().map(|line| {
+                        text(if line.len() > 45 {
+                            format!("{line:.45}...")
+                        } else {
+                            line.to_string()
+                        })
+                        .horizontal_alignment(Horizontal::Left)
+                        .vertical_alignment(Vertical::Center)
+                        .size(14)
+                        .style(cosmic::theme::Text::Custom(|t| text::Appearance {
+                            color: Some(t.cosmic().on_bg_color().into()),
+                        }))
+                        .into()
+                    }));
+                    let desc = Column::with_children(desc.lines().map(|line| {
+                        text(if line.len() > 60 {
+                            format!("{line:.60}")
+                        } else {
+                            line.to_string()
+                        })
+                        .horizontal_alignment(Horizontal::Left)
+                        .vertical_alignment(Vertical::Center)
+                        .size(10)
+                        .style(theme::Text::Custom(|t| text::Appearance {
+                            color: Some(t.cosmic().on_bg_color().into()),
+                        }))
+                        .into()
+                    }));
 
                     let mut button_content = Vec::new();
                     if let Some(source) = item.category_icon.as_ref() {
@@ -543,51 +551,56 @@ impl cosmic::Application for CosmicLauncher {
                         .into(),
                     );
 
-                    let btn = mouse_area(cosmic::widget::button(
-                        row(button_content)
-                            .spacing(8)
-                            .align_items(Alignment::Center),
+                    let btn = mouse_area(
+                        cosmic::widget::button(
+                            row(button_content)
+                                .spacing(8)
+                                .align_items(Alignment::Center),
+                        )
+                        .width(Length::Fill)
+                        .on_press(Message::Activate(i))
+                        .padding([8, 16])
+                        .style(Button::Custom {
+                            active: Box::new(|focused, theme| {
+                                let rad_s = theme.cosmic().corner_radii.radius_s;
+                                let text =
+                                    button::StyleSheet::active(theme, focused, &Button::Text);
+                                button::Appearance {
+                                    border_radius: rad_s.into(),
+                                    ..text
+                                }
+                            }),
+                            hovered: Box::new(|focused, theme| {
+                                let rad_s = theme.cosmic().corner_radii.radius_s;
+
+                                let text =
+                                    button::StyleSheet::hovered(theme, focused, &Button::Text);
+                                button::Appearance {
+                                    border_radius: rad_s.into(),
+                                    ..text
+                                }
+                            }),
+                            disabled: Box::new(|theme| {
+                                let rad_s = theme.cosmic().corner_radii.radius_s;
+
+                                let text = button::StyleSheet::disabled(theme, &Button::Text);
+                                button::Appearance {
+                                    border_radius: rad_s.into(),
+                                    ..text
+                                }
+                            }),
+                            pressed: Box::new(|focused, theme| {
+                                let rad_s = theme.cosmic().corner_radii.radius_s;
+
+                                let text =
+                                    button::StyleSheet::pressed(theme, focused, &Button::Text);
+                                button::Appearance {
+                                    border_radius: rad_s.into(),
+                                    ..text
+                                }
+                            }),
+                        }),
                     )
-                    .width(Length::Fill)
-                    .on_press(Message::Activate(i))
-                    .padding([8, 16])
-                    .style(Button::Custom {
-                        active: Box::new(|focused, theme| {
-                            let rad_s = theme.cosmic().corner_radii.radius_s;
-                            let text = button::StyleSheet::active(theme, focused, &Button::Text);
-                            button::Appearance {
-                                border_radius: rad_s.into(),
-                                ..text
-                            }
-                        }),
-                        hovered: Box::new(|focused, theme| {
-                            let rad_s = theme.cosmic().corner_radii.radius_s;
-
-                            let text = button::StyleSheet::hovered(theme, focused, &Button::Text);
-                            button::Appearance {
-                                border_radius: rad_s.into(),
-                                ..text
-                            }
-                        }),
-                        disabled: Box::new(|theme| {
-                            let rad_s = theme.cosmic().corner_radii.radius_s;
-
-                            let text = button::StyleSheet::disabled(theme, &Button::Text);
-                            button::Appearance {
-                                border_radius: rad_s.into(),
-                                ..text
-                            }
-                        }),
-                        pressed: Box::new(|focused, theme| {
-                            let rad_s = theme.cosmic().corner_radii.radius_s;
-
-                            let text = button::StyleSheet::pressed(theme, focused, &Button::Text);
-                            button::Appearance {
-                                border_radius: rad_s.into(),
-                                ..text
-                            }
-                        }),
-                    }))
                     .on_right_release(Message::Context(i));
                     if i == self.launcher_items.len() - 1 {
                         vec![btn.into()]
@@ -602,7 +615,7 @@ impl cosmic::Application for CosmicLauncher {
             if !buttons.is_empty() {
                 content = content.push(components::list::column(buttons));
             }
-            
+
             let window = container(content)
                 .style(Container::Custom(Box::new(|theme| container::Appearance {
                     text_color: Some(theme.cosmic().on_bg_color().into()),
@@ -613,7 +626,7 @@ impl cosmic::Application for CosmicLauncher {
                         width: 1.0,
                         color: theme.cosmic().bg_divider().into(),
                     },
-                    shadow: Shadow::default()
+                    shadow: Shadow::default(),
                 })))
                 .padding([24, 32]);
 
@@ -628,25 +641,21 @@ impl cosmic::Application for CosmicLauncher {
         }
 
         if id == *MENU_ID {
-            let Some((i, options)) = self
-                .menu
-                .as_ref()
-            else {
+            let Some((i, options)) = self.menu.as_ref() else {
                 return container(horizontal_space(Length::Fixed(1.0)))
                     .width(Length::Fixed(1.0))
                     .height(Length::Fixed(1.0))
                     .into();
             };
-            let list_column = Column::with_children(
-                options.iter().map(|option| {
-                    menu_button(text(&option.name)).on_press(Message::MenuButton(*i, option.id)).into()
-                })
-            )
-                .padding([8, 0]);
-            
+            let list_column = Column::with_children(options.iter().map(|option| {
+                menu_button(text(&option.name))
+                    .on_press(Message::MenuButton(*i, option.id))
+                    .into()
+            }))
+            .padding([8, 0]);
 
-            return container(container(scrollable(list_column)).style(
-                theme::Container::custom(|theme| {
+            return container(
+                container(scrollable(list_column)).style(theme::Container::custom(|theme| {
                     let cosmic = theme.cosmic();
                     let corners = cosmic.corner_radii;
                     ContainerAppearance {
@@ -655,57 +664,62 @@ impl cosmic::Application for CosmicLauncher {
                         border: Border {
                             radius: corners.radius_m.into(),
                             width: 1.0,
-                            color: cosmic.background.divider.into()
+                            color: cosmic.background.divider.into(),
                         },
                         shadow: Shadow::default(),
                         icon_color: Some(cosmic.background.on.into()),
                     }
-                }),
-            ))
+                })),
+            )
             .width(Length::Shrink)
             .height(Length::Shrink)
             .align_x(Horizontal::Center)
             .align_y(Vertical::Top)
             .into();
         }
-        
+
         vertical_space(Length::Fixed(1.0)).into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        Subscription::batch(
-            vec![
-                launcher::subscription(0).map(Message::LauncherEvent),
-                listen_raw(|e, _status| {
-
-                    match e {
-                    cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
-                        wayland::Event::Layer(e, ..),
-                    )) => Some(Message::Layer(e)),
-                    cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                        key,
-                        modifiers,
-                        ..
-                    }) => match key {
-                        Key::Character(c) if modifiers.control() && (c == "p" || c == "k") => {
-                            Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
-                        }
-                        Key::Character(c) if modifiers.control() && (c == "n" || c == "j") => {
-                            Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
-                        }
-                        Key::Character(c) if modifiers.control() => {
-                            let nums = (0..10).map(|n| (n.to_string(), ((n + 10) % 10) - 1)).collect::<Vec<_>>();
-                            nums.iter().find_map(|n| (n.0 == c).then(|| Message::Activate(n.1)))
-                        }
-                        Key::Named(Named::ArrowUp) => Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious)),
-                        Key::Named(Named::ArrowDown) => Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext)), 
-                        Key::Named(Named::Escape) => Some(Message::Hide),
-                        _ => None,
+        Subscription::batch(vec![
+            launcher::subscription(0).map(Message::LauncherEvent),
+            listen_raw(|e, _status| match e {
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::Layer(e, ..),
+                )) => Some(Message::Layer(e)),
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
+                    key,
+                    modifiers,
+                    ..
+                }) => match key {
+                    Key::Character(c) if modifiers.control() && (c == "p" || c == "k") => {
+                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
                     }
-                    cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => Some(Message::CursorMoved(position)),
+                    Key::Character(c) if modifiers.control() && (c == "n" || c == "j") => {
+                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
+                    }
+                    Key::Character(c) if modifiers.control() => {
+                        let nums = (0..10)
+                            .map(|n| (n.to_string(), ((n + 10) % 10) - 1))
+                            .collect::<Vec<_>>();
+                        nums.iter()
+                            .find_map(|n| (n.0 == c).then(|| Message::Activate(n.1)))
+                    }
+                    Key::Named(Named::ArrowUp) => {
+                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
+                    }
+                    Key::Named(Named::ArrowDown) => {
+                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
+                    }
+                    Key::Named(Named::Escape) => Some(Message::Hide),
                     _ => None,
-                }}),
-            ],
-        )
+                },
+                cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
+                    Some(Message::CursorMoved(position))
+                }
+                _ => None,
+            }),
+        ])
     }
 }
