@@ -617,9 +617,19 @@ impl cosmic::Application for CosmicLauncher {
                             active: Box::new(|focused, theme| {
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
                                 let a = if focused {
-                                    button::StyleSheet::hovered(theme, focused, &Button::Text)
+                                    button::StyleSheet::hovered(
+                                        theme,
+                                        focused,
+                                        focused,
+                                        &Button::Text,
+                                    )
                                 } else {
-                                    button::StyleSheet::active(theme, focused, &Button::Text)
+                                    button::StyleSheet::active(
+                                        theme,
+                                        focused,
+                                        focused,
+                                        &Button::Text,
+                                    )
                                 };
                                 button::Appearance {
                                     border_radius: rad_s.into(),
@@ -629,8 +639,12 @@ impl cosmic::Application for CosmicLauncher {
                             hovered: Box::new(|focused, theme| {
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
-                                let text =
-                                    button::StyleSheet::hovered(theme, focused, &Button::Text);
+                                let text = button::StyleSheet::hovered(
+                                    theme,
+                                    focused,
+                                    focused,
+                                    &Button::Text,
+                                );
                                 button::Appearance {
                                     border_radius: rad_s.into(),
                                     ..text
@@ -648,8 +662,12 @@ impl cosmic::Application for CosmicLauncher {
                             pressed: Box::new(|focused, theme| {
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
-                                let text =
-                                    button::StyleSheet::pressed(theme, focused, &Button::Text);
+                                let text = button::StyleSheet::pressed(
+                                    theme,
+                                    focused,
+                                    focused,
+                                    &Button::Text,
+                                );
                                 button::Appearance {
                                     border_radius: rad_s.into(),
                                     ..text
