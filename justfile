@@ -11,9 +11,16 @@ export INSTALL_DIR := base-dir / 'share'
 bin-src := 'target' / 'release' / name
 bin-dst := base-dir / 'bin' / name
 
-# Use lld linker if available
-ld-args := if `which lld || true` != '' {
-    '-C link-arg=-fuse-ld=lld -C link-arg=-Wl,--build-id=sha1 -Clink-arg=-Wl,--no-rosegment'
+# Use mold linker if clang and mold exists.
+clang-path := `which clang || true`
+mold-path := `which mold || true`
+
+ld-args := if clang-path != '' {
+    if mold-path != '' {
+        '-C linker=' + clang-path + ' -C link-arg=--ld-path=' + mold-path + ' '
+    } else {
+        ''
+    }
 } else {
     ''
 }
