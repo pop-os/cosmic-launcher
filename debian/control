@@ -19,5 +19,6 @@ Package: cosmic-launcher
 Architecture: amd64 arm64
 Depends:
   ${misc:Depends},
-  ${shlibs:Depends}
+  ${shlibs:Depends},
+  pop-launcher,
 Description: Cosmic Launcher
