@@ -116,6 +116,7 @@ pub struct CosmicLauncher {
     wait_for_result: bool,
     menu: Option<(u32, Vec<ContextOption>)>,
     cursor_position: Option<Point<f32>>,
+    focused: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +141,7 @@ pub enum Message {
 impl CosmicLauncher {
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
+        self.focused = 0;
 
         // XXX The close will reset the launcher, but the search will restart it so it's ready
         // for the next time it's opened.
@@ -164,6 +166,16 @@ impl CosmicLauncher {
         }
 
         Command::none()
+    }
+
+    fn focus_next(&mut self) -> Command<Message> {
+        self.focused = (self.focused + 1) % self.launcher_items.len();
+        button::focus(RESULT_IDS[self.focused].clone())
+    }
+
+    fn focus_previous(&mut self) -> Command<Message> {
+        self.focused = (self.focused + self.launcher_items.len() - 1) % self.launcher_items.len();
+        button::focus(RESULT_IDS[self.focused].clone())
     }
 }
 
@@ -205,6 +217,7 @@ impl cosmic::Application for CosmicLauncher {
         core.set_keyboard_nav(false);
         (
             CosmicLauncher {
+                focused: 0,
                 core,
                 input_value: String::new(),
                 active_surface: false,
@@ -263,9 +276,12 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::AutoComplete => {
-                return iced::Command::<Id>::widget(find_focused())
-                    .map(|id| Message::CompleteFocusedId(id))
-                    .map(cosmic::app::Message::App);
+                return Command::batch(vec![
+                    iced::Command::<Id>::widget(find_focused())
+                        .map(Message::CompleteFocusedId)
+                        .map(cosmic::app::Message::App),
+                    button::focus(RESULT_IDS[0].clone()),
+                ]);
             }
             Message::CompleteFocusedId(id) => {
                 let i = RESULT_IDS
@@ -417,13 +433,13 @@ impl cosmic::Application for CosmicLauncher {
                             let _res = tx
                                 .blocking_send(launcher::Request::Search(self.input_value.clone()));
                         }
-                        return text_input::focus(INPUT_ID.clone());
+                        return button::focus(RESULT_IDS[0].clone());
                     }
                 },
             },
             Message::Layer(e) => match e {
                 LayerEvent::Focused => {
-                    return text_input::focus(INPUT_ID.clone());
+                    return button::focus(RESULT_IDS[0].clone());
                 }
                 LayerEvent::Unfocused => {
                     return self.hide();
@@ -444,10 +460,10 @@ impl cosmic::Application for CosmicLauncher {
             Message::KeyboardNav(e) => {
                 match e {
                     keyboard_nav::Message::FocusNext => {
-                        return iced::widget::focus_next();
+                        return self.focus_next();
                     }
                     keyboard_nav::Message::FocusPrevious => {
-                        return iced::widget::focus_previous();
+                        return self.focus_previous();
                     }
                     keyboard_nav::Message::Unfocus => {
                         self.input_value.clear();
