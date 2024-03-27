@@ -27,7 +27,9 @@ use cosmic::iced_style::{application, container::Appearance as ContainerAppearan
 use cosmic::iced_widget::row;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
-use cosmic::widget::{button, divider, horizontal_space, icon, mouse_area, scrollable, text_input};
+use cosmic::widget::{
+    button, divider, horizontal_space, icon, mouse_area, scrollable, text_input, StyleSheet,
+};
 use cosmic::{keyboard_nav, Element, Theme};
 use iced::keyboard::Key;
 use iced::wayland::Appearance;
@@ -504,6 +506,13 @@ impl cosmic::Application for CosmicLauncher {
             .on_input(Message::InputChanged)
             .on_paste(Message::InputChanged)
             .on_submit(Message::Activate(0))
+            .style(cosmic::theme::TextInput::Custom {
+                active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                hovered: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
+            })
             .id(INPUT_ID.clone());
 
             let buttons: Vec<_> = self
@@ -633,6 +642,7 @@ impl cosmic::Application for CosmicLauncher {
                                 };
                                 button::Appearance {
                                     border_radius: rad_s.into(),
+                                    outline_width: 0.0,
                                     ..a
                                 }
                             }),
@@ -647,6 +657,7 @@ impl cosmic::Application for CosmicLauncher {
                                 );
                                 button::Appearance {
                                     border_radius: rad_s.into(),
+                                    outline_width: 0.0,
                                     ..text
                                 }
                             }),
@@ -656,6 +667,7 @@ impl cosmic::Application for CosmicLauncher {
                                 let text = button::StyleSheet::disabled(theme, &Button::Text);
                                 button::Appearance {
                                     border_radius: rad_s.into(),
+                                    outline_width: 0.0,
                                     ..text
                                 }
                             }),
@@ -670,6 +682,7 @@ impl cosmic::Application for CosmicLauncher {
                                 );
                                 button::Appearance {
                                     border_radius: rad_s.into(),
+                                    outline_width: 0.0,
                                     ..text
                                 }
                             }),
