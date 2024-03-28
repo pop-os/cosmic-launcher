@@ -7,6 +7,7 @@ edition = "2021"
 [features]
 default = []
 wgpu = ["libcosmic/wgpu"]
+console = ["tokio/tracing"]
 
 [dependencies]
 async-stream = "0.3.5"
@@ -26,7 +27,7 @@ rust-embed = "6.3.0"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 shlex = "1.1.0"
-tokio = { version = "1.24.1", features = ["sync", "rt", "tracing"] }
+tokio = { version = "1.24.1", features = ["sync", "rt"] }
 xdg = "2.4.1"
 clap = {version = "4.4.8", features = ["derive"] }
 switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }
