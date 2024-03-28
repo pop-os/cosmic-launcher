@@ -2,7 +2,10 @@ use cosmic::{iced::futures::StreamExt, iced_runtime::futures::MaybeSend};
 use futures::{SinkExt, Stream};
 use pop_launcher_service::IpcClient;
 use std::hash::Hash;
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::Builder,
+};
 
 #[derive(Debug, Clone)]
 pub enum Request {
@@ -47,24 +50,21 @@ async fn client_request<'a>(
                 let tx = tx.clone();
 
                 let (kill_tx, kill_rx) = tokio::sync::oneshot::channel();
-
-                let _res = tokio::task::Builder::new()
-                    .name("pop-launcher listener")
-                    .spawn(async {
-                        tracing::info!("starting pop-launcher instance");
-                        let listener = Box::pin(async move {
-                            let mut responses = std::pin::pin!(responses);
-                            while let Some(response) = responses.next().await {
-                                let _res = tx.send(Event::Response(response)).await;
-                            }
-                        });
-
-                        let killswitch = Box::pin(async move {
-                            let _res = kill_rx.await;
-                        });
-
-                        futures::future::select(listener, killswitch).await;
+                let _res = Builder::new().name("pop-launcher listener").spawn(async {
+                    tracing::info!("starting pop-launcher instance");
+                    let listener = Box::pin(async move {
+                        let mut responses = std::pin::pin!(responses);
+                        while let Some(response) = responses.next().await {
+                            let _res = tx.send(Event::Response(response)).await;
+                        }
                     });
+
+                    let killswitch = Box::pin(async move {
+                        let _res = kill_rx.await;
+                    });
+
+                    futures::future::select(listener, killswitch).await;
+                });
 
                 let _res = new_client
                     .send(pop_launcher::Request::Search(String::new()))
@@ -86,7 +86,7 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
     let (requests_tx, mut requests_rx) = mpsc::channel(4);
     let (responses_tx, mut responses_rx) = mpsc::channel(4);
 
-    let _res = tokio::task::Builder::new()
+    let _res = Builder::new()
         .name("pop-launcher forwarder")
         .spawn(async move {
             let _res = responses_tx.send(Event::Started(requests_tx.clone())).await;
