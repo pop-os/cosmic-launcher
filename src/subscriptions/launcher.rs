@@ -4,7 +4,7 @@ use pop_launcher_service::IpcClient;
 use std::hash::Hash;
 use tokio::{
     sync::{mpsc, oneshot},
-    task::Builder,
+    task::spawn,
 };
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ async fn client_request<'a>(
                 let tx = tx.clone();
 
                 let (kill_tx, kill_rx) = tokio::sync::oneshot::channel();
-                let _res = Builder::new().name("pop-launcher listener").spawn(async {
+                let _res = spawn(async {
                     tracing::info!("starting pop-launcher instance");
                     let listener = Box::pin(async move {
                         let mut responses = std::pin::pin!(responses);
@@ -83,56 +83,53 @@ async fn client_request<'a>(
 }
 
 pub fn service() -> impl Stream<Item = Event> + MaybeSend {
-    let (requests_tx, mut requests_rx) = mpsc::channel(4);
-    let (responses_tx, mut responses_rx) = mpsc::channel(4);
+    let (requests_tx, mut requests_rx) = mpsc::channel::<Request>(4);
+    let (responses_tx, mut responses_rx) = mpsc::channel::<Event>(4);
+    let _res = spawn(async move {
+        let _res = responses_tx.send(Event::Started(requests_tx.clone())).await;
 
-    let _res = Builder::new()
-        .name("pop-launcher forwarder")
-        .spawn(async move {
-            let _res = responses_tx.send(Event::Started(requests_tx.clone())).await;
+        let client = &mut None;
 
-            let client = &mut None;
-
-            while let Some(request) = requests_rx.recv().await {
-                match request {
-                    Request::Search(s) => {
-                        if let Some((client, _)) = client_request(&responses_tx, client).await {
-                            let _res = client.send(pop_launcher::Request::Search(s)).await;
-                        }
+        while let Some(request) = requests_rx.recv().await {
+            match request {
+                Request::Search(s) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client).await {
+                        let _res = client.send(pop_launcher::Request::Search(s)).await;
                     }
-                    Request::Activate(i) => {
-                        if let Some((client, _)) = client_request(&responses_tx, client).await {
-                            let _res = client.send(pop_launcher::Request::Activate(i)).await;
-                        }
+                }
+                Request::Activate(i) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client).await {
+                        let _res = client.send(pop_launcher::Request::Activate(i)).await;
                     }
-                    Request::Context(i) => {
-                        if let Some((client, _)) = client_request(&responses_tx, client).await {
-                            let _res = client.send(pop_launcher::Request::Context(i)).await;
-                        }
+                }
+                Request::Context(i) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client).await {
+                        let _res = client.send(pop_launcher::Request::Context(i)).await;
                     }
-                    Request::ActivateContext(id, context) => {
-                        if let Some((client, _)) = client_request(&responses_tx, client).await {
-                            let _res = client
-                                .send(pop_launcher::Request::ActivateContext { id, context })
-                                .await;
-                        }
+                }
+                Request::ActivateContext(id, context) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client).await {
+                        let _res = client
+                            .send(pop_launcher::Request::ActivateContext { id, context })
+                            .await;
                     }
-                    Request::Close => {
-                        if let Some((mut client, kill)) = client.take() {
-                            tracing::info!("closing pop-launcher instance");
-                            let _res = kill.send(());
-                            let _res = client.child.kill().await;
-                            let _res = client.child.wait().await;
-                        }
+                }
+                Request::Close => {
+                    if let Some((mut client, kill)) = client.take() {
+                        tracing::info!("closing pop-launcher instance");
+                        let _res = kill.send(());
+                        let _res = client.child.kill().await;
+                        let _res = client.child.wait().await;
                     }
-                    Request::Complete(id) => {
-                        if let Some((client, _)) = client_request(&responses_tx, client).await {
-                            let _res = client.send(pop_launcher::Request::Complete(id)).await;
-                        }
+                }
+                Request::Complete(id) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client).await {
+                        let _res = client.send(pop_launcher::Request::Complete(id)).await;
                     }
                 }
             }
-        });
+        }
+    });
 
     async_stream::stream! {
         while let Some(message) = responses_rx.recv().await {
