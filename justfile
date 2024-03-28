@@ -60,7 +60,7 @@ run: build-release
     ./target/release/cosmic-launcher
 
 # Build and run with tokio-console enabled
-tokio-console: build-release --features "console"
+tokio-console: (build-release '--features console')
     env TOKIO_CONSOLE=1 ./target/release/cosmic-launcher
 
 # Installs files
