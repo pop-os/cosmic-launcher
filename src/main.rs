@@ -12,12 +12,12 @@ use crate::config::VERSION;
 
 fn main() -> cosmic::iced::Result {
     // Initialize logger
+    #[cfg(feature = "console")]
     if std::env::var("TOKIO_CONSOLE").as_deref() == Ok("1") {
         std::env::set_var("RUST_LOG", "trace");
         console_subscriber::init();
-    } else {
-        pretty_env_logger::init();
     }
+    pretty_env_logger::init();
 
     info!(
         "cosmic-launcher ({})",
