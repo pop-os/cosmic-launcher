@@ -126,7 +126,7 @@ pub enum Message {
     Backspace,
     AutoComplete,
     CompleteFocusedId(Id),
-    Activate(usize),
+    Activate(Option<usize>),
     Context(usize),
     MenuButton(u32, u32),
     CloseContextMenu,
@@ -168,14 +168,12 @@ impl CosmicLauncher {
         Command::none()
     }
 
-    fn focus_next(&mut self) -> Command<Message> {
+    fn focus_next(&mut self) {
         self.focused = (self.focused + 1) % self.launcher_items.len();
-        button::focus(RESULT_IDS[self.focused].clone())
     }
 
-    fn focus_previous(&mut self) -> Command<Message> {
+    fn focus_previous(&mut self) {
         self.focused = (self.focused + self.launcher_items.len() - 1) % self.launcher_items.len();
-        button::focus(RESULT_IDS[self.focused].clone())
     }
 }
 
@@ -217,7 +215,6 @@ impl cosmic::Application for CosmicLauncher {
         core.set_keyboard_nav(false);
         (
             CosmicLauncher {
-                focused: 0,
                 core,
                 input_value: String::new(),
                 active_surface: false,
@@ -226,8 +223,9 @@ impl cosmic::Application for CosmicLauncher {
                 wait_for_result: false,
                 menu: None,
                 cursor_position: None,
+                focused: 0,
             },
-            Command::none(),
+            text_input::focus(INPUT_ID.clone()),
         )
     }
 
@@ -276,11 +274,12 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::AutoComplete => {
+                self.focused = 0;
                 return Command::batch(vec![
                     iced::Command::<Id>::widget(find_focused())
                         .map(Message::CompleteFocusedId)
                         .map(cosmic::app::Message::App),
-                    button::focus(RESULT_IDS[0].clone()),
+                    text_input::focus(INPUT_ID.clone()),
                 ]);
             }
             Message::CompleteFocusedId(id) => {
@@ -296,7 +295,9 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::Activate(i) => {
-                if let (Some(tx), Some(item)) = (&self.tx, self.launcher_items.get(i)) {
+                if let (Some(tx), Some(item)) =
+                    (&self.tx, self.launcher_items.get(i.unwrap_or(self.focused)))
+                {
                     let _res = tx.blocking_send(launcher::Request::Activate(item.id));
                 }
             }
@@ -433,13 +434,13 @@ impl cosmic::Application for CosmicLauncher {
                             let _res = tx
                                 .blocking_send(launcher::Request::Search(self.input_value.clone()));
                         }
-                        return button::focus(RESULT_IDS[0].clone());
+                        return text_input::focus(INPUT_ID.clone());
                     }
                 },
             },
             Message::Layer(e) => match e {
                 LayerEvent::Focused => {
-                    return button::focus(RESULT_IDS[0].clone());
+                    return text_input::focus(INPUT_ID.clone());
                 }
                 LayerEvent::Unfocused => {
                     return self.hide();
@@ -460,10 +461,10 @@ impl cosmic::Application for CosmicLauncher {
             Message::KeyboardNav(e) => {
                 match e {
                     keyboard_nav::Message::FocusNext => {
-                        return self.focus_next();
+                        self.focus_next();
                     }
                     keyboard_nav::Message::FocusPrevious => {
-                        return self.focus_previous();
+                        self.focus_previous();
                     }
                     keyboard_nav::Message::Unfocus => {
                         self.input_value.clear();
@@ -521,7 +522,7 @@ impl cosmic::Application for CosmicLauncher {
             )
             .on_input(Message::InputChanged)
             .on_paste(Message::InputChanged)
-            .on_submit(Message::Activate(0))
+            .on_submit(Message::Activate(None))
             .style(cosmic::theme::TextInput::Custom {
                 active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
                 error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
@@ -627,7 +628,7 @@ impl cosmic::Application for CosmicLauncher {
                         .padding([8, 16])
                         .into(),
                     );
-
+                    let is_focused = i == self.focused;
                     let btn = mouse_area(
                         cosmic::widget::button(
                             row(button_content)
@@ -636,10 +637,11 @@ impl cosmic::Application for CosmicLauncher {
                         )
                         .id(RESULT_IDS[i].clone())
                         .width(Length::Fill)
-                        .on_press(Message::Activate(i))
+                        .on_press(Message::Activate(None))
                         .padding([8, 16])
                         .style(Button::Custom {
-                            active: Box::new(|focused, theme| {
+                            active: Box::new(move |focused, theme| {
+                                let focused = is_focused || focused;
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
                                 let a = if focused {
                                     button::StyleSheet::hovered(
@@ -662,7 +664,8 @@ impl cosmic::Application for CosmicLauncher {
                                     ..a
                                 }
                             }),
-                            hovered: Box::new(|focused, theme| {
+                            hovered: Box::new(move |focused, theme| {
+                                let focused = is_focused || focused;
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
                                 let text = button::StyleSheet::hovered(
@@ -687,7 +690,8 @@ impl cosmic::Application for CosmicLauncher {
                                     ..text
                                 }
                             }),
-                            pressed: Box::new(|focused, theme| {
+                            pressed: Box::new(move |focused, theme| {
+                                let focused = is_focused || focused;
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
                                 let text = button::StyleSheet::pressed(
@@ -807,7 +811,7 @@ impl cosmic::Application for CosmicLauncher {
                             .map(|n| (n.to_string(), ((n + 10) % 10) - 1))
                             .collect::<Vec<_>>();
                         nums.iter()
-                            .find_map(|n| (n.0 == c).then(|| Message::Activate(n.1)))
+                            .find_map(|n| (n.0 == c).then(|| Message::Activate(Some(n.1))))
                     }
                     Key::Named(Named::ArrowUp) => {
                         Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
