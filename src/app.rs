@@ -637,7 +637,7 @@ impl cosmic::Application for CosmicLauncher {
                         )
                         .id(RESULT_IDS[i].clone())
                         .width(Length::Fill)
-                        .on_press(Message::Activate(None))
+                        .on_press(Message::Activate(Some(i)))
                         .padding([8, 16])
                         .style(Button::Custom {
                             active: Box::new(move |focused, theme| {
