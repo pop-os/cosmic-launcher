@@ -41,6 +41,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
 use tokio::sync::mpsc;
+use unicode_truncate::UnicodeTruncateStr;
+use unicode_width::UnicodeWidthStr;
 
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 static RESULT_IDS: Lazy<[Id; 10]> = Lazy::new(|| {
@@ -544,8 +546,8 @@ impl cosmic::Application for CosmicLauncher {
                     };
 
                     let name = Column::with_children(name.lines().map(|line| {
-                        text(if line.len() > 45 {
-                            format!("{line:.45}...")
+                        text(if line.width() > 45 {
+                            format!("{}...", line.unicode_truncate(45).0)
                         } else {
                             line.to_string()
                         })
@@ -557,9 +559,10 @@ impl cosmic::Application for CosmicLauncher {
                         }))
                         .into()
                     }));
+
                     let desc = Column::with_children(desc.lines().map(|line| {
-                        text(if line.len() > 60 {
-                            format!("{line:.60}")
+                        text(if line.width() > 60 {
+                            format!("{}...", line.unicode_truncate(60).0)
                         } else {
                             line.to_string()
                         })
