@@ -1,0 +1,1 @@
+app-name = Peluncur Cosmic
