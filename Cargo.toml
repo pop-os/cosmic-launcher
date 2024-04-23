@@ -16,7 +16,7 @@ freedesktop-icons = "0.2.3"
 futures = "0.3.21"
 i18n-embed = { version = "0.13.4", features = ["fluent-system", "desktop-requester"] }
 i18n-embed-fl = "0.6.4"
-libcosmic = { git = "https://github.com/pop-os/libcosmic/", default-features = false, features = ["wayland", "tokio", "single-instance", "dbus-config", "desktop"] }
+libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = ["wayland", "tokio", "single-instance", "dbus-config", "desktop", ] }
 tracing = "0.1"
 nix = {version = "0.27.1", features = ["process"]}
 once_cell = "1.17"
