@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "bbenoist.nix",
+    "github.vscode-pull-request-github",
+    "macabeus.vscode-fluent",
+    "rust-lang.rust-analyzer",
+    "skellock.just",
+  ]
+}
