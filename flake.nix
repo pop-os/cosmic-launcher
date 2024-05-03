@@ -45,7 +45,6 @@
             lld
             desktop-file-utils
             stdenv.cc.cc.lib
-            desktop-file-utils
            ];
           runtimeDependencies = with pkgs; [
             wayland
