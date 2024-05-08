@@ -1,11 +1,13 @@
 [Desktop Entry]
-Name=COSMIC Launcher
+Name=Launcher
 Comment=COSMIC Launcher
 Type=Application
 Exec=cosmic-launcher
 Terminal=false
-Categories=GNOME;GTK;
-Keywords=Gnome;GTK;
+Categories=COSMIC;ICED;
+# Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
+Keywords=COSMIC;ICED;
+# Translators: Do NOT translate or transliterate this text (this is an icon file name)!
 Icon=com.system76.CosmicLauncher
 StartupNotify=true
 X-HostWaylandDisplay=true
