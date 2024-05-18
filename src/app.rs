@@ -40,6 +40,7 @@ use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Instant;
 use tokio::sync::mpsc;
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::UnicodeWidthStr;
@@ -119,6 +120,7 @@ pub struct CosmicLauncher {
     menu: Option<(u32, Vec<ContextOption>)>,
     cursor_position: Option<Point<f32>>,
     focused: usize,
+    last_hide: Instant,
 }
 
 #[derive(Debug, Clone)]
@@ -226,6 +228,7 @@ impl cosmic::Application for CosmicLauncher {
                 menu: None,
                 cursor_position: None,
                 focused: 0,
+                last_hide: Instant::now(),
             },
             text_input::focus(INPUT_ID.clone()),
         )
@@ -445,6 +448,7 @@ impl cosmic::Application for CosmicLauncher {
                     return text_input::focus(INPUT_ID.clone());
                 }
                 LayerEvent::Unfocused => {
+                    self.last_hide = Instant::now();
                     return self.hide();
                 }
                 LayerEvent::Done => {}
@@ -493,8 +497,8 @@ impl cosmic::Application for CosmicLauncher {
     ) -> iced::Command<cosmic::app::Message<Self::Message>> {
         if let DbusActivationDetails::Activate = msg.msg {
             if self.active_surface {
-                self.hide()
-            } else {
+                return self.hide();
+            } else if self.last_hide.elapsed().as_millis() > 100 {
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                 } else {
@@ -504,11 +508,10 @@ impl cosmic::Application for CosmicLauncher {
                 self.input_value = String::new();
                 self.active_surface = true;
                 self.wait_for_result = true;
-                Command::none()
+                return Command::none();
             }
-        } else {
-            Command::none()
         }
+        Command::none()
     }
 
     fn view(&self) -> Element<Self::Message> {
