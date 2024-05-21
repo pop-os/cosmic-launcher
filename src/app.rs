@@ -28,11 +28,11 @@ use cosmic::iced_widget::row;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::{
-    button, divider, horizontal_space, icon, mouse_area, scrollable, text_input, StyleSheet,
+    button, divider, horizontal_space, icon, mouse_area, scrollable,
+    text_input::{self, StyleSheet as TextInputStyleSheet},
 };
 use cosmic::{keyboard_nav, Element, Theme};
 use iced::keyboard::Key;
-use iced::wayland::Appearance;
 use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
@@ -111,8 +111,8 @@ pub fn run() -> cosmic::iced::Result {
 
 pub fn menu_button<'a, Message>(
     content: impl Into<Element<'a, Message>>,
-) -> cosmic::widget::Button<'a, Message, cosmic::Theme, cosmic::Renderer> {
-    cosmic::widget::Button::new(content)
+) -> cosmic::widget::Button<'a, Message> {
+    button(content)
         .style(Button::AppletMenu)
         .padding(menu_control_padding())
         .width(Length::Fill)
@@ -145,7 +145,6 @@ pub enum Message {
     UncapturedInput(String),
     Backspace,
     TabRelease,
-    TabPress,
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -265,7 +264,7 @@ impl cosmic::Application for CosmicLauncher {
 
     fn style(&self) -> Option<<Theme as application::StyleSheet>::Style> {
         Some(<Theme as application::StyleSheet>::Style::Custom(Box::new(
-            |theme| Appearance {
+            |theme| cosmic::iced::wayland::Appearance {
                 background_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
                 text_color: theme.cosmic().on_bg_color().into(),
                 icon_color: theme.cosmic().on_bg_color().into(),
@@ -299,9 +298,6 @@ impl cosmic::Application for CosmicLauncher {
                         tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
                 }
             }
-            Message::TabPress if self.alt_tab => {
-                self.focus_next();
-            }
             Message::TabRelease if !self.alt_tab => {
                 self.focused = 0;
                 return Command::batch(vec![
@@ -311,7 +307,7 @@ impl cosmic::Application for CosmicLauncher {
                     text_input::focus(INPUT_ID.clone()),
                 ]);
             }
-            Message::TabPress | Message::TabRelease => {}
+            Message::TabRelease => {}
             Message::CompleteFocusedId(id) => {
                 let i = RESULT_IDS
                     .iter()
@@ -513,7 +509,11 @@ impl cosmic::Application for CosmicLauncher {
                 });
             }
             Message::AltTab => {
-                self.alt_tab = true;
+                if self.alt_tab {
+                    self.focus_next();
+                } else {
+                    self.alt_tab = true;
+                }
             }
             Message::AltRelease => {
                 if self.alt_tab {
@@ -911,7 +911,6 @@ impl cosmic::Application for CosmicLauncher {
                     {
                         Some(Message::Backspace)
                     }
-                    Key::Named(Named::Tab) => Some(Message::TabPress),
                     _ => None,
                 },
                 cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
