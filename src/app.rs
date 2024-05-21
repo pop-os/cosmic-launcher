@@ -556,15 +556,13 @@ impl cosmic::Application for CosmicLauncher {
                     tracing::info!("NOT FOUND");
                 }
                 if self.active_surface {
-                    return Command::perform(async {}, |()| {
-                        cosmic::app::message::app(Message::AltTab)
-                    });
+                    return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
                 }
 
                 self.input_value = action;
                 self.active_surface = true;
                 self.wait_for_result = true;
-                return Command::perform(async {}, |()| cosmic::app::message::app(Message::AltTab));
+                return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
             }
             DbusActivationDetails::Open { .. } => {}
         }
