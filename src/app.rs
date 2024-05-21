@@ -40,6 +40,7 @@ use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::Instant;
 use tokio::sync::mpsc;
 use unicode_truncate::UnicodeTruncateStr;
@@ -59,14 +60,28 @@ pub(crate) static MENU_ID: Lazy<SurfaceId> = Lazy::new(SurfaceId::unique);
 #[derive(Parser, Debug, Serialize, Deserialize, Clone)]
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
-pub struct Args {}
+pub struct Args {
+    #[clap(subcommand)]
+    pub subcommand: Option<LauncherCommands>,
+}
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LauncherCommands;
+#[derive(Debug, Serialize, Deserialize, Clone, clap::Subcommand)]
+pub enum LauncherCommands {
+    #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
+    AltTab,
+}
 
 impl ToString for LauncherCommands {
     fn to_string(&self) -> String {
         serde_json::ser::to_string(self).unwrap()
+    }
+}
+
+impl FromStr for LauncherCommands {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::de::from_str(s)
     }
 }
 
@@ -75,7 +90,7 @@ impl CosmicFlags for Args {
     type Args = Vec<String>;
 
     fn action(&self) -> Option<&LauncherCommands> {
-        None
+        self.subcommand.as_ref()
     }
 }
 
@@ -121,6 +136,7 @@ pub struct CosmicLauncher {
     cursor_position: Option<Point<f32>>,
     focused: usize,
     last_hide: Instant,
+    alt_tab: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -128,7 +144,8 @@ pub enum Message {
     InputChanged(String),
     UncapturedInput(String),
     Backspace,
-    AutoComplete,
+    TabRelease,
+    TabPress,
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -140,12 +157,15 @@ pub enum Message {
     Layer(LayerEvent),
     KeyboardNav(keyboard_nav::Message),
     ActivationToken(Option<String>, String, GpuPreference),
+    AltTab,
+    AltRelease,
 }
 
 impl CosmicLauncher {
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
         self.focused = 0;
+        self.alt_tab = false;
 
         // XXX The close will reset the launcher, but the search will restart it so it's ready
         // for the next time it's opened.
@@ -229,6 +249,7 @@ impl cosmic::Application for CosmicLauncher {
                 cursor_position: None,
                 focused: 0,
                 last_hide: Instant::now(),
+                alt_tab: false,
             },
             text_input::focus(INPUT_ID.clone()),
         )
@@ -278,7 +299,10 @@ impl cosmic::Application for CosmicLauncher {
                         tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
                 }
             }
-            Message::AutoComplete => {
+            Message::TabPress if self.alt_tab => {
+                self.focus_next();
+            }
+            Message::TabRelease if !self.alt_tab => {
                 self.focused = 0;
                 return Command::batch(vec![
                     iced::Command::<Id>::widget(find_focused())
@@ -287,6 +311,7 @@ impl cosmic::Application for CosmicLauncher {
                     text_input::focus(INPUT_ID.clone()),
                 ]);
             }
+            Message::TabPress | Message::TabRelease => {}
             Message::CompleteFocusedId(id) => {
                 let i = RESULT_IDS
                     .iter()
@@ -487,6 +512,14 @@ impl cosmic::Application for CosmicLauncher {
                     cosmic::app::message::app(Message::Hide)
                 });
             }
+            Message::AltTab => {
+                self.alt_tab = true;
+            }
+            Message::AltRelease => {
+                if self.alt_tab {
+                    return self.update(Message::Activate(None));
+                }
+            }
         }
         Command::none()
     }
@@ -495,21 +528,45 @@ impl cosmic::Application for CosmicLauncher {
         &mut self,
         msg: cosmic::app::DbusActivationMessage,
     ) -> iced::Command<cosmic::app::Message<Self::Message>> {
-        if let DbusActivationDetails::Activate = msg.msg {
-            if self.active_surface {
-                return self.hide();
-            } else if self.last_hide.elapsed().as_millis() > 100 {
+        match msg.msg {
+            DbusActivationDetails::Activate => {
+                if self.active_surface {
+                    return self.hide();
+                } else if self.last_hide.elapsed().as_millis() > 100 {
+                    if let Some(tx) = &self.tx {
+                        let _res = tx.blocking_send(launcher::Request::Search(String::new()));
+                    } else {
+                        tracing::info!("NOT FOUND");
+                    }
+
+                    self.input_value = String::new();
+                    self.active_surface = true;
+                    self.wait_for_result = true;
+                    return Command::none();
+                }
+            }
+            DbusActivationDetails::ActivateAction { action, .. } => {
+                if LauncherCommands::from_str(&action).is_err() {
+                    return Command::none();
+                }
+
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                 } else {
                     tracing::info!("NOT FOUND");
                 }
+                if self.active_surface {
+                    return Command::perform(async {}, |()| {
+                        cosmic::app::message::app(Message::AltTab)
+                    });
+                }
 
-                self.input_value = String::new();
+                self.input_value = action;
                 self.active_surface = true;
                 self.wait_for_result = true;
-                return Command::none();
+                return Command::perform(async {}, |()| cosmic::app::message::app(Message::AltTab));
             }
+            DbusActivationDetails::Open { .. } => {}
         }
         Command::none()
     }
@@ -723,7 +780,11 @@ impl cosmic::Application for CosmicLauncher {
                 })
                 .collect();
 
-            let mut content = column![launcher_entry].max_width(600).spacing(16);
+            let mut content = if self.alt_tab {
+                Column::new().max_width(600).spacing(16)
+            } else {
+                column![launcher_entry].max_width(600).spacing(16)
+            };
 
             if !buttons.is_empty() {
                 content = content.push(components::list::column(buttons));
@@ -826,7 +887,8 @@ impl cosmic::Application for CosmicLauncher {
                         Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
-                    Key::Named(Named::Tab) => Some(Message::AutoComplete),
+                    Key::Named(Named::Tab) => Some(Message::TabRelease),
+                    Key::Named(Named::Alt) => Some(Message::AltRelease),
                     _ => None,
                 },
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
@@ -849,7 +911,7 @@ impl cosmic::Application for CosmicLauncher {
                     {
                         Some(Message::Backspace)
                     }
-
+                    Key::Named(Named::Tab) => Some(Message::TabPress),
                     _ => None,
                 },
                 cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
