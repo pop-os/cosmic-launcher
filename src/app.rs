@@ -634,23 +634,24 @@ impl cosmic::Application for CosmicLauncher {
                     }));
 
                     let mut button_content = Vec::new();
-                    if let Some(source) = item.category_icon.as_ref() {
-                        let name = match source {
-                            IconSource::Name(name) | IconSource::Mime(name) => name,
-                        };
-                        button_content.push(
-                            icon(from_name(name.clone()).into())
-                                .width(Length::Fixed(16.0))
-                                .height(Length::Fixed(16.0))
-                                .style(cosmic::theme::Svg::Custom(Rc::new(|theme| {
-                                    cosmic::iced_style::svg::Appearance {
-                                        color: Some(theme.cosmic().on_bg_color().into()),
-                                    }
-                                })))
-                                .into(),
-                        );
+                    if !self.alt_tab {
+                        if let Some(source) = item.category_icon.as_ref() {
+                            let name = match source {
+                                IconSource::Name(name) | IconSource::Mime(name) => name,
+                            };
+                            button_content.push(
+                                icon(from_name(name.clone()).into())
+                                    .width(Length::Fixed(16.0))
+                                    .height(Length::Fixed(16.0))
+                                    .style(cosmic::theme::Svg::Custom(Rc::new(|theme| {
+                                        cosmic::iced_style::svg::Appearance {
+                                            color: Some(theme.cosmic().on_bg_color().into()),
+                                        }
+                                    })))
+                                    .into(),
+                            );
+                        }
                     }
-
                     if let Some(source) = item.icon.as_ref() {
                         let name = match source {
                             IconSource::Name(name) | IconSource::Mime(name) => name,
