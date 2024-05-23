@@ -25,6 +25,7 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "single-instance",
     "dbus-config",
     "desktop",
+    "xdg-portal",
 ] }
 tracing = "0.1"
 nix = { version = "0.27.1", features = ["process"] }
