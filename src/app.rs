@@ -165,6 +165,7 @@ impl CosmicLauncher {
         self.input_value.clear();
         self.focused = 0;
         self.alt_tab = false;
+        self.wait_for_result = false;
 
         // XXX The close will reset the launcher, but the search will restart it so it's ready
         // for the next time it's opened.
@@ -325,6 +326,8 @@ impl cosmic::Application for CosmicLauncher {
                     (&self.tx, self.launcher_items.get(i.unwrap_or(self.focused)))
                 {
                     let _res = tx.blocking_send(launcher::Request::Activate(item.id));
+                } else {
+                    return self.hide();
                 }
             }
             #[allow(clippy::cast_possible_wrap)]
@@ -424,6 +427,9 @@ impl cosmic::Application for CosmicLauncher {
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
+                        if self.alt_tab && self.wait_for_result && list.is_empty() {
+                            return self.hide();
+                        }
                         list.sort_by(|a, b| {
                             let a = i32::from(a.window.is_none());
                             let b = i32::from(b.window.is_none());
@@ -530,7 +536,7 @@ impl cosmic::Application for CosmicLauncher {
     ) -> iced::Command<cosmic::app::Message<Self::Message>> {
         match msg.msg {
             DbusActivationDetails::Activate => {
-                if self.active_surface {
+                if self.active_surface || self.wait_for_result {
                     return self.hide();
                 } else if self.last_hide.elapsed().as_millis() > 100 {
                     if let Some(tx) = &self.tx {
@@ -556,6 +562,9 @@ impl cosmic::Application for CosmicLauncher {
                     tracing::info!("NOT FOUND");
                 }
                 if self.active_surface {
+                    if self.launcher_items.is_empty() {
+                        return cosmic::command::message(cosmic::app::message::app(Message::Hide));
+                    }
                     return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
                 }
 
@@ -887,7 +896,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
                     Key::Named(Named::Tab) => Some(Message::TabRelease),
-                    Key::Named(Named::Alt) => Some(Message::AltRelease),
+                    Key::Named(Named::Alt | Named::Super) => Some(Message::AltRelease),
                     _ => None,
                 },
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
