@@ -12,7 +12,7 @@ use cosmic::iced::wayland::actions::popup::{SctkPopupSettings, SctkPositioner};
 use cosmic::iced::wayland::layer_surface::{
     destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
 };
-use cosmic::iced::widget::{column, container, text, Column};
+use cosmic::iced::widget::{column, container, Column};
 use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
 use cosmic::iced_core::widget::operation::focusable::find_focused;
@@ -28,7 +28,7 @@ use cosmic::iced_widget::row;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::{
-    button, divider, horizontal_space, icon, mouse_area, scrollable,
+    button, divider, horizontal_space, icon, mouse_area, scrollable, text,
     text_input::{self, StyleSheet as TextInputStyleSheet},
 };
 use cosmic::{keyboard_nav, Element, Theme};
@@ -621,8 +621,10 @@ impl cosmic::Application for CosmicLauncher {
                         .horizontal_alignment(Horizontal::Left)
                         .vertical_alignment(Vertical::Center)
                         .size(14)
-                        .style(cosmic::theme::Text::Custom(|t| text::Appearance {
-                            color: Some(t.cosmic().on_bg_color().into()),
+                        .style(cosmic::theme::Text::Custom(|t| {
+                            cosmic::iced::widget::text::Appearance {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            }
                         }))
                         .into()
                     }));
@@ -636,8 +638,10 @@ impl cosmic::Application for CosmicLauncher {
                         .horizontal_alignment(Horizontal::Left)
                         .vertical_alignment(Vertical::Center)
                         .size(10)
-                        .style(theme::Text::Custom(|t| text::Appearance {
-                            color: Some(t.cosmic().on_bg_color().into()),
+                        .style(theme::Text::Custom(|t| {
+                            cosmic::iced::widget::text::Appearance {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            }
                         }))
                         .into()
                     }));
@@ -688,8 +692,10 @@ impl cosmic::Application for CosmicLauncher {
                                 .size(14)
                                 .vertical_alignment(Vertical::Center)
                                 .horizontal_alignment(Horizontal::Right)
-                                .style(theme::Text::Custom(|t| text::Appearance {
-                                    color: Some(t.cosmic().on_bg_color().into()),
+                                .style(theme::Text::Custom(|t| {
+                                    cosmic::iced::widget::text::Appearance {
+                                        color: Some(t.cosmic().on_bg_color().into()),
+                                    }
                                 })),
                         )
                         .width(Length::Fill)
@@ -830,7 +836,7 @@ impl cosmic::Application for CosmicLauncher {
                     .into();
             };
             let list_column = Column::with_children(options.iter().map(|option| {
-                menu_button(text(&option.name))
+                menu_button(text::body(&option.name))
                     .on_press(Message::MenuButton(*i, option.id))
                     .into()
             }))
