@@ -876,9 +876,8 @@ impl cosmic::Application for CosmicLauncher {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, ..),
                 )) => Some(Message::Layer(e)),
-                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
                     key,
-                    text,
                     modifiers,
                     ..
                 }) => match key {
@@ -904,6 +903,14 @@ impl cosmic::Application for CosmicLauncher {
                     Key::Named(Named::Escape) => Some(Message::Hide),
                     Key::Named(Named::Tab) => Some(Message::TabRelease),
                     Key::Named(Named::Alt | Named::Super) => Some(Message::AltRelease),
+                    _ => None,
+                },
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+                    key,
+                    text,
+                    modifiers,
+                    ..
+                }) => match key {
                     Key::Character(_)
                         if matches!(status, Status::Ignored)
                             && modifiers.is_empty()
