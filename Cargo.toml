@@ -5,7 +5,7 @@ authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2021"
 
 [features]
-default = ["wgpu"]
+default = []
 wgpu = ["libcosmic/wgpu"]
 console = ["tokio/tracing"]
 
