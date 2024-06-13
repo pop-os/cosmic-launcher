@@ -7,6 +7,7 @@ use cosmic::cctk::sctk;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::event::Status;
 use cosmic::iced::id::Id;
+use cosmic::iced::keyboard::Modifiers;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::actions::popup::{SctkPopupSettings, SctkPositioner};
 use cosmic::iced::wayland::layer_surface::{
@@ -298,6 +299,7 @@ impl cosmic::Application for CosmicLauncher {
                     let _res =
                         tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
                 }
+                return text_input::focus(INPUT_ID.clone());
             }
             Message::TabRelease if !self.alt_tab => {
                 self.focused = 0;
@@ -913,7 +915,7 @@ impl cosmic::Application for CosmicLauncher {
                 }) => match key {
                     Key::Character(_)
                         if matches!(status, Status::Ignored)
-                            && modifiers.is_empty()
+                            && (modifiers.is_empty() || modifiers == Modifiers::SHIFT)
                             && text.is_some() =>
                     {
                         Some(Message::UncapturedInput(
