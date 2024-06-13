@@ -7,7 +7,6 @@ use cosmic::cctk::sctk;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::event::Status;
 use cosmic::iced::id::Id;
-use cosmic::iced::keyboard::Modifiers;
 use cosmic::iced::wayland::actions::layer_surface::SctkLayerSurfaceSettings;
 use cosmic::iced::wayland::actions::popup::{SctkPopupSettings, SctkPositioner};
 use cosmic::iced::wayland::layer_surface::{
@@ -143,9 +142,8 @@ pub struct CosmicLauncher {
 #[derive(Debug, Clone)]
 pub enum Message {
     InputChanged(String),
-    UncapturedInput(String),
     Backspace,
-    TabRelease,
+    TabPress,
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -252,7 +250,7 @@ impl cosmic::Application for CosmicLauncher {
                 last_hide: Instant::now(),
                 alt_tab: false,
             },
-            text_input::focus(INPUT_ID.clone()),
+            Command::none(),
         )
     }
 
@@ -293,24 +291,13 @@ impl cosmic::Application for CosmicLauncher {
                         tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
                 }
             }
-            Message::UncapturedInput(text) => {
-                self.input_value.push_str(&text);
-                if let Some(tx) = &self.tx {
-                    let _res =
-                        tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
-                }
-                return text_input::focus(INPUT_ID.clone());
-            }
-            Message::TabRelease if !self.alt_tab => {
+            Message::TabPress if !self.alt_tab => {
                 self.focused = 0;
-                return Command::batch(vec![
-                    iced::Command::<Id>::widget(find_focused())
-                        .map(Message::CompleteFocusedId)
-                        .map(cosmic::app::Message::App),
-                    text_input::focus(INPUT_ID.clone()),
-                ]);
+                return Command::batch(vec![iced::Command::<Id>::widget(find_focused())
+                    .map(Message::CompleteFocusedId)
+                    .map(cosmic::app::Message::App)]);
             }
-            Message::TabRelease => {}
+            Message::TabPress => {}
             Message::CompleteFocusedId(id) => {
                 let i = RESULT_IDS
                     .iter()
@@ -468,14 +455,11 @@ impl cosmic::Application for CosmicLauncher {
                             let _res = tx
                                 .blocking_send(launcher::Request::Search(self.input_value.clone()));
                         }
-                        return text_input::focus(INPUT_ID.clone());
                     }
                 },
             },
             Message::Layer(e) => match e {
-                LayerEvent::Focused => {
-                    return text_input::focus(INPUT_ID.clone());
-                }
+                LayerEvent::Focused => {}
                 LayerEvent::Unfocused => {
                     self.last_hide = Instant::now();
                     return self.hide();
@@ -601,7 +585,8 @@ impl cosmic::Application for CosmicLauncher {
                 focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
                 disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
             })
-            .id(INPUT_ID.clone());
+            .id(INPUT_ID.clone())
+            .always_active();
 
             let buttons: Vec<_> = self
                 .launcher_items
@@ -879,7 +864,14 @@ impl cosmic::Application for CosmicLauncher {
                     wayland::Event::Layer(e, ..),
                 )) => Some(Message::Layer(e)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
+                    key, ..
+                }) => match key {
+                    Key::Named(Named::Alt | Named::Super) => Some(Message::AltRelease),
+                    _ => None,
+                },
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
+                    text,
                     modifiers,
                     ..
                 }) => match key {
@@ -903,25 +895,7 @@ impl cosmic::Application for CosmicLauncher {
                         Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
-                    Key::Named(Named::Tab) => Some(Message::TabRelease),
-                    Key::Named(Named::Alt | Named::Super) => Some(Message::AltRelease),
-                    _ => None,
-                },
-                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
-                    key,
-                    text,
-                    modifiers,
-                    ..
-                }) => match key {
-                    Key::Character(_)
-                        if matches!(status, Status::Ignored)
-                            && (modifiers.is_empty() || modifiers == Modifiers::SHIFT)
-                            && text.is_some() =>
-                    {
-                        Some(Message::UncapturedInput(
-                            text.map(|t| t.to_string()).unwrap(),
-                        ))
-                    }
+                    Key::Named(Named::Tab) => Some(Message::TabPress),
                     Key::Named(Named::Backspace)
                         if matches!(status, Status::Ignored) && modifiers.is_empty() =>
                     {
