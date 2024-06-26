@@ -4,7 +4,7 @@ Comment=COSMIC Launcher
 Type=Application
 Exec=cosmic-launcher
 Terminal=false
-Categories=COSMIC;ICED;
+Categories=X-COSMIC;X-ICED;
 # Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
 Keywords=COSMIC;ICED;
 # Translators: Do NOT translate or transliterate this text (this is an icon file name)!
