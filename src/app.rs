@@ -171,12 +171,6 @@ impl CosmicLauncher {
             let _res = sender.blocking_send(launcher::Request::Close);
         }
 
-        if let Some(tx) = &self.tx {
-            let _res = tx.blocking_send(launcher::Request::Search(String::new()));
-        } else {
-            tracing::info!("NOT FOUND");
-        }
-
         if self.active_surface {
             self.active_surface = false;
             let mut commands = vec![destroy_layer_surface(self.window_id)];
@@ -341,6 +335,11 @@ impl cosmic::Application for CosmicLauncher {
                 launcher::Event::Started(tx) => {
                     _ = tx.blocking_send(launcher::Request::Search(String::new()));
                     self.tx.replace(tx);
+                }
+                launcher::Event::ServiceIsClosed => {
+                    if let Some(tx) = &self.tx {
+                        _ = tx.blocking_send(launcher::Request::ServiceIsClosed);
+                    }
                 }
                 launcher::Event::Response(response) => match response {
                     pop_launcher::Response::Close => return self.hide(),
@@ -518,7 +517,7 @@ impl cosmic::Application for CosmicLauncher {
             DbusActivationDetails::Activate => {
                 if self.active_surface || self.wait_for_result {
                     return self.hide();
-                } else if self.last_hide.elapsed().as_millis() > 100 {
+                } else {
                     if let Some(tx) = &self.tx {
                         let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                     } else {
