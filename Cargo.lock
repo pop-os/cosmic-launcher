@@ -7344,3 +7344,11 @@ dependencies = [
  "quote",
  "syn 2.0.90",
 ]
+
+[[patch.unused]]
+name = "pop-launcher"
+version = "1.2.3"
+
+[[patch.unused]]
+name = "pop-launcher-service"
+version = "1.2.3"
