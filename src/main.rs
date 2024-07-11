@@ -35,9 +35,11 @@ fn init_logging() {
         console_subscriber::init();
     }
 
-    let filter_layer = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::try_new("warn"))
-        .unwrap();
+    let filter_layer = EnvFilter::try_from_default_env().unwrap_or(if cfg!(debug_assertions) {
+        EnvFilter::new(format!("warn,{}=debug", env!("CARGO_CRATE_NAME")))
+    } else {
+        EnvFilter::new("warn")
+    });
 
     let fmt_layer = fmt::layer().with_target(false);
 
