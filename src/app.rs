@@ -168,8 +168,6 @@ impl CosmicLauncher {
         self.alt_tab = false;
         self.wait_for_result = false;
 
-        // XXX The close will reset the launcher, but the search will restart it so it's ready
-        // for the next time it's opened.
         if let Some(ref sender) = &self.tx {
             let _res = sender.blocking_send(launcher::Request::Close);
         }
