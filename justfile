@@ -1,16 +1,17 @@
-name := 'cosmic-launcher'
+export NAME := 'cosmic-launcher'
 export APPID := 'com.system76.CosmicLauncher'
 
 rootdir := ''
 prefix := '/usr'
+debug := '0'
 
 base-dir := absolute_path(clean(rootdir / prefix))
 
 export INSTALL_DIR := base-dir / 'share'
 
 cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
-bin-src := cargo-target-dir / 'release' / name
-bin-dst := base-dir / 'bin' / name
+bin-src := if debug == '1' { cargo-target-dir / 'target/debug' / NAME } else { cargo-target-dir / 'target/release' / NAME }
+bin-dst := base-dir / 'bin' / NAME
 
 # Use mold linker if clang and mold exists.
 clang-path := `which clang || true`
