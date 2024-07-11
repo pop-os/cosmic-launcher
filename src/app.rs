@@ -517,7 +517,7 @@ impl cosmic::Application for CosmicLauncher {
             DbusActivationDetails::Activate => {
                 if self.active_surface || self.wait_for_result {
                     return self.hide();
-                } else {
+                } else if self.last_hide.elapsed().as_millis() > 100 {
                     if let Some(tx) = &self.tx {
                         let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                     } else {
