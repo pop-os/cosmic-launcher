@@ -43,8 +43,9 @@ use iced::{keyboard::Key, widget::vertical_space, Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, rc::Rc, str::FromStr, time::Instant};
+use std::{collections::HashMap, VecDeque, rc::Rc, str::FromStr, time::Instant};
 use tokio::sync::mpsc;
+use tracing::{debug, error, info};
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::UnicodeWidthStr;
 
@@ -71,6 +72,8 @@ pub struct Args {
 pub enum LauncherCommands {
     #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
     AltTab,
+    #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
+    ShiftAltTab,
 }
 
 impl ToString for LauncherCommands {
@@ -126,19 +129,26 @@ pub fn menu_control_padding() -> Padding {
     [cosmic.space_xxs(), cosmic.space_m()].into()
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SurfaceState {
+    Visible,
+    Hidden,
+    WaitingToBeShown,
+}
+
 #[derive(Clone)]
 pub struct CosmicLauncher {
     core: Core,
     input_value: String,
-    active_surface: bool,
+    surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
     tx: Option<mpsc::Sender<launcher::Request>>,
-    wait_for_result: bool,
     menu: Option<(u32, Vec<ContextOption>)>,
     cursor_position: Option<Point<f32>>,
     focused: usize,
     last_hide: Instant,
     alt_tab: bool,
+    queue: VecDeque<Message>,
 }
 
 #[derive(Debug, Clone)]
@@ -158,31 +168,60 @@ pub enum Message {
     KeyboardNav(keyboard_nav::Message),
     ActivationToken(Option<String>, String, String, GpuPreference),
     AltTab,
+    ShiftAltTab,
     AltRelease,
 }
 
 impl CosmicLauncher {
+    fn request(&self, r: launcher::Request) {
+        debug!("request: {:?}", r);
+        if let Some(tx) = &self.tx {
+            if let Err(e) = tx.blocking_send(r) {
+                error!("tx: {e}");
+            }
+        } else {
+            info!("tx not found");
+        }
+    }
+
+    fn show(&mut self) -> Command<Message> {
+        self.surface_state = SurfaceState::Visible;
+
+        get_layer_surface(SctkLayerSurfaceSettings {
+            id: *WINDOW_ID,
+            keyboard_interactivity: KeyboardInteractivity::Exclusive,
+            anchor: Anchor::TOP,
+            namespace: "launcher".into(),
+            size: None,
+            margin: iced::wayland::actions::layer_surface::IcedMargin {
+                top: 16,
+                ..Default::default()
+            },
+            size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
+            ..Default::default()
+        })
+    }
+
     fn hide(&mut self) -> Command<Message> {
         self.input_value.clear();
         self.focused = 0;
         self.alt_tab = false;
-        self.wait_for_result = false;
+        self.queue.clear();
 
-        if let Some(ref sender) = &self.tx {
-            let _res = sender.blocking_send(launcher::Request::Close);
-        }
+        self.request(launcher::Request::Close);
 
-        if self.active_surface {
-            self.active_surface = false;
+        let mut commands = Vec::new();
 
-            let mut commands = vec![destroy_layer_surface(*WINDOW_ID)];
+        if self.surface_state == SurfaceState::Visible {
+            commands.push(destroy_layer_surface(*WINDOW_ID));
             if self.menu.take().is_some() {
                 commands.push(commands::popup::destroy_popup(*MENU_ID));
             }
-            return Command::batch(commands);
         }
 
-        Command::none()
+        self.surface_state = SurfaceState::Hidden;
+
+        Command::batch(commands)
     }
 
     fn focus_next(&mut self) {
@@ -240,15 +279,15 @@ impl cosmic::Application for CosmicLauncher {
             CosmicLauncher {
                 core,
                 input_value: String::new(),
-                active_surface: false,
+                surface_state: SurfaceState::Hidden,
                 launcher_items: Vec::new(),
                 tx: None,
-                wait_for_result: false,
                 menu: None,
                 cursor_position: None,
                 focused: 0,
                 last_hide: Instant::now(),
                 alt_tab: false,
+                queue: VecDeque::new(),
             },
             Command::none(),
         )
@@ -277,19 +316,11 @@ impl cosmic::Application for CosmicLauncher {
         match message {
             Message::InputChanged(value) => {
                 self.input_value = value.clone();
-                if let Some(tx) = &self.tx {
-                    let _res = tx.blocking_send(launcher::Request::Search(value));
-                }
+                self.request(launcher::Request::Search(value));
             }
             Message::Backspace => {
-                let len = self.input_value.len();
-                if len > 0 {
-                    self.input_value.remove(len - 1);
-                }
-                if let Some(tx) = &self.tx {
-                    let _res =
-                        tx.blocking_send(launcher::Request::Search(self.input_value.clone()));
-                }
+                self.input_value.pop();
+                self.request(launcher::Request::Search(self.input_value.clone()));
             }
             Message::TabPress if !self.alt_tab => {
                 let focused = self.focused;
@@ -306,37 +337,30 @@ impl cosmic::Application for CosmicLauncher {
                     .unwrap_or_default();
 
                 if let Some(id) = self.launcher_items.get(i).map(|res| res.id) {
-                    if let Some(tx) = &self.tx {
-                        let _res = tx.blocking_send(launcher::Request::Complete(id));
-                    }
+                    self.request(launcher::Request::Complete(id));
                 }
             }
             Message::Activate(i) => {
-                if let (Some(tx), Some(item)) =
-                    (&self.tx, self.launcher_items.get(i.unwrap_or(self.focused)))
-                {
-                    let _res = tx.blocking_send(launcher::Request::Activate(item.id));
+                if let Some(item) = self.launcher_items.get(i.unwrap_or(self.focused)) {
+                    self.request(launcher::Request::Activate(item.id));
                 } else {
                     return self.hide();
                 }
             }
-            #[allow(clippy::cast_possible_wrap)]
             Message::Context(i) => {
                 if self.menu.take().is_some() {
                     return commands::popup::destroy_popup(*MENU_ID);
                 }
 
-                if let (Some(tx), Some(item)) = (&self.tx, self.launcher_items.get(i)) {
-                    let _res = tx.blocking_send(launcher::Request::Context(item.id));
+                if let Some(item) = self.launcher_items.get(i) {
+                    self.request(launcher::Request::Context(item.id));
                 }
             }
             Message::CursorMoved(pos) => {
                 self.cursor_position = Some(pos);
             }
             Message::MenuButton(i, context) => {
-                if let Some(tx) = &self.tx {
-                    let _res = tx.blocking_send(launcher::Request::ActivateContext(i, context));
-                }
+                self.request(launcher::Request::ActivateContext(i, context));
 
                 if self.menu.take().is_some() {
                     return commands::popup::destroy_popup(*MENU_ID);
@@ -344,16 +368,15 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
-                    _ = tx.blocking_send(launcher::Request::Search(String::new()));
                     self.tx.replace(tx);
                 }
                 launcher::Event::ServiceIsClosed => {
-                    if let Some(tx) = &self.tx {
-                        _ = tx.blocking_send(launcher::Request::ServiceIsClosed);
-                    }
+                    self.request(launcher::Request::ServiceIsClosed);
                 }
                 launcher::Event::Response(response) => match response {
-                    pop_launcher::Response::Close => return self.hide(),
+                    pop_launcher::Response::Close => {
+                        return self.hide();
+                    }
                     #[allow(clippy::cast_possible_truncation)]
                     pop_launcher::Response::Context { id, options } => {
                         if options.is_empty() {
@@ -423,7 +446,7 @@ impl cosmic::Application for CosmicLauncher {
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
-                        if self.alt_tab && self.wait_for_result && list.is_empty() {
+                        if self.alt_tab && list.is_empty() {
                             return self.hide();
                         }
                         list.sort_by(|a, b| {
@@ -434,44 +457,30 @@ impl cosmic::Application for CosmicLauncher {
                         list.truncate(10);
                         self.launcher_items.splice(.., list);
 
-                        if self.wait_for_result {
-                            self.wait_for_result = false;
-                            return Command::batch(vec![get_layer_surface(
-                                SctkLayerSurfaceSettings {
-                                    id: *WINDOW_ID,
-                                    keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                                    anchor: Anchor::TOP,
-                                    namespace: "launcher".into(),
-                                    size: None,
-                                    margin: iced::wayland::actions::layer_surface::IcedMargin {
-                                        top: 16,
-                                        ..Default::default()
-                                    },
-                                    size_limits: Limits::NONE
-                                        .min_width(1.0)
-                                        .min_height(1.0)
-                                        .max_width(600.0),
-                                    ..Default::default()
-                                },
-                            )]);
+                        let mut cmds = Vec::new();
+
+                        while let Some(element) = self.queue.pop_front() {
+                            let updated = self.update(element);
+                            cmds.push(updated);
                         }
+
+                        if self.surface_state == SurfaceState::WaitingToBeShown {
+                            cmds.push(self.show());
+                        }
+                        return Command::batch(cmds);
                     }
                     pop_launcher::Response::Fill(s) => {
                         self.input_value = s;
-                        if let Some(tx) = &self.tx {
-                            let _res = tx
-                                .blocking_send(launcher::Request::Search(self.input_value.clone()));
-                        }
+                        self.request(launcher::Request::Search(self.input_value.clone()));
                     }
                 },
             },
             Message::Layer(e) => match e {
-                LayerEvent::Focused => {}
+                LayerEvent::Focused | LayerEvent::Done => {}
                 LayerEvent::Unfocused => {
                     self.last_hide = Instant::now();
                     return self.hide();
                 }
-                LayerEvent::Done => {}
             },
             Message::CloseContextMenu => {
                 if self.menu.take().is_some() {
@@ -494,9 +503,8 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     keyboard_nav::Message::Escape => {
                         self.input_value.clear();
-                        if let Some(tx) = &self.tx {
-                            let _res = tx.blocking_send(launcher::Request::Search(String::new()));
-                        }
+                        self.request(launcher::Request::Search(String::new()));
+                        return keyboard_nav::unfocus();
                     }
                     _ => {}
                 };
@@ -507,11 +515,10 @@ impl cosmic::Application for CosmicLauncher {
                 });
             }
             Message::AltTab => {
-                if self.alt_tab {
-                    self.focus_next();
-                } else {
-                    self.alt_tab = true;
-                }
+                self.focus_next();
+            }
+            Message::ShiftAltTab => {
+                self.focus_previous();
             }
             Message::AltRelease => {
                 if self.alt_tab {
@@ -528,42 +535,48 @@ impl cosmic::Application for CosmicLauncher {
     ) -> iced::Command<cosmic::app::Message<Self::Message>> {
         match msg.msg {
             DbusActivationDetails::Activate => {
-                if self.active_surface || self.wait_for_result {
+                if self.surface_state != SurfaceState::Hidden {
                     return self.hide();
-                } else if self.last_hide.elapsed().as_millis() > 100 {
-                    if let Some(tx) = &self.tx {
-                        let _res = tx.blocking_send(launcher::Request::Search(String::new()));
-                    } else {
-                        tracing::info!("NOT FOUND");
-                    }
+                }
+                // hack: allow to close the launcher from the panel button
+                if self.last_hide.elapsed().as_millis() > 100 {
+                    self.request(launcher::Request::Search(String::new()));
 
-                    self.input_value = String::new();
-                    self.active_surface = true;
-                    self.wait_for_result = true;
+                    self.surface_state = SurfaceState::WaitingToBeShown;
                     return Command::none();
                 }
             }
             DbusActivationDetails::ActivateAction { action, .. } => {
-                if LauncherCommands::from_str(&action).is_err() {
+                debug!("ActivateAction {}", action);
+
+                let Ok(cmd) = LauncherCommands::from_str(&action) else {
                     return Command::none();
+                };
+
+                if self.surface_state == SurfaceState::Hidden {
+                    self.surface_state = SurfaceState::WaitingToBeShown;
                 }
 
-                if let Some(tx) = &self.tx {
-                    let _res = tx.blocking_send(launcher::Request::Search(String::new()));
-                } else {
-                    tracing::info!("NOT FOUND");
-                }
-                if self.active_surface {
-                    if self.launcher_items.is_empty() {
-                        return cosmic::command::message(cosmic::app::message::app(Message::Hide));
+                match cmd {
+                    LauncherCommands::AltTab => {
+                        if self.alt_tab {
+                            return self.update(Message::AltTab);
+                        }
+
+                        self.alt_tab = true;
+                        self.request(launcher::Request::Search(String::new()));
+                        self.queue.push_back(Message::AltTab);
                     }
-                    return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
-                }
+                    LauncherCommands::ShiftAltTab => {
+                        if self.alt_tab {
+                            return self.update(Message::ShiftAltTab);
+                        }
 
-                self.input_value = action;
-                self.active_surface = true;
-                self.wait_for_result = true;
-                return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
+                        self.alt_tab = true;
+                        self.request(launcher::Request::Search(String::new()));
+                        self.queue.push_back(Message::ShiftAltTab);
+                    }
+                }
             }
             DbusActivationDetails::Open { .. } => {}
         }
@@ -873,7 +886,7 @@ impl cosmic::Application for CosmicLauncher {
                 },
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
-                    text,
+                    text: _,
                     modifiers,
                     ..
                 }) => match key {

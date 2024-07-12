@@ -93,7 +93,6 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
     let service_future = async move {
         let _res = responses_tx.send(Event::Started(requests_tx.clone())).await;
 
-
         let client = &mut None;
 
         while let Some(request) = requests_rx.recv().await {
@@ -132,7 +131,7 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
                 }
                 Request::ServiceIsClosed => {
                     *client = None;
-                },
+                }
             }
         }
     };
