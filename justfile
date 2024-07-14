@@ -8,7 +8,8 @@ base-dir := absolute_path(clean(rootdir / prefix))
 
 export INSTALL_DIR := base-dir / 'share'
 
-bin-src := 'target' / 'release' / name
+cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
+bin-src := cargo-target-dir / 'release' / name
 bin-dst := base-dir / 'bin' / name
 
 # Use mold linker if clang and mold exists.
@@ -57,11 +58,11 @@ check-json: (check '--message-format=json')
 
 # Runs after compiling a release build
 run: build-release
-    ./target/release/cosmic-launcher
+    {{bin-src}}
 
 # Build and run with tokio-console enabled
 tokio-console: (build-release '--features console')
-    env TOKIO_CONSOLE=1 ./target/release/cosmic-launcher
+    env TOKIO_CONSOLE=1 {{bin-src}}
 
 # Installs files
 install:
