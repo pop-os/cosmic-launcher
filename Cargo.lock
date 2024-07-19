@@ -7391,7 +7391,9 @@ dependencies = [
 [[patch.unused]]
 name = "pop-launcher"
 version = "1.2.3"
+source = "git+https://github.com/wiiznokes/launcher/?rev=86a54d54a68b832d404ef83a03af84cf9ef3e694#86a54d54a68b832d404ef83a03af84cf9ef3e694"
 
 [[patch.unused]]
 name = "pop-launcher-service"
 version = "1.2.3"
+source = "git+https://github.com/wiiznokes/launcher/?rev=86a54d54a68b832d404ef83a03af84cf9ef3e694#86a54d54a68b832d404ef83a03af84cf9ef3e694"
