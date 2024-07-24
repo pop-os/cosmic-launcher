@@ -485,12 +485,11 @@ impl cosmic::Application for CosmicLauncher {
                     keyboard_nav::Message::FocusPrevious => {
                         self.focus_previous();
                     }
-                    keyboard_nav::Message::Unfocus => {
+                    keyboard_nav::Message::Escape => {
                         self.input_value.clear();
                         if let Some(tx) = &self.tx {
                             let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                         }
-                        return keyboard_nav::unfocus();
                     }
                     _ => {}
                 };
@@ -672,7 +671,7 @@ impl cosmic::Application for CosmicLauncher {
                         );
                     }
 
-                    button_content.push(column![name, desc].into());
+                    button_content.push(column![name, desc].width(Length::FillPortion(4)).into());
                     button_content.push(
                         container(
                             text(format!("Ctrl + {}", (i + 1) % 10))
@@ -685,7 +684,7 @@ impl cosmic::Application for CosmicLauncher {
                                     }
                                 })),
                         )
-                        .width(Length::Fill)
+                        .width(Length::FillPortion(1))
                         .center_y()
                         .align_y(Vertical::Center)
                         .align_x(Horizontal::Right)
