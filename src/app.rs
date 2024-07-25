@@ -154,7 +154,7 @@ pub enum Message {
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
     KeyboardNav(keyboard_nav::Message),
-    ActivationToken(Option<String>, String, GpuPreference),
+    ActivationToken(Option<String>, String, String, GpuPreference),
     AltTab,
     AltRelease,
 }
@@ -200,7 +200,7 @@ impl CosmicLauncher {
     }
 }
 
-async fn launch(token: Option<String>, exec: String, gpu: GpuPreference) {
+async fn launch(token: Option<String>, app_id: String, exec: String, gpu: GpuPreference) {
     let mut envs = Vec::new();
     if let Some(token) = token {
         envs.push(("XDG_ACTIVATION_TOKEN".to_string(), token.clone()));
@@ -211,7 +211,7 @@ async fn launch(token: Option<String>, exec: String, gpu: GpuPreference) {
         envs.extend(gpu_envs);
     }
 
-    cosmic::desktop::spawn_desktop_exec(exec, envs);
+    cosmic::desktop::spawn_desktop_exec(exec, envs, Some(&app_id)).await;
 }
 
 async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>> {
@@ -408,6 +408,7 @@ impl cosmic::Application for CosmicLauncher {
                                 move |token| {
                                     cosmic::app::Message::App(Message::ActivationToken(
                                         token,
+                                        entry.id.to_string(),
                                         exec,
                                         gpu_preference,
                                     ))
@@ -494,8 +495,8 @@ impl cosmic::Application for CosmicLauncher {
                     _ => {}
                 };
             }
-            Message::ActivationToken(token, exec, dgpu) => {
-                return Command::perform(launch(token, exec, dgpu), |()| {
+            Message::ActivationToken(token, app_id, exec, dgpu) => {
+                return Command::perform(launch(token, app_id, exec, dgpu), |()| {
                     cosmic::app::message::app(Message::Hide)
                 });
             }
