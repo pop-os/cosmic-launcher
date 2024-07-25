@@ -192,10 +192,16 @@ impl CosmicLauncher {
     }
 
     fn focus_next(&mut self) {
+        if self.launcher_items.is_empty() {
+            return;
+        }
         self.focused = (self.focused + 1) % self.launcher_items.len();
     }
 
     fn focus_previous(&mut self) {
+        if self.launcher_items.is_empty() {
+            return;
+        }
         self.focused = (self.focused + self.launcher_items.len() - 1) % self.launcher_items.len();
     }
 }
