@@ -2,7 +2,7 @@ use crate::app::iced::event::listen_raw;
 use crate::components;
 use crate::subscriptions::launcher;
 use clap::Parser;
-use cosmic::app::{Command, Core, CosmicFlags, DbusActivationDetails, Settings};
+use cosmic::app::{command, Command, Core, CosmicFlags, DbusActivationDetails, Settings};
 use cosmic::cctk::sctk;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::event::Status;
@@ -15,7 +15,6 @@ use cosmic::iced::wayland::layer_surface::{
 use cosmic::iced::widget::{column, container, Column};
 use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
-use cosmic::iced_core::widget::operation::focusable::find_focused;
 use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
@@ -298,10 +297,11 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::TabPress if !self.alt_tab => {
+                let focused = self.focused;
                 self.focused = 0;
-                return Command::batch(vec![iced::Command::<Id>::widget(find_focused())
-                    .map(Message::CompleteFocusedId)
-                    .map(cosmic::app::Message::App)]);
+                return command::message(cosmic::app::Message::App(
+                    Self::Message::CompleteFocusedId(RESULT_IDS[focused].clone()),
+                ));
             }
             Message::TabPress => {}
             Message::CompleteFocusedId(id) => {
