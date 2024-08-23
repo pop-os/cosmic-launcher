@@ -4,13 +4,10 @@
 
 use cosmic::iced_renderer::core::widget::OperationOutputWrapper;
 
-use cosmic::iced_core::event::{self, Event};
-use cosmic::iced_core::layout;
-use cosmic::iced_core::mouse;
-use cosmic::iced_core::overlay;
-use cosmic::iced_core::renderer;
-use cosmic::iced_core::widget::{Operation, Tree};
 use cosmic::iced_core::{
+    event::{self, Event},
+    layout, mouse, overlay, renderer,
+    widget::{Operation, Tree},
     Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Widget,
 };
 
