@@ -146,6 +146,7 @@ pub enum Message {
     InputChanged(String),
     Backspace,
     TabPress,
+    ShiftTabPress,
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -307,6 +308,10 @@ impl cosmic::Application for CosmicLauncher {
                 ));
             }
             Message::TabPress => {}
+            Message::ShiftTabPress if self.alt_tab => {
+                self.focus_previous();
+            }
+            Message::ShiftTabPress => {}
             Message::CompleteFocusedId(id) => {
                 let i = RESULT_IDS
                     .iter()
@@ -876,7 +881,6 @@ impl cosmic::Application for CosmicLauncher {
                 },
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
-                    text,
                     modifiers,
                     ..
                 }) => match key {
@@ -900,6 +904,7 @@ impl cosmic::Application for CosmicLauncher {
                         Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
+                    Key::Named(Named::Tab) if modifiers.shift() => Some(Message::ShiftTabPress),
                     Key::Named(Named::Tab) => Some(Message::TabPress),
                     Key::Named(Named::Backspace)
                         if matches!(status, Status::Ignored) && modifiers.is_empty() =>
