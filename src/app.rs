@@ -69,8 +69,11 @@ pub struct Args {
 
 #[derive(Debug, Serialize, Deserialize, Clone, clap::Subcommand)]
 pub enum LauncherCommands {
-    #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
-    AltTab,
+    #[clap(about = "Toggle the launcher, switch to the alt-tab view and cycle the list")]
+    AltTab {
+        #[clap(long)]
+        reverse: bool,
+    },
 }
 
 impl ToString for LauncherCommands {
@@ -157,7 +160,7 @@ pub enum Message {
     Layer(LayerEvent),
     KeyboardNav(keyboard_nav::Message),
     ActivationToken(Option<String>, String, String, GpuPreference),
-    AltTab,
+    AltTab { reverse: bool },
     AltRelease,
 }
 
@@ -509,11 +512,12 @@ impl cosmic::Application for CosmicLauncher {
                     cosmic::app::message::app(Message::Hide)
                 });
             }
-            Message::AltTab => {
-                if self.alt_tab {
-                    self.focus_next();
+            Message::AltTab { reverse } => {
+                self.alt_tab = true;
+                if reverse {
+                    self.focus_previous();
                 } else {
-                    self.alt_tab = true;
+                    self.focus_next();
                 }
             }
             Message::AltRelease => {
@@ -547,26 +551,31 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             DbusActivationDetails::ActivateAction { action, .. } => {
-                if LauncherCommands::from_str(&action).is_err() {
+                let Ok(command) = LauncherCommands::from_str(&action) else {
                     return Command::none();
-                }
+                };
 
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(String::new()));
                 } else {
                     tracing::info!("NOT FOUND");
                 }
+
+                let message = match command {
+                    LauncherCommands::AltTab { reverse } => Message::AltTab { reverse },
+                };
+
                 if self.active_surface {
                     if self.launcher_items.is_empty() {
                         return cosmic::command::message(cosmic::app::message::app(Message::Hide));
                     }
-                    return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
+                    return cosmic::command::message(cosmic::app::message::app(message));
                 }
 
                 self.input_value = action;
                 self.active_surface = true;
                 self.wait_for_result = true;
-                return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
+                return cosmic::command::message(cosmic::app::message::app(message));
             }
             DbusActivationDetails::Open { .. } => {}
         }
