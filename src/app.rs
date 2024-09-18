@@ -43,7 +43,12 @@ use iced::{keyboard::Key, widget::vertical_space, Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, VecDeque, rc::Rc, str::FromStr, time::Instant};
+use std::{
+    collections::{HashMap, VecDeque},
+    rc::Rc,
+    str::FromStr,
+    time::Instant,
+};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
 use unicode_truncate::UnicodeTruncateStr;
@@ -504,7 +509,6 @@ impl cosmic::Application for CosmicLauncher {
                     keyboard_nav::Message::Escape => {
                         self.input_value.clear();
                         self.request(launcher::Request::Search(String::new()));
-                        return keyboard_nav::unfocus();
                     }
                     _ => {}
                 };
