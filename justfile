@@ -10,7 +10,7 @@ base-dir := absolute_path(clean(rootdir / prefix))
 export INSTALL_DIR := base-dir / 'share'
 
 cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
-bin-src := if debug == '1' { cargo-target-dir / 'target/debug' / NAME } else { cargo-target-dir / 'target/release' / NAME }
+bin-src := if debug == '1' { 'debug' / NAME } else { cargo-target-dir / 'release' / NAME }
 bin-dst := base-dir / 'bin' / NAME
 
 # Use mold linker if clang and mold exists.
