@@ -44,3 +44,6 @@ switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" 
 zbus = { version = "4.2.1", default-features = false, features = ["tokio"] }
 unicode-truncate = "1.0.0"
 unicode-width = "0.1.11"
+
+[profile.release]
+lto = "fat"
