@@ -114,7 +114,7 @@ pub fn run() -> cosmic::iced::Result {
 pub fn menu_button<'a, Message>(
     content: impl Into<Element<'a, Message>>,
 ) -> cosmic::widget::Button<'a, Message> {
-    button(content)
+    button::custom(content)
         .style(Button::AppletMenu)
         .padding(menu_control_padding())
         .width(Length::Fill)
@@ -699,7 +699,7 @@ impl cosmic::Application for CosmicLauncher {
                     );
                     let is_focused = i == self.focused;
                     let btn = mouse_area(
-                        cosmic::widget::button(
+                        cosmic::widget::button::custom(
                             row(button_content)
                                 .spacing(8)
                                 .align_items(Alignment::Center),
