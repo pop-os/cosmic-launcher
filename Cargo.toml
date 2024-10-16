@@ -24,7 +24,7 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "tokio",
     "single-instance",
     "dbus-config",
-    "desktop",
+    "desktop-systemd-scope",
     "xdg-portal",
 ] }
 tracing = "0.1"
