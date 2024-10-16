@@ -1,1 +1,1 @@
-app-name = Lançador Cosmic
+app-name = Lançador COSMIC

@@ -1,1 +1,1 @@
-app-name = Cosmicランチャー
+app-name = COSMICランチャー

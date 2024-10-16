@@ -1,1 +1,1 @@
-app-name = Program Startowy Cosmic
+app-name = Program Startowy COSMIC
