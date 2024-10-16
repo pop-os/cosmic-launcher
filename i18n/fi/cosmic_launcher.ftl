@@ -1,1 +1,1 @@
-app-name = Cosmic Käynnistin
+app-name = COSMIC Käynnistin

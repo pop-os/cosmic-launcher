@@ -1,1 +1,1 @@
-app-name = Peluncur Cosmic
+app-name = Peluncur COSMIC

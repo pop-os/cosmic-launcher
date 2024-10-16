@@ -1,1 +1,1 @@
-app-name = Cosmic Başlatıcı
+app-name = COSMIC Başlatıcı

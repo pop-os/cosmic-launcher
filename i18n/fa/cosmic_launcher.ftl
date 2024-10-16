@@ -1,1 +1,1 @@
-app-name = لانچر Cosmic
+app-name = لانچر COSMIC
