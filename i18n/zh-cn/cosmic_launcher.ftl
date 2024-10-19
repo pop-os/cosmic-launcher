@@ -1,1 +1,1 @@
-app-name = Cosmic 启动器
+app-name = COSMIC 启动器
