@@ -1,53 +1,50 @@
-use crate::{app::iced::event::listen_raw, components, fl, subscriptions::launcher};
+use crate::{app::iced::event::listen_raw, components, subscriptions::launcher};
 use clap::Parser;
-use cosmic::{
-    app::{command, Command, Core, CosmicFlags, DbusActivationDetails, Settings},
-    cctk::sctk,
-    iced::{
-        self,
-        alignment::{Horizontal, Vertical},
-        event::Status,
-        id::Id,
-        wayland::{
-            actions::{
-                layer_surface::SctkLayerSurfaceSettings,
-                popup::{SctkPopupSettings, SctkPositioner},
-            },
-            layer_surface::{
-                destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity,
-            },
-        },
-        widget::{column, container, Column},
-        Length, Subscription,
-    },
-    iced_core::{keyboard::key::Named, Border, Padding, Point, Rectangle, Shadow},
-    iced_runtime::core::{
-        event::{wayland, wayland::LayerEvent, PlatformSpecific},
-        layout::Limits,
-        window::Id as SurfaceId,
-    },
-    iced_sctk::{commands, commands::activation::request_token},
-    iced_style::{application, container::Appearance as ContainerAppearance},
-    iced_widget::row,
-    keyboard_nav,
-    theme::{self, Button, Container},
-    widget::{
-        button, divider, horizontal_space, icon,
-        icon::{from_name, IconFallback},
-        mouse_area, scrollable, text,
-        text_input::{self, StyleSheet as TextInputStyleSheet},
-    },
-    Element, Theme,
+use cosmic::app::{command, Core, CosmicFlags, DbusActivationDetails, Settings, Task};
+use cosmic::cctk::sctk;
+use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::event::Status;
+use cosmic::iced::id::Id;
+use cosmic::iced::platform_specific::runtime::wayland::{
+    layer_surface::SctkLayerSurfaceSettings,
+    popup::{SctkPopupSettings, SctkPositioner},
 };
-use iced::{keyboard::Key, widget::vertical_space, Alignment, Color};
+use cosmic::iced::platform_specific::shell::commands::{
+    self,
+    activation::request_token,
+    layer_surface::{destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity},
+};
+use cosmic::iced::widget::{column, container, Column};
+use cosmic::iced::{self, Length, Subscription};
+use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow};
+use cosmic::iced_runtime::core::event::wayland::LayerEvent;
+use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
+use cosmic::iced_runtime::core::layout::Limits;
+use cosmic::iced_runtime::core::window::Id as SurfaceId;
+use cosmic::iced_widget::row;
+use cosmic::theme::{self, Button, Container};
+use cosmic::widget::icon::{from_name, IconFallback};
+use cosmic::widget::id_container;
+use cosmic::widget::{
+    autosize, button, divider, horizontal_space, icon, mouse_area, scrollable, text,
+    text_input::{self, StyleSheet as TextInputStyleSheet},
+};
+use cosmic::{keyboard_nav, Element};
+use iced::keyboard::Key;
+use iced::widget::vertical_space;
+use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 use std::{collections::HashMap, rc::Rc, str::FromStr, time::Instant};
 use tokio::sync::mpsc;
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::UnicodeWidthStr;
 
+static AUTOSIZE_ID: Lazy<Id> = Lazy::new(|| Id::new("autosize"));
+static MAIN_ID: Lazy<Id> = Lazy::new(|| Id::new("main"));
 static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
 static RESULT_IDS: Lazy<[Id; 10]> = Lazy::new(|| {
     (0..10)
@@ -56,7 +53,6 @@ static RESULT_IDS: Lazy<[Id; 10]> = Lazy::new(|| {
         .try_into()
         .unwrap()
 });
-pub(crate) static WINDOW_ID: Lazy<SurfaceId> = Lazy::new(SurfaceId::unique);
 pub(crate) static MENU_ID: Lazy<SurfaceId> = Lazy::new(SurfaceId::unique);
 
 #[derive(Parser, Debug, Serialize, Deserialize, Clone)]
@@ -73,9 +69,9 @@ pub enum LauncherCommands {
     AltTab,
 }
 
-impl ToString for LauncherCommands {
-    fn to_string(&self) -> String {
-        serde_json::ser::to_string(self).unwrap()
+impl Display for LauncherCommands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", serde_json::ser::to_string(self).unwrap())
     }
 }
 
@@ -115,7 +111,7 @@ pub fn menu_button<'a, Message>(
     content: impl Into<Element<'a, Message>>,
 ) -> cosmic::widget::Button<'a, Message> {
     button::custom(content)
-        .style(Button::AppletMenu)
+        .class(Button::AppletMenu)
         .padding(menu_control_padding())
         .width(Length::Fill)
 }
@@ -139,6 +135,7 @@ pub struct CosmicLauncher {
     focused: usize,
     last_hide: Instant,
     alt_tab: bool,
+    window_id: SurfaceId,
 }
 
 #[derive(Debug, Clone)]
@@ -162,7 +159,7 @@ pub enum Message {
 }
 
 impl CosmicLauncher {
-    fn hide(&mut self) -> Command<Message> {
+    fn hide(&mut self) -> Task<Message> {
         self.input_value.clear();
         self.focused = 0;
         self.alt_tab = false;
@@ -182,15 +179,14 @@ impl CosmicLauncher {
 
         if self.active_surface {
             self.active_surface = false;
-
-            let mut commands = vec![destroy_layer_surface(*WINDOW_ID)];
+            let mut commands = vec![destroy_layer_surface(self.window_id)];
             if self.menu.take().is_some() {
                 commands.push(commands::popup::destroy_popup(*MENU_ID));
             }
-            return Command::batch(commands);
+            return Task::batch(commands);
         }
 
-        Command::none()
+        Task::none()
     }
 
     fn focus_next(&mut self) {
@@ -242,7 +238,7 @@ impl cosmic::Application for CosmicLauncher {
     type Flags = Args;
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
-    fn init(mut core: Core, _flags: Args) -> (Self, Command<Message>) {
+    fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
         core.set_keyboard_nav(false);
         (
             CosmicLauncher {
@@ -257,8 +253,9 @@ impl cosmic::Application for CosmicLauncher {
                 focused: 0,
                 last_hide: Instant::now(),
                 alt_tab: false,
+                window_id: SurfaceId::unique(),
             },
-            Command::none(),
+            Task::none(),
         )
     }
 
@@ -270,21 +267,11 @@ impl cosmic::Application for CosmicLauncher {
         &mut self.core
     }
 
-    fn style(&self) -> Option<<Theme as application::StyleSheet>::Style> {
-        Some(<Theme as application::StyleSheet>::Style::Custom(Box::new(
-            |theme| cosmic::iced::wayland::Appearance {
-                background_color: Color::from_rgba(0.0, 0.0, 0.0, 0.0),
-                text_color: theme.cosmic().on_bg_color().into(),
-                icon_color: theme.cosmic().on_bg_color().into(),
-            },
-        )))
-    }
-
     #[allow(clippy::too_many_lines)]
-    fn update(&mut self, message: Message) -> Command<Self::Message> {
+    fn update(&mut self, message: Message) -> Task<Self::Message> {
         match message {
             Message::InputChanged(value) => {
-                self.input_value = value.clone();
+                self.input_value.clone_from(&value);
                 if let Some(tx) = &self.tx {
                     let _res = tx.blocking_send(launcher::Request::Search(value));
                 }
@@ -360,12 +347,12 @@ impl cosmic::Application for CosmicLauncher {
                     #[allow(clippy::cast_possible_truncation)]
                     pop_launcher::Response::Context { id, options } => {
                         if options.is_empty() {
-                            return Command::none();
+                            return Task::none();
                         }
 
                         self.menu = Some((id, options));
                         let Some(pos) = self.cursor_position.as_ref() else {
-                            return Command::none();
+                            return Task::none();
                         };
                         let rect = Rectangle {
                             x: pos.x.round() as i32,
@@ -373,9 +360,8 @@ impl cosmic::Application for CosmicLauncher {
                             width: 1,
                             height: 1,
                         };
-
                         return commands::popup::get_popup(SctkPopupSettings {
-                            parent: *WINDOW_ID,
+                            parent: self.window_id,
                             id: *MENU_ID,
                             positioner: SctkPositioner {
                                 size: None,
@@ -408,21 +394,20 @@ impl cosmic::Application for CosmicLauncher {
                             };
 
                             let Some(exec) = exec else {
-                                return Command::none();
+                                return Task::none();
                             };
-
                             return request_token(
                                 Some(String::from(Self::APP_ID)),
-                                Some(*WINDOW_ID),
-                                move |token| {
-                                    cosmic::app::Message::App(Message::ActivationToken(
-                                        token,
-                                        entry.id.to_string(),
-                                        exec,
-                                        gpu_preference,
-                                    ))
-                                },
-                            );
+                                Some(self.window_id),
+                            )
+                            .map(move |token| {
+                                cosmic::app::Message::App(Message::ActivationToken(
+                                    token,
+                                    entry.id.to_string(),
+                                    exec.clone(),
+                                    gpu_preference,
+                                ))
+                            });
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
@@ -439,14 +424,15 @@ impl cosmic::Application for CosmicLauncher {
 
                         if self.wait_for_result {
                             self.wait_for_result = false;
-                            return Command::batch(vec![get_layer_surface(
+                            self.window_id = SurfaceId::unique();
+                            return Task::batch(vec![get_layer_surface(
                                 SctkLayerSurfaceSettings {
-                                    id: *WINDOW_ID,
+                                    id: self.window_id,
                                     keyboard_interactivity: KeyboardInteractivity::Exclusive,
                                     anchor: Anchor::TOP,
                                     namespace: "launcher".into(),
-                                    size: None,
-                                    margin: iced::wayland::actions::layer_surface::IcedMargin {
+                                    size: Some((Some(600), Some(1))),
+                                    margin: iced::platform_specific::runtime::wayland::layer_surface::IcedMargin {
                                         top: 16,
                                         ..Default::default()
                                     },
@@ -469,12 +455,11 @@ impl cosmic::Application for CosmicLauncher {
                 },
             },
             Message::Layer(e) => match e {
-                LayerEvent::Focused => {}
+                LayerEvent::Focused | LayerEvent::Done => {}
                 LayerEvent::Unfocused => {
                     self.last_hide = Instant::now();
                     return self.hide();
                 }
-                LayerEvent::Done => {}
             },
             Message::CloseContextMenu => {
                 if self.menu.take().is_some() {
@@ -505,7 +490,7 @@ impl cosmic::Application for CosmicLauncher {
                 };
             }
             Message::ActivationToken(token, app_id, exec, dgpu) => {
-                return Command::perform(launch(token, app_id, exec, dgpu), |()| {
+                return Task::perform(launch(token, app_id, exec, dgpu), |()| {
                     cosmic::app::message::app(Message::Hide)
                 });
             }
@@ -522,13 +507,13 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
         }
-        Command::none()
+        Task::none()
     }
 
     fn dbus_activation(
         &mut self,
         msg: cosmic::app::DbusActivationMessage,
-    ) -> iced::Command<cosmic::app::Message<Self::Message>> {
+    ) -> iced::Task<cosmic::app::Message<Self::Message>> {
         match msg.msg {
             DbusActivationDetails::Activate => {
                 if self.active_surface || self.wait_for_result {
@@ -543,12 +528,12 @@ impl cosmic::Application for CosmicLauncher {
                     self.input_value = String::new();
                     self.active_surface = true;
                     self.wait_for_result = true;
-                    return Command::none();
+                    return Task::none();
                 }
             }
             DbusActivationDetails::ActivateAction { action, .. } => {
                 if LauncherCommands::from_str(&action).is_err() {
-                    return Command::none();
+                    return Task::none();
                 }
 
                 if let Some(tx) = &self.tx {
@@ -570,29 +555,33 @@ impl cosmic::Application for CosmicLauncher {
             }
             DbusActivationDetails::Open { .. } => {}
         }
-        Command::none()
+        Task::none()
     }
 
     fn view(&self) -> Element<Self::Message> {
-        unimplemented!()
+        unreachable!("No main window")
     }
 
     #[allow(clippy::too_many_lines)]
     fn view_window(&self, id: SurfaceId) -> Element<Self::Message> {
-        if id == *WINDOW_ID {
-            let launcher_entry = text_input::search_input(fl!("type-to-search"), &self.input_value)
-                .on_input(Message::InputChanged)
-                .on_paste(Message::InputChanged)
-                .on_submit(Message::Activate(None))
-                .style(cosmic::theme::TextInput::Custom {
-                    active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                    error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                    hovered: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                    focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                    disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
-                })
-                .id(INPUT_ID.clone())
-                .always_active();
+        if id == self.window_id {
+            let launcher_entry = text_input::search_input(
+                "Type to search apps or type “?” for more options...",
+                &self.input_value,
+            )
+            .on_input(Message::InputChanged)
+            .on_paste(Message::InputChanged)
+            .on_submit(Message::Activate(None))
+            .style(cosmic::theme::TextInput::Custom {
+                active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                hovered: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
+            })
+            .width(600)
+            .id(INPUT_ID.clone())
+            .always_active();
 
             let buttons: Vec<_> = self
                 .launcher_items
@@ -611,11 +600,11 @@ impl cosmic::Application for CosmicLauncher {
                         } else {
                             line.to_string()
                         })
-                        .horizontal_alignment(Horizontal::Left)
-                        .vertical_alignment(Vertical::Center)
+                        .align_x(Horizontal::Left)
+                        .align_y(Vertical::Center)
                         .size(14)
-                        .style(cosmic::theme::Text::Custom(|t| {
-                            cosmic::iced::widget::text::Appearance {
+                        .class(cosmic::theme::Text::Custom(|t| {
+                            cosmic::iced::widget::text::Style {
                                 color: Some(t.cosmic().on_bg_color().into()),
                             }
                         }))
@@ -628,13 +617,11 @@ impl cosmic::Application for CosmicLauncher {
                         } else {
                             line.to_string()
                         })
-                        .horizontal_alignment(Horizontal::Left)
-                        .vertical_alignment(Vertical::Center)
+                        .align_x(Horizontal::Left)
+                        .align_y(Vertical::Center)
                         .size(10)
-                        .style(theme::Text::Custom(|t| {
-                            cosmic::iced::widget::text::Appearance {
-                                color: Some(t.cosmic().on_bg_color().into()),
-                            }
+                        .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
+                            color: Some(t.cosmic().on_bg_color().into()),
                         }))
                         .into()
                     }));
@@ -649,8 +636,8 @@ impl cosmic::Application for CosmicLauncher {
                                 icon(from_name(name.clone()).into())
                                     .width(Length::Fixed(16.0))
                                     .height(Length::Fixed(16.0))
-                                    .style(cosmic::theme::Svg::Custom(Rc::new(|theme| {
-                                        cosmic::iced_style::svg::Appearance {
+                                    .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
+                                        cosmic::iced::widget::svg::Style {
                                             color: Some(theme.cosmic().on_bg_color().into()),
                                         }
                                     })))
@@ -683,16 +670,16 @@ impl cosmic::Application for CosmicLauncher {
                         container(
                             text(format!("Ctrl + {}", (i + 1) % 10))
                                 .size(14)
-                                .vertical_alignment(Vertical::Center)
-                                .horizontal_alignment(Horizontal::Right)
-                                .style(theme::Text::Custom(|t| {
-                                    cosmic::iced::widget::text::Appearance {
+                                .align_y(Vertical::Center)
+                                .align_x(Horizontal::Right)
+                                .class(theme::Text::Custom(|t| {
+                                    cosmic::iced::widget::text::Style {
                                         color: Some(t.cosmic().on_bg_color().into()),
                                     }
                                 })),
                         )
                         .width(Length::FillPortion(1))
-                        .center_y()
+                        .center_y(Length::Shrink)
                         .align_y(Vertical::Center)
                         .align_x(Horizontal::Right)
                         .into(),
@@ -700,34 +687,22 @@ impl cosmic::Application for CosmicLauncher {
                     let is_focused = i == self.focused;
                     let btn = mouse_area(
                         cosmic::widget::button::custom(
-                            row(button_content)
-                                .spacing(8)
-                                .align_items(Alignment::Center),
+                            row(button_content).spacing(8).align_y(Alignment::Center),
                         )
                         .id(RESULT_IDS[i].clone())
                         .width(Length::Fill)
                         .on_press(Message::Activate(Some(i)))
                         .padding([8, 24])
-                        .style(Button::Custom {
+                        .class(Button::Custom {
                             active: Box::new(move |focused, theme| {
                                 let focused = is_focused || focused;
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
                                 let a = if focused {
-                                    button::StyleSheet::hovered(
-                                        theme,
-                                        focused,
-                                        focused,
-                                        &Button::Text,
-                                    )
+                                    button::Catalog::hovered(theme, focused, focused, &Button::Text)
                                 } else {
-                                    button::StyleSheet::active(
-                                        theme,
-                                        focused,
-                                        focused,
-                                        &Button::Text,
-                                    )
+                                    button::Catalog::active(theme, focused, focused, &Button::Text)
                                 };
-                                button::Appearance {
+                                button::Style {
                                     border_radius: rad_s.into(),
                                     outline_width: 0.0,
                                     ..a
@@ -737,13 +712,13 @@ impl cosmic::Application for CosmicLauncher {
                                 let focused = is_focused || focused;
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
-                                let text = button::StyleSheet::hovered(
+                                let text = button::Catalog::hovered(
                                     theme,
                                     focused,
                                     focused,
                                     &Button::Text,
                                 );
-                                button::Appearance {
+                                button::Style {
                                     border_radius: rad_s.into(),
                                     outline_width: 0.0,
                                     ..text
@@ -752,8 +727,8 @@ impl cosmic::Application for CosmicLauncher {
                             disabled: Box::new(|theme| {
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
-                                let text = button::StyleSheet::disabled(theme, &Button::Text);
-                                button::Appearance {
+                                let text = button::Catalog::disabled(theme, &Button::Text);
+                                button::Style {
                                     border_radius: rad_s.into(),
                                     outline_width: 0.0,
                                     ..text
@@ -763,13 +738,13 @@ impl cosmic::Application for CosmicLauncher {
                                 let focused = is_focused || focused;
                                 let rad_s = theme.cosmic().corner_radii.radius_s;
 
-                                let text = button::StyleSheet::pressed(
+                                let text = button::Catalog::pressed(
                                     theme,
                                     focused,
                                     focused,
                                     &Button::Text,
                                 );
-                                button::Appearance {
+                                button::Style {
                                     border_radius: rad_s.into(),
                                     outline_width: 0.0,
                                     ..text
@@ -787,17 +762,27 @@ impl cosmic::Application for CosmicLauncher {
                 .collect();
 
             let mut content = if self.alt_tab {
-                Column::new().max_width(600).spacing(16)
+                Column::new()
+                    .max_width(600)
+                    .spacing(16)
+                    .width(Length::Shrink)
+                    .height(Length::Shrink)
             } else {
-                column![launcher_entry].max_width(600).spacing(16)
+                column![launcher_entry]
+                    .max_width(600)
+                    .width(Length::Shrink)
+                    .height(Length::Shrink)
+                    .spacing(16)
             };
 
             if !buttons.is_empty() {
                 content = content.push(components::list::column(buttons));
             }
 
-            let window = container(content)
-                .style(Container::Custom(Box::new(|theme| container::Appearance {
+            let window = container(id_container(content, MAIN_ID.clone()))
+                .width(Length::Shrink)
+                .height(Length::Shrink)
+                .class(Container::Custom(Box::new(|theme| container::Style {
                     text_color: Some(theme.cosmic().on_bg_color().into()),
                     icon_color: Some(theme.cosmic().on_bg_color().into()),
                     background: Some(Color::from(theme.cosmic().background.base).into()),
@@ -810,19 +795,23 @@ impl cosmic::Application for CosmicLauncher {
                 })))
                 .padding([24, 32]);
 
-            return if self.menu.is_some() {
-                mouse_area(window)
-                    .on_release(Message::CloseContextMenu)
-                    .on_right_release(Message::CloseContextMenu)
-                    .into()
-            } else {
-                window.into()
-            };
+            let autosize = autosize::autosize(
+                if self.menu.is_some() {
+                    Element::from(
+                        mouse_area(window)
+                            .on_release(Message::CloseContextMenu)
+                            .on_right_release(Message::CloseContextMenu),
+                    )
+                } else {
+                    window.into()
+                },
+                AUTOSIZE_ID.clone(),
+            );
+            return Element::from(autosize);
         }
-
         if id == *MENU_ID {
             let Some((i, options)) = self.menu.as_ref() else {
-                return container(horizontal_space(Length::Fixed(1.0)))
+                return container(horizontal_space().width(Length::Fixed(1.0)))
                     .width(Length::Fixed(1.0))
                     .height(Length::Fixed(1.0))
                     .into();
@@ -835,10 +824,10 @@ impl cosmic::Application for CosmicLauncher {
             .padding([8, 0]);
 
             return container(
-                container(scrollable(list_column)).style(theme::Container::custom(|theme| {
+                container(scrollable(list_column)).class(theme::Container::custom(|theme| {
                     let cosmic = theme.cosmic();
                     let corners = cosmic.corner_radii;
-                    ContainerAppearance {
+                    container::Style {
                         text_color: Some(cosmic.background.on.into()),
                         background: Some(Color::from(cosmic.background.base).into()),
                         border: Border {
@@ -858,25 +847,22 @@ impl cosmic::Application for CosmicLauncher {
             .into();
         }
 
-        vertical_space(Length::Fixed(1.0)).into()
+        vertical_space().height(Length::Fixed(1.0)).into()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(vec![
             launcher::subscription(0).map(Message::LauncherEvent),
-            listen_raw(|e, status| match e {
+            listen_raw(|e, status, _| match e {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, ..),
                 )) => Some(Message::Layer(e)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                    key, ..
-                }) => match key {
-                    Key::Named(Named::Alt | Named::Super) => Some(Message::AltRelease),
-                    _ => None,
-                },
+                    key: Key::Named(Named::Alt | Named::Super),
+                    ..
+                }) => Some(Message::AltRelease),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
-                    text,
                     modifiers,
                     ..
                 }) => match key {

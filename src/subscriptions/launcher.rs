@@ -1,4 +1,7 @@
-use cosmic::{iced::futures::StreamExt, iced_runtime::futures::MaybeSend};
+use cosmic::{
+    iced::{futures::StreamExt, Subscription},
+    iced_runtime::futures::MaybeSend,
+};
 use futures::{SinkExt, Stream};
 use pop_launcher_service::IpcClient;
 use std::hash::Hash;
@@ -23,17 +26,18 @@ pub enum Event {
 pub fn subscription<I: 'static + Hash + Copy + Send + Sync>(
     id: I,
 ) -> cosmic::iced::Subscription<Event> {
-    use cosmic::iced::subscription;
-
-    subscription::channel(id, 1, |mut output| async move {
-        loop {
-            tracing::info!("starting pop-launcher service");
-            let mut responses = std::pin::pin!(service());
-            while let Some(message) = responses.next().await {
-                let _res = output.send(message).await;
+    Subscription::run_with_id(
+        id,
+        cosmic::iced_futures::stream::channel(1, |mut output| async move {
+            loop {
+                tracing::info!("starting pop-launcher service");
+                let mut responses = std::pin::pin!(service());
+                while let Some(message) = responses.next().await {
+                    let _res = output.send(message).await;
+                }
             }
-        }
-    })
+        }),
+    )
 }
 
 /// Initializes pop-launcher if it is not running, and returns a handle to its client.
