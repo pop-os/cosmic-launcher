@@ -2,13 +2,12 @@
 // borrows the column element from iced widgets
 // and draws oddly indexed children first
 
-use cosmic::iced_renderer::core::widget::OperationOutputWrapper;
-
 use cosmic::iced_core::{
     event::{self, Event},
     layout, mouse, overlay, renderer,
     widget::{Operation, Tree},
-    Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Widget,
+    Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Vector,
+    Widget,
 };
 
 pub fn column<'a, Message, Theme, Renderer>(
@@ -170,7 +169,7 @@ where
         tree: &mut Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn Operation<OperationOutputWrapper<Message>>,
+        operation: &mut dyn Operation<()>,
     ) {
         operation.container(None, layout.bounds(), &mut |operation| {
             self.children
@@ -282,8 +281,9 @@ where
         tree: &'b mut Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
+        translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        overlay::from_children(&mut self.children, tree, layout, renderer)
+        overlay::from_children(&mut self.children, tree, layout, renderer, translation)
     }
 
     #[cfg(feature = "a11y")]
