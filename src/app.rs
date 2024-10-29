@@ -1,4 +1,4 @@
-use crate::{app::iced::event::listen_raw, components, subscriptions::launcher};
+use crate::{app::iced::event::listen_raw, components, fl, subscriptions::launcher};
 use clap::Parser;
 use cosmic::app::{command, Core, CosmicFlags, DbusActivationDetails, Settings, Task};
 use cosmic::cctk::sctk;
@@ -29,10 +29,10 @@ use cosmic::widget::id_container;
 use cosmic::widget::{
     autosize, button, divider, horizontal_space, icon, mouse_area, scrollable, text,
     text_input::{self, StyleSheet as TextInputStyleSheet},
+    vertical_space,
 };
 use cosmic::{keyboard_nav, Element};
 use iced::keyboard::Key;
-use iced::widget::vertical_space;
 use iced::{Alignment, Color};
 use once_cell::sync::Lazy;
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
@@ -565,23 +565,20 @@ impl cosmic::Application for CosmicLauncher {
     #[allow(clippy::too_many_lines)]
     fn view_window(&self, id: SurfaceId) -> Element<Self::Message> {
         if id == self.window_id {
-            let launcher_entry = text_input::search_input(
-                "Type to search apps or type “?” for more options...",
-                &self.input_value,
-            )
-            .on_input(Message::InputChanged)
-            .on_paste(Message::InputChanged)
-            .on_submit(Message::Activate(None))
-            .style(cosmic::theme::TextInput::Custom {
-                active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                hovered: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
-                disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
-            })
-            .width(600)
-            .id(INPUT_ID.clone())
-            .always_active();
+            let launcher_entry = text_input::search_input(fl!("type-to-search"), &self.input_value)
+                .on_input(Message::InputChanged)
+                .on_paste(Message::InputChanged)
+                .on_submit(Message::Activate(None))
+                .style(cosmic::theme::TextInput::Custom {
+                    active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                    error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                    hovered: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                    focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
+                    disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
+                })
+                .width(600)
+                .id(INPUT_ID.clone())
+                .always_active();
 
             let buttons: Vec<_> = self
                 .launcher_items
@@ -595,14 +592,13 @@ impl cosmic::Application for CosmicLauncher {
                     };
 
                     let name = Column::with_children(name.lines().map(|line| {
-                        text(if line.width() > 45 {
-                            format!("{}...", line.unicode_truncate(45).0)
+                        text::body(if line.width() > 60 {
+                            format!("{}...", line.unicode_truncate(60).0)
                         } else {
                             line.to_string()
                         })
                         .align_x(Horizontal::Left)
                         .align_y(Vertical::Center)
-                        .size(14)
                         .class(cosmic::theme::Text::Custom(|t| {
                             cosmic::iced::widget::text::Style {
                                 color: Some(t.cosmic().on_bg_color().into()),
@@ -612,14 +608,13 @@ impl cosmic::Application for CosmicLauncher {
                     }));
 
                     let desc = Column::with_children(desc.lines().map(|line| {
-                        text(if line.width() > 60 {
-                            format!("{}...", line.unicode_truncate(60).0)
+                        text::caption(if line.width() > 80 {
+                            format!("{}...", line.unicode_truncate(80).0)
                         } else {
                             line.to_string()
                         })
                         .align_x(Horizontal::Left)
                         .align_y(Vertical::Center)
-                        .size(10)
                         .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
                             color: Some(t.cosmic().on_bg_color().into()),
                         }))
@@ -665,11 +660,10 @@ impl cosmic::Application for CosmicLauncher {
                         );
                     }
 
-                    button_content.push(column![name, desc].width(Length::FillPortion(4)).into());
+                    button_content.push(column![name, desc].width(Length::FillPortion(5)).into());
                     button_content.push(
                         container(
-                            text(format!("Ctrl + {}", (i + 1) % 10))
-                                .size(14)
+                            text::body(format!("Ctrl + {}", (i + 1) % 10))
                                 .align_y(Vertical::Center)
                                 .align_x(Horizontal::Right)
                                 .class(theme::Text::Custom(|t| {
