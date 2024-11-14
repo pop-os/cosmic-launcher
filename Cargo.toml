@@ -19,7 +19,7 @@ i18n-embed = { version = "0.13.4", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.6.4"
-libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
+libcosmic = { git = "https://github.com/jpttrssn/libcosmic/", branch = "launch-app-in-term", features = [
     "autosize",
     "winit",
     "multi-window",

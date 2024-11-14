@@ -138,6 +138,8 @@ pub struct CosmicLauncher {
     window_id: SurfaceId,
 }
 
+type TerminalPerference = bool;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     InputChanged(String),
@@ -153,7 +155,13 @@ pub enum Message {
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
     KeyboardNav(keyboard_nav::Message),
-    ActivationToken(Option<String>, String, String, GpuPreference),
+    ActivationToken(
+        Option<String>,
+        String,
+        String,
+        GpuPreference,
+        TerminalPerference,
+    ),
     AltTab,
     AltRelease,
 }
@@ -204,7 +212,13 @@ impl CosmicLauncher {
     }
 }
 
-async fn launch(token: Option<String>, app_id: String, exec: String, gpu: GpuPreference) {
+async fn launch(
+    token: Option<String>,
+    app_id: String,
+    exec: String,
+    gpu: GpuPreference,
+    terminal: TerminalPerference,
+) {
     let mut envs = Vec::new();
     if let Some(token) = token {
         envs.push(("XDG_ACTIVATION_TOKEN".to_string(), token.clone()));
@@ -215,7 +229,7 @@ async fn launch(token: Option<String>, app_id: String, exec: String, gpu: GpuPre
         envs.extend(gpu_envs);
     }
 
-    cosmic::desktop::spawn_desktop_exec(exec, envs, Some(&app_id)).await;
+    cosmic::desktop::spawn_desktop_exec(exec, envs, Some(&app_id), terminal).await;
 }
 
 async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>> {
@@ -406,6 +420,7 @@ impl cosmic::Application for CosmicLauncher {
                                     entry.id.to_string(),
                                     exec.clone(),
                                     gpu_preference,
+                                    entry.terminal,
                                 ))
                             });
                         }
@@ -489,8 +504,8 @@ impl cosmic::Application for CosmicLauncher {
                     _ => {}
                 };
             }
-            Message::ActivationToken(token, app_id, exec, dgpu) => {
-                return Task::perform(launch(token, app_id, exec, dgpu), |()| {
+            Message::ActivationToken(token, app_id, exec, dgpu, terminal) => {
+                return Task::perform(launch(token, app_id, exec, dgpu, terminal), |()| {
                     cosmic::app::message::app(Message::Hide)
                 });
             }
