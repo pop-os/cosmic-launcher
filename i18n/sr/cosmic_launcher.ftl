@@ -1,1 +1,1 @@
-app-name = Cosmic pokretač aplikacija
+app-name = COSMIC pokretač aplikacija
