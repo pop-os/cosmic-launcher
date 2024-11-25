@@ -543,15 +543,15 @@ impl cosmic::Application for CosmicLauncher {
                 }
                 if self.active_surface {
                     if self.launcher_items.is_empty() {
-                        return cosmic::command::message(cosmic::app::message::app(Message::Hide));
+                        return cosmic::task::message(cosmic::app::message::app(Message::Hide));
                     }
-                    return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
+                    return cosmic::task::message(cosmic::app::message::app(Message::AltTab));
                 }
 
                 self.input_value = action;
                 self.active_surface = true;
                 self.wait_for_result = true;
-                return cosmic::command::message(cosmic::app::message::app(Message::AltTab));
+                return cosmic::task::message(cosmic::app::message::app(Message::AltTab));
             }
             DbusActivationDetails::Open { .. } => {}
         }
