@@ -33,8 +33,8 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
 tracing = "0.1"
 nix = { version = "0.27.1", features = ["process"] }
 once_cell = "1.17"
-pop-launcher = { git = "https://github.com/pop-os/launcher/", rev = "091581c" }
-pop-launcher-service = { git = "https://github.com/pop-os/launcher/", rev = "091581c" }
+pop-launcher = { git = "https://github.com/pop-os/launcher/", rev = "fca3b25" }
+pop-launcher-service = { git = "https://github.com/pop-os/launcher/", rev = "fca3b25" }
 pretty_env_logger = "0.5"
 rust-embed = "6.3.0"
 serde = { version = "1.0.152", features = ["derive"] }
