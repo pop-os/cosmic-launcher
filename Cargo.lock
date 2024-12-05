@@ -4495,7 +4495,6 @@ checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
 [[package]]
 name = "pop-launcher"
 version = "1.2.4"
-source = "git+https://github.com/pop-os/launcher/?rev=fca3b25#fca3b25552deca3bd64de8bfd1ebb38c45e4fb39"
 dependencies = [
  "const_format",
  "dirs 5.0.1",
@@ -4510,7 +4509,6 @@ dependencies = [
 [[package]]
 name = "pop-launcher-service"
 version = "1.2.4"
-source = "git+https://github.com/pop-os/launcher/?rev=fca3b25#fca3b25552deca3bd64de8bfd1ebb38c45e4fb39"
 dependencies = [
  "anyhow",
  "async-oneshot",
@@ -7387,13 +7385,3 @@ dependencies = [
  "quote",
  "syn 2.0.90",
 ]
-
-[[patch.unused]]
-name = "pop-launcher"
-version = "1.2.3"
-source = "git+https://github.com/wiiznokes/launcher/?rev=86a54d54a68b832d404ef83a03af84cf9ef3e694#86a54d54a68b832d404ef83a03af84cf9ef3e694"
-
-[[patch.unused]]
-name = "pop-launcher-service"
-version = "1.2.3"
-source = "git+https://github.com/wiiznokes/launcher/?rev=86a54d54a68b832d404ef83a03af84cf9ef3e694#86a54d54a68b832d404ef83a03af84cf9ef3e694"
