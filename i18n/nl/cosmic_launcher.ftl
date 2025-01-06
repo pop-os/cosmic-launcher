@@ -1,2 +1,2 @@
-app-name = COSMIC-Launcher
+app-name = COSMIC snelstarter
 type-to-search = Typ hier om te zoeken naar toepassingen, of typ “?” voor meer opties...
