@@ -1264,11 +1264,11 @@ dependencies = [
 [[package]]
 name = "cosmic-freedesktop-icons"
 version = "0.2.6"
-source = "git+https://github.com/pop-os/freedesktop-icons#5a3b4163148a9600a54cc846aa863f4e6389635d"
+source = "git+https://github.com/pop-os/freedesktop-icons#27aa0e5a3cf2db20cef7b60d3f68b0628929293f"
 dependencies = [
  "dirs 5.0.1",
+ "ini_core",
  "once_cell",
- "rust-ini",
  "thiserror",
  "tracing",
  "xdg",
@@ -3142,6 +3142,15 @@ dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
  "serde",
+]
+
+[[package]]
+name = "ini_core"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a467a31a9f439b5262fa99c17084537bff57f24703d5a09a2b5c9657ec73a61"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
