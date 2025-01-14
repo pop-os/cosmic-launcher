@@ -1,1 +1,1 @@
-app-name = Панель запуска Cosmic
+app-name = Панель запуска COSMIC

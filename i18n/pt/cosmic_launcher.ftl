@@ -1,2 +1,2 @@
-app-name = Lançador Cosmic
+app-name = Lançador COSMIC
 type-to-search = Escreva para pesquisar aplicações ou escreva “?” para mais opções...

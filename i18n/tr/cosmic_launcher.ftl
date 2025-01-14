@@ -1,2 +1,2 @@
-app-name = Cosmic Başlatıcı
+app-name = COSMIC Başlatıcı
 type-to-search = Doğrudan yazarak uygulama ara veya daha fazla seçenek için “?” yaz...

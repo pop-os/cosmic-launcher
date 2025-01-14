@@ -1,2 +1,2 @@
-app-name = Cosmic 启动器
+app-name = COSMIC 启动器
 type-to-search = 键入以搜索应用程序或键入“？”获取更多选项...

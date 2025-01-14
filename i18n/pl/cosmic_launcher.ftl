@@ -1,2 +1,2 @@
-app-name = Program Startowy Cosmic
+app-name = Program Startowy COSMIC
 type-to-search = Pisz by wyszukać apki lub napisz “?” by zobaczyć więcej opcji...
