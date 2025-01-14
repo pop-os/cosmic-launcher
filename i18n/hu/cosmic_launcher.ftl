@@ -1,1 +1,1 @@
-app-name = Cosmic Indító
+app-name = COSMIC Indító
