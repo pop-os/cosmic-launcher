@@ -1,1 +1,1 @@
-app-name = Cosmic Starter
+app-name = COSMIC Starter
