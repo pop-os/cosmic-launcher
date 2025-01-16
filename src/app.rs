@@ -17,13 +17,16 @@ use cosmic::iced::platform_specific::shell::commands::{
 use cosmic::iced::widget::{column, container, Column};
 use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced_core::widget::operation;
 use cosmic::iced_core::{window, Border, Padding, Point, Rectangle, Shadow};
+use cosmic::iced_runtime;
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::Id as SurfaceId;
 use cosmic::iced_runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use cosmic::iced_widget::row;
+use cosmic::iced_widget::scrollable::RelativeOffset;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::id_container;
@@ -35,10 +38,10 @@ use cosmic::widget::{
 use cosmic::{keyboard_nav, Element};
 use iced::keyboard::Key;
 use iced::{Alignment, Color};
-use once_cell::sync::Lazy;
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+use std::sync::LazyLock;
 use std::{
     collections::{HashMap, VecDeque},
     rc::Rc,
@@ -50,17 +53,13 @@ use tracing::{debug, error, info};
 use unicode_truncate::UnicodeTruncateStr;
 use unicode_width::UnicodeWidthStr;
 
-static AUTOSIZE_ID: Lazy<Id> = Lazy::new(|| Id::new("autosize"));
-static MAIN_ID: Lazy<Id> = Lazy::new(|| Id::new("main"));
-static INPUT_ID: Lazy<Id> = Lazy::new(|| Id::new("input_id"));
-static RESULT_IDS: Lazy<[Id; 10]> = Lazy::new(|| {
-    (0..10)
-        .map(|id| Id::new(id.to_string()))
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap()
-});
-pub(crate) static MENU_ID: Lazy<SurfaceId> = Lazy::new(SurfaceId::unique);
+static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("autosize"));
+static MAIN_ID: LazyLock<Id> = LazyLock::new(|| Id::new("main"));
+static INPUT_ID: LazyLock<Id> = LazyLock::new(|| Id::new("input_id"));
+static SCROLLABLE: LazyLock<Id> = LazyLock::new(|| Id::new("scrollable"));
+
+pub(crate) static MENU_ID: LazyLock<SurfaceId> = LazyLock::new(SurfaceId::unique);
+const SCROLL_MIN: usize = 8;
 
 #[derive(Parser, Debug, Serialize, Deserialize, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -152,6 +151,7 @@ pub struct CosmicLauncher {
     alt_tab: bool,
     window_id: window::Id,
     queue: VecDeque<Message>,
+    result_ids: Vec<Id>,
 }
 
 #[derive(Debug, Clone)]
@@ -292,6 +292,9 @@ impl cosmic::Application for CosmicLauncher {
                 alt_tab: false,
                 window_id: SurfaceId::unique(),
                 queue: VecDeque::new(),
+                result_ids: (0..10)
+                    .map(|id| Id::new(id.to_string()))
+                    .collect::<Vec<_>>(),
             },
             Task::none(),
         )
@@ -320,12 +323,13 @@ impl cosmic::Application for CosmicLauncher {
                 let focused = self.focused;
                 self.focused = 0;
                 return cosmic::task::message(cosmic::app::Message::App(
-                    Self::Message::CompleteFocusedId(RESULT_IDS[focused].clone()),
+                    Self::Message::CompleteFocusedId(self.result_ids[focused].clone()),
                 ));
             }
             Message::TabPress => {}
             Message::CompleteFocusedId(id) => {
-                let i = RESULT_IDS
+                let i = self
+                    .result_ids
                     .iter()
                     .position(|res_id| res_id == &id)
                     .unwrap_or_default();
@@ -447,9 +451,15 @@ impl cosmic::Application for CosmicLauncher {
                             let b = i32::from(b.window.is_none());
                             a.cmp(&b)
                         });
-                        list.truncate(10);
                         self.launcher_items.splice(.., list);
-
+                        if self.result_ids.len() < self.launcher_items.len() {
+                            self.result_ids.extend(
+                                (self.launcher_items.len() - self.result_ids.len()
+                                    ..self.launcher_items.len())
+                                    .map(|id| Id::new(id.to_string()))
+                                    .collect::<Vec<_>>(),
+                            );
+                        }
                         let mut cmds = Vec::new();
 
                         while let Some(element) = self.queue.pop_front() {
@@ -490,9 +500,28 @@ impl cosmic::Application for CosmicLauncher {
                 match e {
                     keyboard_nav::Message::FocusNext => {
                         self.focus_next();
+                        // TODO ideally we could use an operation to scroll exactly to a specific widget.
+                        return iced_runtime::task::widget(operation::scrollable::snap_to(
+                            SCROLLABLE.clone(),
+                            RelativeOffset {
+                                x: 0.,
+                                y: (self.focused as f32
+                                    / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                .max(0.0),
+                            },
+                        ));
                     }
                     keyboard_nav::Message::FocusPrevious => {
                         self.focus_previous();
+                        return iced_runtime::task::widget(operation::scrollable::snap_to(
+                            SCROLLABLE.clone(),
+                            RelativeOffset {
+                                x: 0.,
+                                y: (self.focused as f32
+                                    / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                .max(0.0),
+                            },
+                        ));
                     }
                     keyboard_nav::Message::Escape => {
                         self.input_value.clear();
@@ -508,9 +537,25 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::AltTab => {
                 self.focus_next();
+                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                    SCROLLABLE.clone(),
+                    RelativeOffset {
+                        x: 0.,
+                        y: (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
+                            .max(0.0),
+                    },
+                ));
             }
             Message::ShiftAltTab => {
                 self.focus_previous();
+                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                    SCROLLABLE.clone(),
+                    RelativeOffset {
+                        x: 0.,
+                        y: (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
+                            .max(0.0),
+                    },
+                ));
             }
             Message::AltRelease => {
                 if self.alt_tab {
@@ -678,29 +723,31 @@ impl cosmic::Application for CosmicLauncher {
                     }
 
                     button_content.push(column![name, desc].width(Length::FillPortion(5)).into());
-                    button_content.push(
-                        container(
-                            text::body(format!("Ctrl + {}", (i + 1) % 10))
-                                .align_y(Vertical::Center)
-                                .align_x(Horizontal::Right)
-                                .class(theme::Text::Custom(|t| {
-                                    cosmic::iced::widget::text::Style {
-                                        color: Some(t.cosmic().on_bg_color().into()),
-                                    }
-                                })),
-                        )
-                        .width(Length::FillPortion(1))
-                        .center_y(Length::Shrink)
-                        .align_y(Vertical::Center)
-                        .align_x(Horizontal::Right)
-                        .into(),
-                    );
+                    if i < 10 {
+                        button_content.push(
+                            container(
+                                text::body(format!("Ctrl + {}", (i + 1) % 10))
+                                    .align_y(Vertical::Center)
+                                    .align_x(Horizontal::Right)
+                                    .class(theme::Text::Custom(|t| {
+                                        cosmic::iced::widget::text::Style {
+                                            color: Some(t.cosmic().on_bg_color().into()),
+                                        }
+                                    })),
+                            )
+                            .width(Length::FillPortion(1))
+                            .center_y(Length::Shrink)
+                            .align_y(Vertical::Center)
+                            .align_x(Horizontal::Right)
+                            .into(),
+                        );
+                    }
                     let is_focused = i == self.focused;
                     let btn = mouse_area(
                         cosmic::widget::button::custom(
                             row(button_content).spacing(8).align_y(Alignment::Center),
                         )
-                        .id(RESULT_IDS[i].clone())
+                        .id(self.result_ids[i].clone())
                         .width(Length::Fill)
                         .on_press(Message::Activate(Some(i)))
                         .padding([8, 24])
@@ -786,9 +833,14 @@ impl cosmic::Application for CosmicLauncher {
                     .spacing(16)
             };
 
-            if !buttons.is_empty() {
+            if buttons.len() > SCROLL_MIN {
+                content = content.push(
+                    container(scrollable(components::list::column(buttons)).id(SCROLLABLE.clone()))
+                        .max_height(504),
+                );
+            } else if !buttons.is_empty() {
                 content = content.push(components::list::column(buttons));
-            }
+            };
 
             let window = container(id_container(content, MAIN_ID.clone()))
                 .width(Length::Shrink)
