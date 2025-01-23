@@ -454,9 +454,8 @@ impl cosmic::Application for CosmicLauncher {
                         self.launcher_items.splice(.., list);
                         if self.result_ids.len() < self.launcher_items.len() {
                             self.result_ids.extend(
-                                (self.launcher_items.len() - self.result_ids.len()
-                                    ..self.launcher_items.len())
-                                    .map(|id| Id::new(id.to_string()))
+                                (self.result_ids.len()..self.launcher_items.len())
+                                    .map(|id| Id::new((id).to_string()))
                                     .collect::<Vec<_>>(),
                             );
                         }
