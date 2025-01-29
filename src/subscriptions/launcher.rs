@@ -3,7 +3,7 @@ use cosmic::{
     iced_runtime::futures::MaybeSend,
 };
 use futures::{SinkExt, Stream};
-use pop_launcher_service::IpcClient;
+use pop_launcher_service::{Args, IpcClient};
 use std::hash::Hash;
 use tokio::sync::{mpsc, oneshot};
 
@@ -48,7 +48,11 @@ fn client_request<'a>(
     client: &'a mut Option<(IpcClient, oneshot::Sender<()>)>,
 ) -> &'a mut Option<(IpcClient, oneshot::Sender<()>)> {
     if client.is_none() {
-        *client = match pop_launcher_service::IpcClient::new() {
+        *client = match pop_launcher_service::IpcClient::new_with_args(Args {
+            max_files: 20,
+            max_open: 99,
+            max_search: 20,
+        }) {
             Ok((new_client, responses)) => {
                 let tx = tx.clone();
 
