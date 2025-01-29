@@ -1,6 +1,8 @@
 [Desktop Entry]
 Name=Launcher
+Name[pl]=Program startowy
 Comment=COSMIC Launcher
+Comment[pl]=Program startowy COSMIC
 Type=Application
 Exec=cosmic-launcher
 Terminal=false
