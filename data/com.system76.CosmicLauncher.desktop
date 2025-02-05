@@ -1,7 +1,9 @@
 [Desktop Entry]
 Name=Launcher
+Name[hu]=Indító
 Name[pl]=Program startowy
 Comment=COSMIC Launcher
+Comment[hu]=COSMIC Indító
 Comment[pl]=Program startowy COSMIC
 Type=Application
 Exec=cosmic-launcher
