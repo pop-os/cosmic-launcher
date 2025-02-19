@@ -96,7 +96,7 @@ fn client_request<'a>(
 
 pub fn service() -> impl Stream<Item = Event> + MaybeSend {
     let (requests_tx, mut requests_rx) = mpsc::channel(4);
-    let (responses_tx, mut responses_rx) = mpsc::channel(4);
+    let (responses_tx, responses_rx) = mpsc::channel(4);
 
     let service_future = async move {
         let _res = responses_tx.send(Event::Started(requests_tx.clone())).await;
@@ -152,9 +152,5 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
     #[cfg(not(feature = "console"))]
     let _res = tokio::task::spawn(service_future);
 
-    async_stream::stream! {
-        while let Some(message) = responses_rx.recv().await {
-            yield message;
-        }
-    }
+    tokio_stream::wrappers::ReceiverStream::new(responses_rx)
 }
