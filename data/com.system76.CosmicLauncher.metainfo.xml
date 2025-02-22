@@ -5,9 +5,12 @@
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
   <name>COSMIC Launcher</name>
+  <name xml:lang="hu">COSMIC Indító</name>
   <summary>COSMIC frontend for Pop Launcher</summary>
+  <summary xml:lang="hu">COSMIC felület a Pop Launcherhez</summary>
   <description>
     <p>The COSMIC frontend for Pop Launcher</p>
+    <p xml:lang="hu">COSMIC felület a Pop Launcherhez</p>
   </description>
   <url type="homepage">https://github.com/pop-os/cosmic-launcher</url>
   <url type="bugtracker">https://github.com/pop-os/cosmic-launcher/issues</url>
