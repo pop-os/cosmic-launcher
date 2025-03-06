@@ -1,7 +1,8 @@
 use crate::{app::iced::event::listen_raw, components, fl, subscriptions::launcher};
 use clap::Parser;
-use cosmic::app::{Core, CosmicFlags, DbusActivationDetails, Settings, Task};
+use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk;
+use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::event::Status;
 use cosmic::iced::id::Id;
@@ -19,7 +20,6 @@ use cosmic::iced::{self, Length, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
 use cosmic::iced_core::widget::operation;
 use cosmic::iced_core::{window, Border, Padding, Point, Rectangle, Shadow};
-use cosmic::iced_runtime;
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
@@ -35,6 +35,7 @@ use cosmic::widget::{
     text_input::{self, StyleSheet as TextInputStyleSheet},
     vertical_space,
 };
+use cosmic::{iced_runtime, surface};
 use cosmic::{keyboard_nav, Element};
 use iced::keyboard::Key;
 use iced::{Alignment, Color};
@@ -168,11 +169,12 @@ pub enum Message {
     Hide,
     LauncherEvent(launcher::Event),
     Layer(LayerEvent),
-    KeyboardNav(keyboard_nav::Message),
+    KeyboardNav(keyboard_nav::Action),
     ActivationToken(Option<String>, String, String, GpuPreference),
     AltTab,
     ShiftAltTab,
     AltRelease,
+    Surface(surface::Action),
 }
 
 impl CosmicLauncher {
@@ -322,7 +324,7 @@ impl cosmic::Application for CosmicLauncher {
             Message::TabPress if !self.alt_tab => {
                 let focused = self.focused;
                 self.focused = 0;
-                return cosmic::task::message(cosmic::app::Message::App(
+                return cosmic::task::message(cosmic::Action::App(
                     Self::Message::CompleteFocusedId(self.result_ids[focused].clone()),
                 ));
             }
@@ -393,21 +395,23 @@ impl cosmic::Application for CosmicLauncher {
                             height: 1,
                         };
                         return commands::popup::get_popup(SctkPopupSettings {
-                            parent: self.window_id,
-                            id: *MENU_ID,
-                            positioner: SctkPositioner {
-                                size: None,
-                                size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(300.0).max_height(800.0),
-                                anchor_rect: rect,
-                                anchor:
-                                    sctk::reexports::protocols::xdg::shell::client::xdg_positioner::Anchor::Right,
-                                gravity: sctk::reexports::protocols::xdg::shell::client::xdg_positioner::Gravity::Right,
-                                reactive: true,
-                                ..Default::default()
-                            },
-                            grab: true,
-                            parent_size: None,
-                        });
+                                    parent: self.window_id,
+                                    id: *MENU_ID,
+                                    positioner: SctkPositioner {
+                                        size: None,
+                                        size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(300.0).max_height(800.0),
+                                        anchor_rect: rect,
+                                        anchor:
+                                            sctk::reexports::protocols::xdg::shell::client::xdg_positioner::Anchor::Right,
+                                        gravity: sctk::reexports::protocols::xdg::shell::client::xdg_positioner::Gravity::Right,
+                                        reactive: true,
+                                        ..Default::default()
+                                    },
+                                    grab: true,
+                                    parent_size: None,
+                                    close_with_children: false,
+                                    input_zone: None,
+                                });
                     }
                     pop_launcher::Response::DesktopEntry {
                         path,
@@ -433,7 +437,7 @@ impl cosmic::Application for CosmicLauncher {
                                 Some(self.window_id),
                             )
                             .map(move |token| {
-                                cosmic::app::Message::App(Message::ActivationToken(
+                                cosmic::Action::App(Message::ActivationToken(
                                     token,
                                     entry.id.to_string(),
                                     exec.clone(),
@@ -497,7 +501,7 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::KeyboardNav(e) => {
                 match e {
-                    keyboard_nav::Message::FocusNext => {
+                    keyboard_nav::Action::FocusNext => {
                         self.focus_next();
                         // TODO ideally we could use an operation to scroll exactly to a specific widget.
                         return iced_runtime::task::widget(operation::scrollable::snap_to(
@@ -510,7 +514,7 @@ impl cosmic::Application for CosmicLauncher {
                             },
                         ));
                     }
-                    keyboard_nav::Message::FocusPrevious => {
+                    keyboard_nav::Action::FocusPrevious => {
                         self.focus_previous();
                         return iced_runtime::task::widget(operation::scrollable::snap_to(
                             SCROLLABLE.clone(),
@@ -522,7 +526,7 @@ impl cosmic::Application for CosmicLauncher {
                             },
                         ));
                     }
-                    keyboard_nav::Message::Escape => {
+                    keyboard_nav::Action::Escape => {
                         self.input_value.clear();
                         self.request(launcher::Request::Search(String::new()));
                     }
@@ -531,7 +535,7 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::ActivationToken(token, app_id, exec, dgpu) => {
                 return Task::perform(launch(token, app_id, exec, dgpu), |()| {
-                    cosmic::app::message::app(Message::Hide)
+                    cosmic::action::app(Message::Hide)
                 });
             }
             Message::AltTab => {
@@ -561,16 +565,21 @@ impl cosmic::Application for CosmicLauncher {
                     return self.update(Message::Activate(None));
                 }
             }
+            Message::Surface(a) => {
+                return cosmic::task::message(cosmic::Action::Cosmic(cosmic::app::Action::Surface(
+                    a,
+                )))
+            }
         }
         Task::none()
     }
 
     fn dbus_activation(
         &mut self,
-        msg: cosmic::app::DbusActivationMessage,
-    ) -> iced::Task<cosmic::app::Message<Self::Message>> {
+        msg: cosmic::dbus_activation::Message,
+    ) -> iced::Task<cosmic::Action<Self::Message>> {
         match msg.msg {
-            DbusActivationDetails::Activate => {
+            Details::Activate => {
                 if self.surface_state != SurfaceState::Hidden {
                     return self.hide();
                 }
@@ -582,7 +591,7 @@ impl cosmic::Application for CosmicLauncher {
                     return Task::none();
                 }
             }
-            DbusActivationDetails::ActivateAction { action, .. } => {
+            Details::ActivateAction { action, .. } => {
                 debug!("ActivateAction {}", action);
 
                 let Ok(cmd) = LauncherTasks::from_str(&action) else {
@@ -614,7 +623,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                 }
             }
-            DbusActivationDetails::Open { .. } => {}
+            Details::Open { .. } => {}
         }
         Task::none()
     }
@@ -629,7 +638,7 @@ impl cosmic::Application for CosmicLauncher {
             let launcher_entry = text_input::search_input(fl!("type-to-search"), &self.input_value)
                 .on_input(Message::InputChanged)
                 .on_paste(Message::InputChanged)
-                .on_submit(Message::Activate(None))
+                .on_submit(|_| Message::Activate(None))
                 .style(cosmic::theme::TextInput::Custom {
                     active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
                     error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
@@ -930,10 +939,10 @@ impl cosmic::Application for CosmicLauncher {
                     ..
                 }) => match key {
                     Key::Character(c) if modifiers.control() && (c == "p" || c == "k") => {
-                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
+                        Some(Message::KeyboardNav(keyboard_nav::Action::FocusPrevious))
                     }
                     Key::Character(c) if modifiers.control() && (c == "n" || c == "j") => {
-                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
+                        Some(Message::KeyboardNav(keyboard_nav::Action::FocusNext))
                     }
                     Key::Character(c) if modifiers.control() => {
                         let nums = (0..10)
@@ -943,10 +952,10 @@ impl cosmic::Application for CosmicLauncher {
                             .find_map(|n| (n.0 == c).then(|| Message::Activate(Some(n.1))))
                     }
                     Key::Named(Named::ArrowUp) => {
-                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusPrevious))
+                        Some(Message::KeyboardNav(keyboard_nav::Action::FocusPrevious))
                     }
                     Key::Named(Named::ArrowDown) => {
-                        Some(Message::KeyboardNav(keyboard_nav::Message::FocusNext))
+                        Some(Message::KeyboardNav(keyboard_nav::Action::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
                     Key::Named(Named::Tab) => Some(Message::TabPress),
