@@ -57,3 +57,5 @@ unicode-width = "0.2.0"
 # [patch."https://github.com/pop-os/launcher/"]
 # pop-launcher = { git = "https://github.com/wiiznokes/launcher/", rev = "86a54d54a68b832d404ef83a03af84cf9ef3e694" }
 # pop-launcher-service = { git = "https://github.com/wiiznokes/launcher/", rev = "86a54d54a68b832d404ef83a03af84cf9ef3e694" }
+[patch."https://github.com/pop-os/libcosmic/"]
+libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "fix-dbus-subscription-id" }
