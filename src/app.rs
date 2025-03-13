@@ -209,6 +209,7 @@ impl CosmicLauncher {
                     ..Default::default()
                 },
                 size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
+                exclusive_zone: -1,
                 ..Default::default()
             }),
             overlap_notify(self.window_id, true),
