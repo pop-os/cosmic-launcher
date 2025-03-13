@@ -3,6 +3,7 @@ use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, DbusActivationDetails, Settings, Task};
 use cosmic::cctk::sctk;
 use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::event::Status;
 use cosmic::iced::id::Id;
 use cosmic::iced::platform_specific::runtime::wayland::{
@@ -15,7 +16,7 @@ use cosmic::iced::platform_specific::shell::commands::{
     layer_surface::{destroy_layer_surface, get_layer_surface, Anchor, KeyboardInteractivity},
 };
 use cosmic::iced::widget::{column, container, Column};
-use cosmic::iced::{self, Length, Subscription};
+use cosmic::iced::{self, Length, Size, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
 use cosmic::iced_core::widget::operation;
 use cosmic::iced_core::{window, Border, Padding, Point, Rectangle, Shadow};
@@ -23,10 +24,11 @@ use cosmic::iced_runtime;
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{wayland, PlatformSpecific};
 use cosmic::iced_runtime::core::layout::Limits;
-use cosmic::iced_runtime::core::window::Id as SurfaceId;
+use cosmic::iced_runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
 use cosmic::iced_runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use cosmic::iced_widget::row;
 use cosmic::iced_widget::scrollable::RelativeOffset;
+use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::{from_name, IconFallback};
 use cosmic::widget::id_container;
@@ -152,6 +154,9 @@ pub struct CosmicLauncher {
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
+    overlap: HashMap<String, Rectangle>,
+    margin: f32,
+    height: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -172,7 +177,9 @@ pub enum Message {
     ActivationToken(Option<String>, String, String, GpuPreference),
     AltTab,
     ShiftAltTab,
+    Size(Size, window::Id),
     AltRelease,
+    Overlap(OverlapNotifyEvent),
 }
 
 impl CosmicLauncher {
@@ -190,19 +197,22 @@ impl CosmicLauncher {
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
 
-        get_layer_surface(SctkLayerSurfaceSettings {
-            id: self.window_id,
-            keyboard_interactivity: KeyboardInteractivity::Exclusive,
-            anchor: Anchor::TOP,
-            namespace: "launcher".into(),
-            size: None,
-            margin: IcedMargin {
-                top: 16,
+        Task::batch(vec![
+            get_layer_surface(SctkLayerSurfaceSettings {
+                id: self.window_id,
+                keyboard_interactivity: KeyboardInteractivity::Exclusive,
+                anchor: Anchor::TOP,
+                namespace: "launcher".into(),
+                size: None,
+                margin: IcedMargin {
+                    top: 16,
+                    ..Default::default()
+                },
+                size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
                 ..Default::default()
-            },
-            size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
-            ..Default::default()
-        })
+            }),
+            overlap_notify(self.window_id, true),
+        ])
     }
 
     fn hide(&mut self) -> Task<Message> {
@@ -239,6 +249,21 @@ impl CosmicLauncher {
             return;
         }
         self.focused = (self.focused + self.launcher_items.len() - 1) % self.launcher_items.len();
+    }
+
+    fn handle_overlap(&mut self) {
+        if matches!(self.surface_state, SurfaceState::Hidden) {
+            return;
+        }
+        let mid_height = self.height / 2.;
+        self.margin = 0.;
+
+        for o in self.overlap.values() {
+            if self.margin + mid_height < o.y || self.margin > o.y + o.height {
+                continue;
+            }
+            self.margin = o.y + o.height;
+        }
     }
 }
 
@@ -295,6 +320,9 @@ impl cosmic::Application for CosmicLauncher {
                 result_ids: (0..10)
                     .map(|id| Id::new(id.to_string()))
                     .collect::<Vec<_>>(),
+                margin: 0.,
+                overlap: HashMap::new(),
+                height: 100.,
             },
             Task::none(),
         )
@@ -362,6 +390,12 @@ impl cosmic::Application for CosmicLauncher {
 
                 if self.menu.take().is_some() {
                     return commands::popup::destroy_popup(*MENU_ID);
+                }
+            }
+            Message::Size(size, window_id) => {
+                if window_id == self.window_id {
+                    self.height = size.height;
+                    self.handle_overlap();
                 }
             }
             Message::LauncherEvent(e) => match e {
@@ -483,6 +517,25 @@ impl cosmic::Application for CosmicLauncher {
                     self.last_hide = Instant::now();
                     return self.hide();
                 }
+            },
+            Message::Overlap(overlap_notify_event) => match overlap_notify_event {
+                OverlapNotifyEvent::OverlapLayerAdd {
+                    identifier,
+                    namespace,
+                    logical_rect,
+                    exclusive,
+                    ..
+                } => {
+                    if exclusive > 0 || namespace == "Dock" || namespace == "Panel" {
+                        self.overlap.insert(identifier, logical_rect);
+                        self.handle_overlap();
+                    }
+                }
+                OverlapNotifyEvent::OverlapLayerRemove { identifier } => {
+                    self.overlap.remove(&identifier);
+                    self.handle_overlap();
+                }
+                _ => {}
             },
             Message::CloseContextMenu => {
                 if self.menu.take().is_some() {
@@ -841,21 +894,25 @@ impl cosmic::Application for CosmicLauncher {
                 content = content.push(components::list::column(buttons));
             };
 
-            let window = container(id_container(content, MAIN_ID.clone()))
-                .width(Length::Shrink)
-                .height(Length::Shrink)
-                .class(Container::Custom(Box::new(|theme| container::Style {
-                    text_color: Some(theme.cosmic().on_bg_color().into()),
-                    icon_color: Some(theme.cosmic().on_bg_color().into()),
-                    background: Some(Color::from(theme.cosmic().background.base).into()),
-                    border: Border {
-                        radius: theme.cosmic().corner_radii.radius_m.into(),
-                        width: 1.0,
-                        color: theme.cosmic().bg_divider().into(),
-                    },
-                    shadow: Shadow::default(),
-                })))
-                .padding([24, 32]);
+            let window = Column::new()
+                .push(vertical_space().height(Length::Fixed(self.margin)))
+                .push(
+                    container(id_container(content, MAIN_ID.clone()))
+                        .width(Length::Shrink)
+                        .height(Length::Shrink)
+                        .class(Container::Custom(Box::new(|theme| container::Style {
+                            text_color: Some(theme.cosmic().on_bg_color().into()),
+                            icon_color: Some(theme.cosmic().on_bg_color().into()),
+                            background: Some(Color::from(theme.cosmic().background.base).into()),
+                            border: Border {
+                                radius: theme.cosmic().corner_radii.radius_m.into(),
+                                width: 1.0,
+                                color: theme.cosmic().bg_divider().into(),
+                            },
+                            shadow: Shadow::default(),
+                        })))
+                        .padding([24, 32]),
+                );
 
             let autosize = autosize::autosize(
                 if self.menu.is_some() {
@@ -915,10 +972,13 @@ impl cosmic::Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(vec![
             launcher::subscription(0).map(Message::LauncherEvent),
-            listen_raw(|e, status, _| match e {
+            listen_raw(|e, status, id| match e {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, ..),
                 )) => Some(Message::Layer(e)),
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::OverlapNotify(event),
+                )) => Some(Message::Overlap(event)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
                     key: Key::Named(Named::Alt | Named::Super),
                     ..
@@ -960,6 +1020,10 @@ impl cosmic::Application for CosmicLauncher {
                 cosmic::iced::Event::Mouse(iced::mouse::Event::CursorMoved { position }) => {
                     Some(Message::CursorMoved(position))
                 }
+                cosmic::iced::Event::Window(WindowEvent::Opened { position: _, size }) => {
+                    Some(Message::Size(size, id))
+                }
+                cosmic::iced::Event::Window(WindowEvent::Resized(s)) => Some(Message::Size(s, id)),
                 _ => None,
             }),
         ])
