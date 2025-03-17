@@ -158,6 +158,7 @@ pub struct CosmicLauncher {
     overlap: HashMap<String, Rectangle>,
     margin: f32,
     height: f32,
+    needs_clear: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -178,7 +179,7 @@ pub enum Message {
     ActivationToken(Option<String>, String, String, GpuPreference),
     AltTab,
     ShiftAltTab,
-    Size(Size, window::Id),
+    Opened(Size, window::Id),
     AltRelease,
     Overlap(OverlapNotifyEvent),
     Surface(surface::Action),
@@ -198,6 +199,7 @@ impl CosmicLauncher {
 
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
+        self.needs_clear = true;
 
         Task::batch(vec![
             get_layer_surface(SctkLayerSurfaceSettings {
@@ -262,7 +264,10 @@ impl CosmicLauncher {
         self.margin = 0.;
 
         for o in self.overlap.values() {
-            if self.margin + mid_height < o.y || self.margin > o.y + o.height {
+            if self.margin + mid_height < o.y
+                || self.margin > o.y + o.height
+                || mid_height < o.y + o.height / 2.0
+            {
                 continue;
             }
             self.margin = o.y + o.height;
@@ -326,6 +331,7 @@ impl cosmic::Application for CosmicLauncher {
                 margin: 0.,
                 overlap: HashMap::new(),
                 height: 100.,
+                needs_clear: false,
             },
             Task::none(),
         )
@@ -395,7 +401,7 @@ impl cosmic::Application for CosmicLauncher {
                     return commands::popup::destroy_popup(*MENU_ID);
                 }
             }
-            Message::Size(size, window_id) => {
+            Message::Opened(size, window_id) => {
                 if window_id == self.window_id {
                     self.height = size.height;
                     self.handle_overlap();
@@ -531,10 +537,14 @@ impl cosmic::Application for CosmicLauncher {
                     exclusive,
                     ..
                 } => {
+                    if self.needs_clear {
+                        self.needs_clear = false;
+                        self.overlap.clear();
+                    }
                     if exclusive > 0 || namespace == "Dock" || namespace == "Panel" {
                         self.overlap.insert(identifier, logical_rect);
-                        self.handle_overlap();
                     }
+                    self.handle_overlap();
                 }
                 OverlapNotifyEvent::OverlapLayerRemove { identifier } => {
                     self.overlap.remove(&identifier);
@@ -1031,9 +1041,11 @@ impl cosmic::Application for CosmicLauncher {
                     Some(Message::CursorMoved(position))
                 }
                 cosmic::iced::Event::Window(WindowEvent::Opened { position: _, size }) => {
-                    Some(Message::Size(size, id))
+                    Some(Message::Opened(size, id))
                 }
-                cosmic::iced::Event::Window(WindowEvent::Resized(s)) => Some(Message::Size(s, id)),
+                cosmic::iced::Event::Window(WindowEvent::Resized(s)) => {
+                    Some(Message::Opened(s, id))
+                }
                 _ => None,
             }),
         ])
