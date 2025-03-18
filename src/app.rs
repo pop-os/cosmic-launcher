@@ -208,10 +208,6 @@ impl CosmicLauncher {
                 anchor: Anchor::TOP,
                 namespace: "launcher".into(),
                 size: None,
-                margin: IcedMargin {
-                    top: 16,
-                    ..Default::default()
-                },
                 size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
                 exclusive_zone: -1,
                 ..Default::default()
@@ -915,7 +911,7 @@ impl cosmic::Application for CosmicLauncher {
             };
 
             let window = Column::new()
-                .push(vertical_space().height(Length::Fixed(self.margin)))
+                .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
                 .push(
                     container(id_container(content, MAIN_ID.clone()))
                         .width(Length::Shrink)
