@@ -1,8 +1,10 @@
 [Desktop Entry]
 Name=Launcher
 Name[hu]=Indító
+Name[pt_BR]=Lançador
 Comment=COSMIC Launcher
 Comment[hu]=COSMIC Indító
+Comment[pt_BR]=Launcher do COSMIC
 Type=Application
 Exec=cosmic-launcher
 Terminal=false
