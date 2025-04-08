@@ -2,9 +2,11 @@
 Name=Launcher
 Name[hu]=Indító
 Name[pl]=Program startowy
+Name[pt_BR]=Lançador
 Comment=COSMIC Launcher
 Comment[hu]=COSMIC Indító
 Comment[pl]=Program startowy COSMIC
+Comment[pt_BR]=Launcher do COSMIC
 Type=Application
 Exec=cosmic-launcher
 Terminal=false

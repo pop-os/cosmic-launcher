@@ -4,6 +4,4 @@ Source: https://github.com/pop-os/cosmic-launcher
 
 Files: *
 Copyright: Copyright 2022 System76
-License: MPL-2.0
- The complete text of the Mozilla Public License 2.0 can be found in
- the file `/usr/share/common-licenses/MPL-2.0'.
+License: GPL-3.0
