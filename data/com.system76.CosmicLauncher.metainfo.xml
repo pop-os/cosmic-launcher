@@ -6,11 +6,17 @@
   <project_license>GPL-3.0-only</project_license>
   <name>COSMIC Launcher</name>
   <name xml:lang="hu">COSMIC Indító</name>
+  <name xml:lang="pt">Lançador</name>
+  <name xml:lang="pt_BR">Lançador</name>
   <summary>COSMIC frontend for Pop Launcher</summary>
   <summary xml:lang="hu">COSMIC felület a Pop Launcherhez</summary>
+  <summary xml:lang="pt">Botão de inicialização do COSMIC</summary>
+  <summary xml:lang="pt_BR">Botão de inicialização do COSMIC</summary>
   <description>
     <p>The COSMIC frontend for Pop Launcher</p>
     <p xml:lang="hu">COSMIC felület a Pop Launcherhez</p>
+    <p xml:lang="pt">Botão de inicialização do COSMIC</p>
+    <p xml:lang="pt_BR">Botão de inicialização do COSMIC</p>
   </description>
   <url type="homepage">https://github.com/pop-os/cosmic-launcher</url>
   <url type="bugtracker">https://github.com/pop-os/cosmic-launcher/issues</url>
