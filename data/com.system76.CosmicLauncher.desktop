@@ -1,10 +1,12 @@
 [Desktop Entry]
 Name=Launcher
+Name[zh-CN]=启动器
 Name[ar]=المُشَغِّل
 Name[hu]=Indító
 Name[pl]=Program startowy
 Name[pt]=Lançador
 Comment=COSMIC Launcher
+Comment[zh-CN]=COSMIC 启动器
 Comment[ar]=مُشَغِّلُ كوزمِك
 Comment[hu]=COSMIC Indító
 Comment[pl]=Program startowy COSMIC
