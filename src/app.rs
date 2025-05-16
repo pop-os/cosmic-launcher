@@ -484,10 +484,10 @@ impl cosmic::Application for CosmicLauncher {
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
-                        if self.alt_tab {
-                            if list.is_empty() {
-                                return self.hide();
-                            }
+                        if self.alt_tab && list.is_empty() {
+                            return self.hide();
+                        }
+                        if self.alt_tab || self.input_value.is_empty() {
                             list.reverse();
                         }
                         list.sort_by(|a, b| {
