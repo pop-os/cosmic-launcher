@@ -709,6 +709,7 @@ impl cosmic::Application for CosmicLauncher {
                 .on_input(Message::InputChanged)
                 .on_paste(Message::InputChanged)
                 .on_submit(|_| Message::Activate(None))
+                .on_tab(Message::TabPress)
                 .style(cosmic::theme::TextInput::Custom {
                     active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
                     error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
