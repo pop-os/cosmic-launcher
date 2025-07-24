@@ -20,6 +20,7 @@ i18n-embed = { version = "0.15.3", features = [
 i18n-embed-fl = "0.9.3"
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "autosize",
+    "dbus-config",
     "winit",
     "multi-window",
     "wayland",
