@@ -2,6 +2,7 @@
 Name=Launcher
 Name[zh_CN]=启动器
 Name[ar]=المُشَغِّل
+Name[cs]=Spouštěč COSMIC
 Name[hu]=Indító
 Name[pl]=Program startowy
 Name[pt]=Lançador
@@ -9,6 +10,7 @@ Name[sk]=Spúšťač COSMIC
 Comment=COSMIC Launcher
 Comment[zh_CN]=COSMIC 启动器
 Comment[ar]=مُشَغِّلُ COSMIC
+Comment[cs]=Spouštěč aplikací pro prostředí COSMIC
 Comment[hu]=COSMIC Indító
 Comment[pl]=Program startowy COSMIC
 Comment[pt]=Botão de inicialização do COSMIC
