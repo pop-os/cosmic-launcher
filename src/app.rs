@@ -1003,7 +1003,7 @@ impl cosmic::Application for CosmicLauncher {
                     wayland::Event::Layer(e, ..),
                 )) => Some(Message::Layer(e)),
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
-                    wayland::Event::OverlapNotify(event),
+                    wayland::Event::OverlapNotify(event, ..),
                 )) => Some(Message::Overlap(event)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
                     key: Key::Named(Named::Alt | Named::Super),
