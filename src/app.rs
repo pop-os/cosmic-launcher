@@ -768,15 +768,21 @@ impl cosmic::Application for CosmicLauncher {
                                 IconSource::Name(name) | IconSource::Mime(name) => name,
                             };
                             button_content.push(
-                                icon(from_name(name.clone()).into())
-                                    .width(Length::Fixed(16.0))
-                                    .height(Length::Fixed(16.0))
-                                    .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
-                                        cosmic::iced::widget::svg::Style {
-                                            color: Some(theme.cosmic().on_bg_color().into()),
-                                        }
-                                    })))
-                                    .into(),
+                                icon(
+                                    from_name(name.clone())
+                                        .prefer_svg(true)
+                                        .symbolic(true)
+                                        .size(16)
+                                        .into(),
+                                )
+                                .width(Length::Fixed(16.0))
+                                .height(Length::Fixed(16.0))
+                                .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
+                                    cosmic::iced::widget::svg::Style {
+                                        color: Some(theme.cosmic().on_bg_color().into()),
+                                    }
+                                })))
+                                .into(),
                             );
                         }
                     }
@@ -784,19 +790,21 @@ impl cosmic::Application for CosmicLauncher {
                         let name = match source {
                             IconSource::Name(name) | IconSource::Mime(name) => name,
                         };
+                        // Only prefer SVG for symbolic icons; otherwise pick size-aware raster via theme.
+                        let mut named = from_name(name.clone())
+                            .size(64)
+                            .fallback(Some(IconFallback::Names(vec![
+                                "application-default".into(),
+                                "application-x-executable".into(),
+                            ])));
+                        if name.ends_with("-symbolic") {
+                            named = named.prefer_svg(true);
+                        }
                         button_content.push(
-                            icon(
-                                from_name(name.clone())
-                                    .size(64)
-                                    .fallback(Some(IconFallback::Names(vec![
-                                        "application-default".into(),
-                                        "application-x-executable".into(),
-                                    ])))
-                                    .into(),
-                            )
-                            .width(Length::Fixed(32.0))
-                            .height(Length::Fixed(32.0))
-                            .into(),
+                            icon(named.into())
+                                .width(Length::Fixed(32.0))
+                                .height(Length::Fixed(32.0))
+                                .into(),
                         );
                     }
 
