@@ -926,16 +926,21 @@ impl cosmic::Application for CosmicLauncher {
                     container(id_container(content, MAIN_ID.clone()))
                         .width(Length::Shrink)
                         .height(Length::Shrink)
-                        .class(Container::Custom(Box::new(|theme| container::Style {
-                            text_color: Some(theme.cosmic().on_bg_color().into()),
-                            icon_color: Some(theme.cosmic().on_bg_color().into()),
-                            background: Some(Color::from(theme.cosmic().background.base).into()),
-                            border: Border {
-                                radius: theme.cosmic().corner_radii.radius_m.into(),
-                                width: 1.0,
-                                color: theme.cosmic().bg_divider().into(),
-                            },
-                            shadow: Shadow::default(),
+                        .class(Container::Custom(Box::new(|theme| {
+                            let t = theme.cosmic();
+                            let radii = t.radius_s().map(|x| if x < 4.0 { x } else { x + 4.0 });
+
+                            container::Style {
+                                text_color: Some(t.on_bg_color().into()),
+                                icon_color: Some(t.on_bg_color().into()),
+                                background: Some(Color::from(t.background.base).into()),
+                                border: Border {
+                                    radius: radii.into(),
+                                    width: 1.0,
+                                    color: t.bg_divider().into(),
+                                },
+                                shadow: Shadow::default(),
+                            }
                         })))
                         .padding([24, 32]),
                 );
