@@ -11,6 +11,7 @@
   <name xml:lang="pt">Lançador</name>
   <name xml:lang="pt_BR">Lançador</name>
   <name xml:lang="sk">Spúšťač COSMIC</name>
+  <name xml:lang="sv">COSMIC Programstartare</name>
   <summary>COSMIC frontend for Pop Launcher</summary>
   <summary xml:lang="ar">واجِهَةُ COSMIC لِمُشَغِّلِ بْوب</summary>
   <summary xml:lang="cs">Spouštěč aplikací pro prostředí COSMIC</summary>
@@ -18,6 +19,7 @@
   <summary xml:lang="pt">Botão de inicialização do COSMIC</summary>
   <summary xml:lang="pt_BR">Botão de inicialização do COSMIC</summary>
   <summary xml:lang="sk">Spúšťač aplikácií pre prostredie COSMIC</summary>
+  <summary xml:lang="sv">Programstartare för skrivbordsmiljön COSMIC</summary>
   <description>
     <p>The COSMIC frontend for Pop Launcher</p>
     <p xml:lang="ar">واجِهَةُ COSMIC لِمُشَغِّلِ بْوب</p>
@@ -26,6 +28,7 @@
     <p xml:lang="pt">Botão de inicialização do COSMIC</p>
     <p xml:lang="pt_BR">Botão de inicialização do COSMIC</p>
     <p xml:lang="sk">Spúšťač aplikácií pre prostredie COSMIC</p>
+    <p xml:lang="sv">Programstartaren för skrivbordsmiljön COSMIC</p>
   </description>
   <url type="homepage">https://github.com/pop-os/cosmic-launcher</url>
   <url type="bugtracker">https://github.com/pop-os/cosmic-launcher/issues</url>
