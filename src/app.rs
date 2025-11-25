@@ -790,16 +790,12 @@ impl cosmic::Application for CosmicLauncher {
                         let name = match source {
                             IconSource::Name(name) | IconSource::Mime(name) => name,
                         };
-                        // Only prefer SVG for symbolic icons; otherwise pick size-aware raster via theme.
-                        let mut named = from_name(name.clone())
+                        let named = from_name(name.clone())
                             .size(64)
                             .fallback(Some(IconFallback::Names(vec![
                                 "application-default".into(),
                                 "application-x-executable".into(),
                             ])));
-                        if name.ends_with("-symbolic") {
-                            named = named.prefer_svg(true);
-                        }
                         button_content.push(
                             icon(named.into())
                                 .width(Length::Fixed(32.0))
