@@ -1,2 +1,2 @@
-app-name = Tosaitheoir COSMIC  
+app-name = Tosaitheoir COSMIC
 type-to-search = Clóscríobh chun aipeanna a chuardach nó clóscríobh “?” le haghaidh tuilleadh roghanna...
