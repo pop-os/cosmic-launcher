@@ -43,6 +43,7 @@ use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
+use std::path::Path;
 use std::sync::LazyLock;
 use std::{
     collections::{HashMap, VecDeque},
@@ -145,6 +146,7 @@ pub struct CosmicLauncher {
     input_value: String,
     surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
+    launcher_item_icon_handles: Vec<Option<cosmic::widget::icon::Handle>>,
     tx: Option<mpsc::Sender<launcher::Request>>,
     menu: Option<(u32, Vec<ContextOption>)>,
     cursor_position: Option<Point<f32>>,
@@ -318,6 +320,7 @@ impl cosmic::Application for CosmicLauncher {
                 input_value: String::new(),
                 surface_state: SurfaceState::Hidden,
                 launcher_items: Vec::new(),
+                launcher_item_icon_handles: Vec::new(),
                 tx: None,
                 menu: None,
                 cursor_position: None,
@@ -509,6 +512,41 @@ impl cosmic::Application for CosmicLauncher {
                                     .collect::<Vec<_>>(),
                             );
                         }
+
+                        self.launcher_item_icon_handles.clear();
+                        self.launcher_item_icon_handles = self
+                            .launcher_items
+                            .iter()
+                            .map(|item| {
+                                item.icon.as_ref().map(|icon_source| match icon_source {
+                                    // Check if the name is actually a path
+                                    IconSource::Name(name) if name.contains('/') => {
+                                        let path = Path::new(&**name);
+                                        if path.exists() {
+                                            icon::from_path(path.into())
+                                        } else {
+                                            icon::from_name("application-default")
+                                                .size(64)
+                                                .fallback(Some(IconFallback::Names(vec![
+                                                    "application-x-executable".into(),
+                                                ])))
+                                                .handle()
+                                        }
+                                    }
+                                    // Fetch icon by name
+                                    IconSource::Mime(name) | IconSource::Name(name) => {
+                                        icon::from_name(&**name)
+                                            .size(64)
+                                            .fallback(Some(IconFallback::Names(vec![
+                                                "application-default".into(),
+                                                "application-x-executable".into(),
+                                            ])))
+                                            .handle()
+                                    }
+                                })
+                            })
+                            .collect();
+
                         let mut cmds = Vec::new();
 
                         while let Some(element) = self.queue.pop_front() {
@@ -780,23 +818,12 @@ impl cosmic::Application for CosmicLauncher {
                             );
                         }
                     }
-                    if let Some(source) = item.icon.as_ref() {
-                        let name = match source {
-                            IconSource::Name(name) | IconSource::Mime(name) => name,
-                        };
+                    if let Some(Some(icon_handle)) = self.launcher_item_icon_handles.get(i) {
                         button_content.push(
-                            icon(
-                                from_name(name.clone())
-                                    .size(64)
-                                    .fallback(Some(IconFallback::Names(vec![
-                                        "application-default".into(),
-                                        "application-x-executable".into(),
-                                    ])))
-                                    .into(),
-                            )
-                            .width(Length::Fixed(32.0))
-                            .height(Length::Fixed(32.0))
-                            .into(),
+                            icon(icon_handle.clone())
+                                .width(Length::Fixed(32.0))
+                                .height(Length::Fixed(32.0))
+                                .into(),
                         );
                     }
 
