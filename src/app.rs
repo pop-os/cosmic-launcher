@@ -806,7 +806,7 @@ impl cosmic::Application for CosmicLauncher {
                                 IconSource::Name(name) | IconSource::Mime(name) => name,
                             };
                             button_content.push(
-                                icon(from_name(name.clone()).into())
+                                icon(from_name(name.clone()).symbolic(true).size(16).into())
                                     .width(Length::Fixed(16.0))
                                     .height(Length::Fixed(16.0))
                                     .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
