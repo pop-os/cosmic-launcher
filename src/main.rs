@@ -31,8 +31,11 @@ fn init_logging() {
     // Initialize logger
     #[cfg(feature = "console")]
     if std::env::var("TOKIO_CONSOLE").as_deref() == Ok("1") {
-        std::env::set_var("RUST_LOG", "trace");
+        unsafe {
+            std::env::set_var("RUST_LOG", "trace");
+        }
         console_subscriber::init();
+        return;
     }
 
     let filter_layer = EnvFilter::try_from_default_env().unwrap_or(if cfg!(debug_assertions) {
