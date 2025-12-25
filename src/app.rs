@@ -78,6 +78,10 @@ pub enum LauncherTasks {
     AltTab,
     #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
     ShiftAltTab,
+    #[clap(about = "Switch to the next window of the current application")]
+    AltBacktick,
+    #[clap(about = "Switch to the previous window of the current application")]
+    ShiftAltBacktick,
 }
 
 impl Display for LauncherTasks {
@@ -153,6 +157,7 @@ pub struct CosmicLauncher {
     focused: usize,
     last_hide: Instant,
     alt_tab: bool,
+    alt_backtick: Option<String>,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -180,6 +185,8 @@ pub enum Message {
     ActivationToken(Option<String>, String, String, GpuPreference, bool),
     AltTab,
     ShiftAltTab,
+    AltBacktick,
+    ShiftAltBacktick,
     Opened(Size, window::Id),
     AltRelease,
     Overlap(OverlapNotifyEvent),
@@ -221,6 +228,7 @@ impl CosmicLauncher {
         self.input_value.clear();
         self.focused = 0;
         self.alt_tab = false;
+        self.alt_backtick = None;
         self.queue.clear();
 
         self.request(launcher::Request::Close);
@@ -327,6 +335,7 @@ impl cosmic::Application for CosmicLauncher {
                 focused: 0,
                 last_hide: Instant::now(),
                 alt_tab: false,
+                alt_backtick: None,
                 window_id: SurfaceId::unique(),
                 queue: VecDeque::new(),
                 result_ids: (0..10)
@@ -504,6 +513,29 @@ impl cosmic::Application for CosmicLauncher {
                             let b = i32::from(b.window.is_none());
                             a.cmp(&b)
                         });
+
+                        // Filter for Alt-Backtick mode: show only windows of the current application
+                        if let Some(ref app_name) = self.alt_backtick {
+                            if app_name.is_empty() {
+                                // First invocation: determine current app from first window
+                                if let Some(first_window) = list.iter().find(|item| item.window.is_some()) {
+                                    let app_name_to_filter = first_window.name.clone();
+                                    self.alt_backtick = Some(app_name_to_filter.clone());
+                                    list.retain(|item| item.window.is_some() && item.name == app_name_to_filter);
+                                } else {
+                                    return self.hide(); // No windows found
+                                }
+                            } else {
+                                // Already have app name, filter by it
+                                let app_name_clone = app_name.clone();
+                                list.retain(|item| item.window.is_some() && item.name == app_name_clone);
+                            }
+
+                            if list.is_empty() {
+                                return self.hide();
+                            }
+                        }
+
                         self.launcher_items.splice(.., list);
                         if self.result_ids.len() < self.launcher_items.len() {
                             self.result_ids.extend(
@@ -667,8 +699,30 @@ impl cosmic::Application for CosmicLauncher {
                     },
                 ));
             }
+            Message::AltBacktick => {
+                self.focus_next();
+                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                    SCROLLABLE.clone(),
+                    RelativeOffset {
+                        x: 0.,
+                        y: (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
+                            .max(0.0),
+                    },
+                ));
+            }
+            Message::ShiftAltBacktick => {
+                self.focus_previous();
+                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                    SCROLLABLE.clone(),
+                    RelativeOffset {
+                        x: 0.,
+                        y: (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
+                            .max(0.0),
+                    },
+                ));
+            }
             Message::AltRelease => {
-                if self.alt_tab {
+                if self.alt_tab || self.alt_backtick.is_some() {
                     return self.update(Message::Activate(None));
                 }
             }
@@ -727,6 +781,24 @@ impl cosmic::Application for CosmicLauncher {
                         self.alt_tab = true;
                         self.request(launcher::Request::Search(String::new()));
                         self.queue.push_back(Message::ShiftAltTab);
+                    }
+                    LauncherTasks::AltBacktick => {
+                        if self.alt_backtick.is_some() {
+                            return self.update(Message::AltBacktick);
+                        }
+
+                        self.alt_backtick = Some(String::new());
+                        self.request(launcher::Request::Search(String::new()));
+                        self.queue.push_back(Message::AltBacktick);
+                    }
+                    LauncherTasks::ShiftAltBacktick => {
+                        if self.alt_backtick.is_some() {
+                            return self.update(Message::ShiftAltBacktick);
+                        }
+
+                        self.alt_backtick = Some(String::new());
+                        self.request(launcher::Request::Search(String::new()));
+                        self.queue.push_back(Message::ShiftAltBacktick);
                     }
                 }
             }
@@ -800,7 +872,7 @@ impl cosmic::Application for CosmicLauncher {
                     }));
 
                     let mut button_content = Vec::new();
-                    if !self.alt_tab {
+                    if !self.alt_tab && self.alt_backtick.is_none() {
                         if let Some(source) = item.category_icon.as_ref() {
                             let name = match source {
                                 IconSource::Name(name) | IconSource::Mime(name) => name,
@@ -924,7 +996,7 @@ impl cosmic::Application for CosmicLauncher {
                 })
                 .collect();
 
-            let mut content = if self.alt_tab {
+            let mut content = if self.alt_tab || self.alt_backtick.is_some() {
                 Column::new()
                     .max_width(600)
                     .spacing(16)
