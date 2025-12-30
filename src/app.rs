@@ -29,6 +29,7 @@ use cosmic::iced_widget::row;
 use cosmic::iced_widget::scrollable::RelativeOffset;
 use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
 use cosmic::theme::{self, Button, Container};
+use cosmic::desktop::{self, IconSourceExt};
 use cosmic::widget::icon::{IconFallback, from_name};
 use cosmic::widget::id_container;
 use cosmic::widget::{
@@ -535,7 +536,8 @@ impl cosmic::Application for CosmicLauncher {
                                     }
                                     // Fetch icon by name
                                     IconSource::Mime(name) | IconSource::Name(name) => {
-                                        icon::from_name(&**name)
+                                        desktop::fde::IconSource::from_unknown(&**name)
+                                            .as_cosmic_icon()
                                             .size(64)
                                             .fallback(Some(IconFallback::Names(vec![
                                                 "application-default".into(),
