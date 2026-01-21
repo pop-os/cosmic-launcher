@@ -29,6 +29,8 @@ use cosmic::iced_widget::row;
 use cosmic::iced_widget::scrollable::RelativeOffset;
 use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
 use cosmic::theme::{self, Button, Container};
+use cosmic::desktop;
+
 use cosmic::widget::icon::{IconFallback, from_name};
 use cosmic::widget::id_container;
 use cosmic::widget::{
