@@ -737,12 +737,12 @@ impl cosmic::Application for CosmicLauncher {
         Task::none()
     }
 
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         unreachable!("No main window")
     }
 
     #[allow(clippy::too_many_lines)]
-    fn view_window(&self, id: SurfaceId) -> Element<Self::Message> {
+    fn view_window(&self, id: SurfaceId) -> Element<'_, Self::Message> {
         if id == self.window_id {
             let launcher_entry = text_input::search_input(fl!("type-to-search"), &self.input_value)
                 .on_input(Message::InputChanged)
@@ -802,23 +802,23 @@ impl cosmic::Application for CosmicLauncher {
                     }));
 
                     let mut button_content = Vec::new();
-                    if !self.alt_tab {
-                        if let Some(source) = item.category_icon.as_ref() {
-                            let name = match source {
-                                IconSource::Name(name) | IconSource::Mime(name) => name,
-                            };
-                            button_content.push(
-                                icon(from_name(name.clone()).into())
-                                    .width(Length::Fixed(16.0))
-                                    .height(Length::Fixed(16.0))
-                                    .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
-                                        cosmic::iced::widget::svg::Style {
-                                            color: Some(theme.cosmic().on_bg_color().into()),
-                                        }
-                                    })))
-                                    .into(),
-                            );
-                        }
+                    if !self.alt_tab
+                        && let Some(source) = item.category_icon.as_ref()
+                    {
+                        let name = match source {
+                            IconSource::Name(name) | IconSource::Mime(name) => name,
+                        };
+                        button_content.push(
+                            icon(from_name(name.clone()).into())
+                                .width(Length::Fixed(16.0))
+                                .height(Length::Fixed(16.0))
+                                .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
+                                    cosmic::iced::widget::svg::Style {
+                                        color: Some(theme.cosmic().on_bg_color().into()),
+                                    }
+                                })))
+                                .into(),
+                        );
                     }
                     if let Some(Some(icon_handle)) = self.launcher_item_icon_handles.get(i) {
                         button_content.push(

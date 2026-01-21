@@ -26,7 +26,7 @@ fn main() -> cosmic::iced::Result {
 }
 
 fn init_logging() {
-    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
     // Initialize logger
     #[cfg(feature = "console")]
