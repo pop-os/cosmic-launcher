@@ -78,6 +78,10 @@ pub enum LauncherTasks {
     AltTab,
     #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
     ShiftAltTab,
+    #[clap(about = "Start the launcher with an input")]
+    Input { input: Option<String> },
+    #[clap(about = "Close the launcher if open")]
+    Close,
 }
 
 impl Display for LauncherTasks {
@@ -160,6 +164,7 @@ pub struct CosmicLauncher {
     margin: f32,
     height: f32,
     needs_clear: bool,
+    hand_over: String,
 }
 
 #[derive(Debug, Clone)]
@@ -222,6 +227,7 @@ impl CosmicLauncher {
         self.focused = 0;
         self.alt_tab = false;
         self.queue.clear();
+        self.hand_over.clear();
 
         self.request(launcher::Request::Close);
 
@@ -336,6 +342,7 @@ impl cosmic::Application for CosmicLauncher {
                 overlap: HashMap::new(),
                 height: 100.,
                 needs_clear: false,
+                hand_over: String::default(),
             },
             Task::none(),
         )
@@ -409,6 +416,11 @@ impl cosmic::Application for CosmicLauncher {
                 if window_id == self.window_id {
                     self.height = size.height;
                     self.handle_overlap();
+                }
+                if !self.hand_over.is_empty() {
+                    let input = self.hand_over.clone();
+                    self.hand_over.clear();
+                    return self.update(Message::InputChanged(input));
                 }
             }
             Message::LauncherEvent(e) => match e {
@@ -727,6 +739,15 @@ impl cosmic::Application for CosmicLauncher {
                         self.alt_tab = true;
                         self.request(launcher::Request::Search(String::new()));
                         self.queue.push_back(Message::ShiftAltTab);
+                    }
+                    LauncherTasks::Input { input } => {
+                        self.request(launcher::Request::Search(String::new()));
+                        if let Some(input) = input {
+                            self.hand_over.push_str(&input);
+                        };
+                    }
+                    LauncherTasks::Close => {
+                        return self.update(Message::Hide);
                     }
                 }
             }
