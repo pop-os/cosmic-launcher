@@ -538,6 +538,7 @@ impl cosmic::Application for CosmicLauncher {
                                             icon::from_path(path.into())
                                         } else {
                                             icon::from_name("application-default")
+                                                .prefer_svg(true)
                                                 .size(64)
                                                 .fallback(Some(IconFallback::Names(vec![
                                                     "application-x-executable".into(),
@@ -548,6 +549,7 @@ impl cosmic::Application for CosmicLauncher {
                                     // Fetch icon by name
                                     IconSource::Mime(name) | IconSource::Name(name) => {
                                         icon::from_name(&**name)
+                                            .prefer_svg(true)
                                             .size(64)
                                             .fallback(Some(IconFallback::Names(vec![
                                                 "application-default".into(),

@@ -36,14 +36,14 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
 ] }
 tracing-journald = "0.3.2"
 tokio-stream = "0.1.18"
-nix = { version = "0.30.1", features = ["process"] }
+nix = { version = "0.31.1", features = ["process"] }
 pop-launcher = { git = "https://github.com/pop-os/launcher/" }
 pop-launcher-service = { git = "https://github.com/pop-os/launcher/" }
 rust-embed = "8.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 tokio = { version = "1.49.0", features = ["sync", "rt"] }
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.56", features = ["derive"] }
 switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }
 zbus = { version = "5.13", default-features = false, features = ["tokio"] }
 unicode-truncate = "2.0.1"
