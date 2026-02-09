@@ -29,7 +29,7 @@ use cosmic::iced_widget::row;
 use cosmic::iced_widget::scrollable::RelativeOffset;
 use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
 use cosmic::theme::{self, Button, Container};
-use cosmic::widget::icon::{IconFallback, from_name};
+use cosmic::widget::icon::IconFallback;
 use cosmic::widget::id_container;
 use cosmic::widget::{
     autosize, button, divider, horizontal_space, icon, mouse_area, scrollable, text,
@@ -535,8 +535,17 @@ impl cosmic::Application for CosmicLauncher {
                                         }
                                     }
                                     // Fetch icon by name
-                                    IconSource::Mime(name) | IconSource::Name(name) => {
-                                        icon::from_name(&**name)
+                                    IconSource::Name(name) => icon::from_name(&**name)
+                                        .prefer_svg(true)
+                                        .size(64)
+                                        .fallback(Some(IconFallback::Names(vec![
+                                            "application-default".into(),
+                                            "application-x-executable".into(),
+                                        ])))
+                                        .handle(),
+                                    // By mime
+                                    IconSource::Mime(mime) => {
+                                        icon::from_name(mime.as_ref().replace("/", "-"))
                                             .prefer_svg(true)
                                             .size(64)
                                             .fallback(Some(IconFallback::Names(vec![
@@ -805,11 +814,22 @@ impl cosmic::Application for CosmicLauncher {
                     if !self.alt_tab
                         && let Some(source) = item.category_icon.as_ref()
                     {
-                        let name = match source {
-                            IconSource::Name(name) | IconSource::Mime(name) => name,
+                        let icon_handle = match source {
+                            IconSource::Name(name) => {
+                                if Path::new(name.as_ref()).exists() {
+                                    icon::from_path(Path::new(name.as_ref()).into())
+                                } else {
+                                    icon::from_name(name.as_ref()).handle()
+                                }
+                            }
+
+                            IconSource::Mime(mime) => {
+                                icon::from_name(mime.as_ref().replace("/", "-")).handle()
+                            }
                         };
+
                         button_content.push(
-                            icon(from_name(name.clone()).into())
+                            icon(icon_handle)
                                 .width(Length::Fixed(16.0))
                                 .height(Length::Fixed(16.0))
                                 .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
