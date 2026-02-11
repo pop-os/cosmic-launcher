@@ -29,7 +29,7 @@ use cosmic::iced_widget::row;
 use cosmic::iced_widget::scrollable::RelativeOffset;
 use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
 use cosmic::theme::{self, Button, Container};
-use cosmic::widget::icon::{IconFallback, from_name};
+use cosmic::widget::icon::IconFallback;
 use cosmic::widget::id_container;
 use cosmic::widget::{
     autosize, button, divider, horizontal_space, icon, mouse_area, scrollable, text,
@@ -528,6 +528,7 @@ impl cosmic::Application for CosmicLauncher {
                                             icon::from_path(path.into())
                                         } else {
                                             icon::from_name("application-default")
+                                                .prefer_svg(true)
                                                 .size(64)
                                                 .fallback(Some(IconFallback::Names(vec![
                                                     "application-x-executable".into(),
@@ -536,8 +537,18 @@ impl cosmic::Application for CosmicLauncher {
                                         }
                                     }
                                     // Fetch icon by name
-                                    IconSource::Mime(name) | IconSource::Name(name) => {
-                                        icon::from_name(&**name)
+                                    IconSource::Name(name) => icon::from_name(&**name)
+                                        .prefer_svg(true)
+                                        .size(64)
+                                        .fallback(Some(IconFallback::Names(vec![
+                                            "application-default".into(),
+                                            "application-x-executable".into(),
+                                        ])))
+                                        .handle(),
+                                    // By mime
+                                    IconSource::Mime(mime) => {
+                                        icon::from_name(mime.as_ref().replace("/", "-"))
+                                            .prefer_svg(true)
                                             .size(64)
                                             .fallback(Some(IconFallback::Names(vec![
                                                 "application-default".into(),
@@ -737,12 +748,12 @@ impl cosmic::Application for CosmicLauncher {
         Task::none()
     }
 
-    fn view(&self) -> Element<Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         unreachable!("No main window")
     }
 
     #[allow(clippy::too_many_lines)]
-    fn view_window(&self, id: SurfaceId) -> Element<Self::Message> {
+    fn view_window(&self, id: SurfaceId) -> Element<'_, Self::Message> {
         if id == self.window_id {
             let launcher_entry = text_input::search_input(fl!("type-to-search"), &self.input_value)
                 .on_input(Message::InputChanged)
@@ -802,23 +813,34 @@ impl cosmic::Application for CosmicLauncher {
                     }));
 
                     let mut button_content = Vec::new();
-                    if !self.alt_tab {
-                        if let Some(source) = item.category_icon.as_ref() {
-                            let name = match source {
-                                IconSource::Name(name) | IconSource::Mime(name) => name,
-                            };
-                            button_content.push(
-                                icon(from_name(name.clone()).into())
-                                    .width(Length::Fixed(16.0))
-                                    .height(Length::Fixed(16.0))
-                                    .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
-                                        cosmic::iced::widget::svg::Style {
-                                            color: Some(theme.cosmic().on_bg_color().into()),
-                                        }
-                                    })))
-                                    .into(),
-                            );
-                        }
+                    if !self.alt_tab
+                        && let Some(source) = item.category_icon.as_ref()
+                    {
+                        let icon_handle = match source {
+                            IconSource::Name(name) => {
+                                if Path::new(name.as_ref()).exists() {
+                                    icon::from_path(Path::new(name.as_ref()).into())
+                                } else {
+                                    icon::from_name(name.as_ref()).handle()
+                                }
+                            }
+
+                            IconSource::Mime(mime) => {
+                                icon::from_name(mime.as_ref().replace("/", "-")).handle()
+                            }
+                        };
+
+                        button_content.push(
+                            icon(icon_handle)
+                                .width(Length::Fixed(16.0))
+                                .height(Length::Fixed(16.0))
+                                .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
+                                    cosmic::iced::widget::svg::Style {
+                                        color: Some(theme.cosmic().on_bg_color().into()),
+                                    }
+                                })))
+                                .into(),
+                        );
                     }
                     if let Some(Some(icon_handle)) = self.launcher_item_icon_handles.get(i) {
                         button_content.push(

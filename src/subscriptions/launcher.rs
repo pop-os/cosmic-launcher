@@ -1,5 +1,5 @@
 use cosmic::{
-    iced::{futures::StreamExt, Subscription},
+    iced::{Subscription, futures::StreamExt},
     iced_runtime::futures::MaybeSend,
 };
 use futures::{SinkExt, Stream};

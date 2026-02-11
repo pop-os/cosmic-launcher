@@ -3,11 +3,11 @@
 // and draws oddly indexed children first
 
 use cosmic::iced_core::{
-    event::{self, Event},
-    layout, mouse, overlay, renderer,
-    widget::{tree::Tag, Operation, Tree},
     Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Vector,
     Widget,
+    event::{self, Event},
+    layout, mouse, overlay, renderer,
+    widget::{Operation, Tree, tree::Tag},
 };
 
 pub fn column<'a, Message, Theme, Renderer>(
