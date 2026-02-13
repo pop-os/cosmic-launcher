@@ -306,7 +306,7 @@ async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>>
     let gpus = proxy.get_gpus().await.ok()?;
     match gpu {
         GpuPreference::Default => gpus.into_iter().find(|gpu| gpu.default),
-        GpuPreference::NonDefault => gpus.into_iter().find(|gpu| !gpu.default),
+        GpuPreference::NonDefault => gpus.into_iter().find(|gpu| gpu.discrete),
         GpuPreference::SpecificIdx(idx) => gpus.into_iter().nth(idx as usize),
     }
     .map(|gpu| gpu.environment)
