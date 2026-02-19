@@ -169,9 +169,10 @@ pub struct CosmicLauncher {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    KeepFocus,
     InputChanged(String),
     Backspace,
-    TabPress,
+    Autocomplete,
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -367,14 +368,15 @@ impl cosmic::Application for CosmicLauncher {
                 self.input_value.pop();
                 self.request(launcher::Request::Search(self.input_value.clone()));
             }
-            Message::TabPress if !self.alt_tab => {
+            Message::Autocomplete if !self.alt_tab => {
                 let focused = self.focused;
                 self.focused = 0;
                 return cosmic::task::message(cosmic::Action::App(
                     Self::Message::CompleteFocusedId(self.result_ids[focused].clone()),
                 ));
             }
-            Message::TabPress => {}
+            Message::KeepFocus => {}
+            Message::Autocomplete => {}
             Message::CompleteFocusedId(id) => {
                 let i = self
                     .result_ids
@@ -778,7 +780,7 @@ impl cosmic::Application for CosmicLauncher {
                 .on_input(Message::InputChanged)
                 .on_paste(Message::InputChanged)
                 .on_submit(|_| Message::Activate(None))
-                .on_tab(Message::TabPress)
+                .on_tab(Message::KeepFocus)
                 .style(cosmic::theme::TextInput::Custom {
                     active: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
                     error: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
@@ -1110,7 +1112,20 @@ impl cosmic::Application for CosmicLauncher {
                         Some(Message::KeyboardNav(keyboard_nav::Action::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
-                    Key::Named(Named::Tab) => Some(Message::TabPress),
+                    Key::Named(Named::Tab) => {
+                        if modifiers.shift() {
+                            Some(Message::KeyboardNav(keyboard_nav::Action::FocusPrevious))
+                        } else {
+                            Some(Message::KeyboardNav(keyboard_nav::Action::FocusNext))
+                        }
+                    }
+                    Key::Named(Named::ArrowRight) => {
+                        if modifiers.is_empty() {
+                            Some(Message::Autocomplete)
+                        } else {
+                            None
+                        }
+                    }
                     Key::Named(Named::Backspace)
                         if matches!(status, Status::Ignored) && modifiers.is_empty() =>
                     {
