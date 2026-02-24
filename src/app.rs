@@ -980,7 +980,7 @@ impl cosmic::Application for CosmicLauncher {
                 Column::new()
                     .max_width(600)
                     .spacing(16)
-                    .width(Length::Shrink)
+                    .width(Length::Fixed(600.))
                     .height(Length::Shrink)
             } else {
                 column![launcher_entry]
@@ -997,7 +997,7 @@ impl cosmic::Application for CosmicLauncher {
                 );
             } else if !buttons.is_empty() {
                 content = content.push(components::list::column(buttons));
-            };
+            }
 
             let window = Column::new()
                 .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
