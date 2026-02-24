@@ -27,7 +27,7 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "single-instance",
     "desktop-systemd-scope",
     "xdg-portal",
-] }
+], branch = "iced-rebase" }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.22", default-features = false, features = [
     "std",
@@ -48,7 +48,7 @@ switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" 
 zbus = { version = "5.13", default-features = false, features = ["tokio"] }
 unicode-truncate = "2.0.1"
 unicode-width = "0.2.2"
-# [patch.'https://github.com/pop-os/libcosmic']
-# libcosmic = { path = "../../cosmic/libcosmic" }
-# cosmic-config = { path = "../../cosmic/libcosmic/cosmic-config" }
-# cosmic-theme = { path = "../../cosmic/libcosmic/cosmic-theme" }
+[patch.'https://github.com/pop-os/libcosmic']
+libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "iced-rebase" }
+cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "iced-rebase" }
+cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "iced-rebase" }
