@@ -28,18 +28,20 @@ pub enum Event {
 pub fn subscription<I: 'static + Hash + Copy + Send + Sync>(
     id: I,
 ) -> cosmic::iced::Subscription<Event> {
-    Subscription::run_with_id(
-        id,
-        cosmic::iced_futures::stream::channel(1, |mut output| async move {
-            loop {
-                tracing::info!("starting pop-launcher service");
-                let mut responses = std::pin::pin!(service());
-                while let Some(message) = responses.next().await {
-                    let _res = output.send(message).await;
+    Subscription::run_with(id, |_| {
+        cosmic::iced_futures::stream::channel(
+            1,
+            |mut output: futures::channel::mpsc::Sender<Event>| async move {
+                loop {
+                    tracing::info!("starting pop-launcher service");
+                    let mut responses = std::pin::pin!(service());
+                    while let Some(message) = responses.next().await {
+                        let _res = output.send(message).await;
+                    }
                 }
-            }
-        }),
-    )
+            },
+        )
+    })
 }
 
 /// Initializes pop-launcher if it is not running, and returns a handle to its client.
