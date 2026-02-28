@@ -20,7 +20,7 @@ use cosmic::iced::platform_specific::shell::commands::layer_surface::set_padding
 use cosmic::iced::platform_specific::shell::commands::{self};
 use cosmic::iced::platform_specific::shell::commands::{
     activation::request_token,
-    layer_surface::{Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
+    layer_surface::{KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
 };
 use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
 use cosmic::iced::runtime::core::event::wayland::{LayerEvent, OutputEvent};
@@ -149,6 +149,8 @@ pub enum SurfaceState {
 #[derive(Clone)]
 pub struct CosmicLauncher {
     core: Core,
+    config: crate::config::Config,
+    _config_handler: Option<cosmic::cosmic_config::Config>,
     input_value: String,
     surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
@@ -173,6 +175,7 @@ pub struct CosmicLauncher {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Config(crate::config::Config),
     InputChanged(String),
     Backspace,
     TabPress,
@@ -211,6 +214,7 @@ impl CosmicLauncher {
         self.needs_clear = true;
         let id = window::Id::unique();
         self.dummy_id = Some(id);
+        let anchor = self.config.anchor.into();
         Task::batch(vec![
             cosmic::surface::surface_task(simple_layer_shell::<Message>(
                 || LiveSettings {
@@ -224,7 +228,7 @@ impl CosmicLauncher {
                         layer: wlr_layer::Layer::Bottom,
                         keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
                         input_zone: Some(Vec::new()),
-                        anchor: wlr_layer::Anchor::TOP,
+                        anchor,
                         output:
                             cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
                         namespace: "cosmic_launcher_dummy".into(),
@@ -243,6 +247,7 @@ impl CosmicLauncher {
 
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
+        let anchor = self.config.anchor.into();
         cosmic::surface::surface_task(app_layer_shell(
             |app: &CosmicLauncher| LiveSettings {
                 padding: Some(app.layer_padding()),
@@ -252,7 +257,7 @@ impl CosmicLauncher {
             move |app: &mut CosmicLauncher| SctkLayerSurfaceSettings {
                 id: app.window_id,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                anchor: Anchor::TOP,
+                anchor,
                 namespace: "launcher".into(),
                 size: None,
                 size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
@@ -404,8 +409,13 @@ impl cosmic::Application for CosmicLauncher {
 
         core.set_keyboard_nav(false);
 
+        let (config_handler, config) = crate::config::Config::load();
+
+
         let mut app = CosmicLauncher {
             core,
+            config,
+            _config_handler: config_handler,
             input_value: String::new(),
             surface_state: SurfaceState::Hidden,
             launcher_items: Vec::new(),
@@ -445,6 +455,9 @@ impl cosmic::Application for CosmicLauncher {
     #[allow(clippy::too_many_lines)]
     fn update(&mut self, message: Message) -> Task<Self::Message> {
         match message {
+            Message::Config(config) => {
+                self.config = config;
+            }
             Message::InputChanged(value) => {
                 self.input_value.clone_from(&value);
                 self.focused = 0;
@@ -1158,15 +1171,17 @@ impl cosmic::Application for CosmicLauncher {
                         .padding([24, 32]),
                 );
 
+            let window_with_constraint = container(window).width(Length::Shrink).height(600);
+
             let autosize = autosize::autosize(
                 if self.menu.is_some() {
                     Element::from(
-                        mouse_area(window)
+                        mouse_area(window_with_constraint)
                             .on_release(Message::CloseContextMenu)
                             .on_right_release(Message::CloseContextMenu),
                     )
                 } else {
-                    window.into()
+                    window_with_constraint.into()
                 },
                 AUTOSIZE_ID.clone(),
             );
@@ -1284,6 +1299,15 @@ impl cosmic::Application for CosmicLauncher {
                     Some(Message::Opened(s, id))
                 }
                 _ => None,
+            }),
+            crate::config::Config::subscription().map(|update| {
+                if !update.errors.is_empty() {
+                    info!(
+                        "errors loading config {:?}: {:?}",
+                        update.keys, update.errors
+                    );
+                }
+                Message::Config(update.config)
             }),
         ])
     }
