@@ -1,1 +1,2 @@
-app-name = COSMIC Käynnistin
+app-name = COSMICin käynnistin
+type-to-search = Kirjoita etsiäksesi sovelluksia tai "?" saadaksesi lisää vaihtoehtoja...
