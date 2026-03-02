@@ -1000,8 +1000,14 @@ impl cosmic::Application for CosmicLauncher {
                 content = content.push(components::list::column(buttons));
             };
 
+            let extra_margin = match self.config.anchor_position {
+                crate::config::AnchorPosition::Top => 16.,
+                crate::config::AnchorPosition::Center => 150.,
+                crate::config::AnchorPosition::Bottom => 250.,
+            };
+
             let window = Column::new()
-                .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
+                .push(vertical_space().height(Length::Fixed(self.margin + extra_margin)))
                 .push(
                     container(id_container(content, MAIN_ID.clone()))
                         .width(Length::Shrink)
@@ -1025,15 +1031,17 @@ impl cosmic::Application for CosmicLauncher {
                         .padding([24, 32]),
                 );
 
+            let window_with_constraint = container(window).width(Length::Shrink).height(600.0);
+
             let autosize = autosize::autosize(
                 if self.menu.is_some() {
                     Element::from(
-                        mouse_area(window)
+                        mouse_area(window_with_constraint)
                             .on_release(Message::CloseContextMenu)
                             .on_right_release(Message::CloseContextMenu),
                     )
                 } else {
-                    window.into()
+                    window_with_constraint.into()
                 },
                 AUTOSIZE_ID.clone(),
             );
