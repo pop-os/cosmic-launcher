@@ -187,7 +187,7 @@ pub enum Message {
     AltTab,
     ShiftAltTab,
     Opened(Size, window::Id),
-    AltRelease,
+    ModifierRelease(iced::keyboard::Modifiers),
     Overlap(OverlapNotifyEvent),
     Surface(surface::Action),
 }
@@ -699,8 +699,8 @@ impl cosmic::Application for CosmicLauncher {
                     },
                 ));
             }
-            Message::AltRelease => {
-                if self.alt_tab {
+            Message::ModifierRelease(modifiers) => {
+                if self.alt_tab && modifiers.is_empty() {
                     return self.update(Message::Activate(None));
                 }
             }
@@ -1092,9 +1092,10 @@ impl cosmic::Application for CosmicLauncher {
                     wayland::Event::OverlapNotify(event, ..),
                 )) => Some(Message::Overlap(event)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                    key: Key::Named(Named::Alt | Named::Super),
+                    key: Key::Named(Named::Alt | Named::Super | Named::Control | Named::Shift),
+                    modifiers,
                     ..
-                }) => Some(Message::AltRelease),
+                }) => Some(Message::ModifierRelease(modifiers)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
                     text: _,
