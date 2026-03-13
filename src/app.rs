@@ -14,7 +14,7 @@ use cosmic::iced::platform_specific::runtime::wayland::{
 use cosmic::iced::platform_specific::shell::commands::{
     self,
     activation::request_token,
-    layer_surface::{Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
+    layer_surface::{KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
 };
 use cosmic::iced::widget::{Column, column, container};
 use cosmic::iced::{self, Length, Size, Subscription};
@@ -148,6 +148,8 @@ pub enum SurfaceState {
 #[derive(Clone)]
 pub struct CosmicLauncher {
     core: Core,
+    config: crate::config::Config,
+    _config_handler: Option<cosmic::cosmic_config::Config>,
     input_value: String,
     surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
@@ -170,6 +172,7 @@ pub struct CosmicLauncher {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Config(crate::config::Config),
     InputChanged(String),
     Backspace,
     TabPress,
@@ -212,7 +215,7 @@ impl CosmicLauncher {
             get_layer_surface(SctkLayerSurfaceSettings {
                 id: self.window_id,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                anchor: Anchor::TOP,
+                anchor: self.config.anchor.into(),
                 namespace: "launcher".into(),
                 size: None,
                 size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
@@ -321,9 +324,13 @@ impl cosmic::Application for CosmicLauncher {
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
         core.set_keyboard_nav(false);
+        let (config_handler, config) = crate::config::Config::load();
+
         (
             CosmicLauncher {
                 core,
+                config,
+                _config_handler: config_handler,
                 input_value: String::new(),
                 surface_state: SurfaceState::Hidden,
                 launcher_items: Vec::new(),
@@ -360,6 +367,9 @@ impl cosmic::Application for CosmicLauncher {
     #[allow(clippy::too_many_lines)]
     fn update(&mut self, message: Message) -> Task<Self::Message> {
         match message {
+            Message::Config(config) => {
+                self.config = config;
+            }
             Message::InputChanged(value) => {
                 self.input_value.clone_from(&value);
                 self.request(launcher::Request::Search(value));
@@ -1025,15 +1035,17 @@ impl cosmic::Application for CosmicLauncher {
                         .padding([24, 32]),
                 );
 
+            let window_with_constraint = container(window).width(Length::Shrink).height(600);
+
             let autosize = autosize::autosize(
                 if self.menu.is_some() {
                     Element::from(
-                        mouse_area(window)
+                        mouse_area(window_with_constraint)
                             .on_release(Message::CloseContextMenu)
                             .on_right_release(Message::CloseContextMenu),
                     )
                 } else {
-                    window.into()
+                    window_with_constraint.into()
                 },
                 AUTOSIZE_ID.clone(),
             );
@@ -1139,6 +1151,15 @@ impl cosmic::Application for CosmicLauncher {
                     Some(Message::Opened(s, id))
                 }
                 _ => None,
+            }),
+            crate::config::Config::subscription().map(|update| {
+                if !update.errors.is_empty() {
+                    info!(
+                        "errors loading config {:?}: {:?}",
+                        update.keys, update.errors
+                    );
+                }
+                Message::Config(update.config)
             }),
         ])
     }
