@@ -1121,6 +1121,9 @@ impl cosmic::Application for CosmicLauncher {
                         Some(Message::KeyboardNav(keyboard_nav::Action::FocusNext))
                     }
                     Key::Named(Named::Escape) => Some(Message::Hide),
+                    Key::Named(Named::Tab) if modifiers.shift() => {
+                        Some(Message::ShiftAltTab)
+                    }
                     Key::Named(Named::Tab) => Some(Message::TabPress),
                     Key::Named(Named::Backspace)
                         if matches!(status, Status::Ignored) && modifiers.is_empty() =>
