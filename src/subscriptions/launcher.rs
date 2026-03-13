@@ -91,7 +91,7 @@ fn client_request<'a>(
                 None
             }
         }
-    };
+    }
 
     client
 }

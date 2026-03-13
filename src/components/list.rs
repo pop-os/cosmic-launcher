@@ -5,7 +5,7 @@
 use cosmic::iced_core::{
     Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Vector,
     Widget,
-    event::{self, Event},
+    event::Event,
     layout, mouse, overlay, renderer,
     widget::{Operation, Tree, tree::Tag},
 };
@@ -113,7 +113,7 @@ where
     }
 }
 
-impl<'a, Message, Renderer> Default for Column<'a, Message, Renderer>
+impl<Message, Renderer> Default for Column<'_, Message, Renderer>
 where
     Renderer: cosmic::iced_core::Renderer,
 {
@@ -122,8 +122,8 @@ where
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Column<'a, Message, Theme, Renderer>
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Column<'_, Message, Theme, Renderer>
 where
     Renderer: cosmic::iced_core::Renderer,
 {

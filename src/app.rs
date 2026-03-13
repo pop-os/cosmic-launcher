@@ -558,7 +558,7 @@ impl cosmic::Application for CosmicLauncher {
                                         .handle(),
                                     // By mime
                                     IconSource::Mime(mime) => {
-                                        icon::from_name(mime.as_ref().replace("/", "-"))
+                                        icon::from_name(mime.as_ref().replace('/', "-"))
                                             .prefer_svg(true)
                                             .size(64)
                                             .fallback(Some(IconFallback::Names(vec![
@@ -854,7 +854,7 @@ impl cosmic::Application for CosmicLauncher {
                             }
 
                             IconSource::Mime(mime) => {
-                                icon::from_name(mime.as_ref().replace("/", "-")).handle()
+                                icon::from_name(mime.as_ref().replace('/', "-")).handle()
                             }
                         };
 
