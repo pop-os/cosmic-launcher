@@ -26,12 +26,14 @@ fn main() -> cosmic::iced::Result {
 }
 
 fn init_logging() {
-    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
     // Initialize logger
     #[cfg(feature = "console")]
     if std::env::var("TOKIO_CONSOLE").as_deref() == Ok("1") {
-        std::env::set_var("RUST_LOG", "trace");
+        unsafe {
+            std::env::set_var("RUST_LOG", "trace");
+        }
         console_subscriber::init();
     }
 
