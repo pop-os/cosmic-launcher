@@ -19,6 +19,7 @@ use cosmic::iced::platform_specific::shell::commands::{
 use cosmic::iced::widget::{Column, column, container};
 use cosmic::iced::{self, Length, Size, Subscription};
 use cosmic::iced_core::keyboard::key::Named;
+use cosmic::iced_core::text::{Ellipsize, EllipsizeHeightLimit};
 use cosmic::iced_core::widget::operation;
 use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow, window};
 use cosmic::iced_runtime::core::event::wayland::LayerEvent;
@@ -811,33 +812,27 @@ impl cosmic::Application for CosmicLauncher {
                     };
 
                     let name = Column::with_children(name.lines().map(|line| {
-                        text::body(if line.width() > 60 {
-                            format!("{}...", line.unicode_truncate(60).0)
-                        } else {
-                            line.to_string()
-                        })
-                        .align_x(Horizontal::Left)
-                        .align_y(Vertical::Center)
-                        .class(cosmic::theme::Text::Custom(|t| {
-                            cosmic::iced::widget::text::Style {
-                                color: Some(t.cosmic().on_bg_color().into()),
-                            }
-                        }))
-                        .into()
+                        text::body(line.to_string())
+                            .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                            .align_x(Horizontal::Left)
+                            .align_y(Vertical::Center)
+                            .class(cosmic::theme::Text::Custom(|t| {
+                                cosmic::iced::widget::text::Style {
+                                    color: Some(t.cosmic().on_bg_color().into()),
+                                }
+                            }))
+                            .into()
                     }));
 
                     let desc = Column::with_children(desc.lines().map(|line| {
-                        text::caption(if line.width() > 80 {
-                            format!("{}...", line.unicode_truncate(80).0)
-                        } else {
-                            line.to_string()
-                        })
-                        .align_x(Horizontal::Left)
-                        .align_y(Vertical::Center)
-                        .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
-                            color: Some(t.cosmic().on_bg_color().into()),
-                        }))
-                        .into()
+                        text::caption(line.to_string())
+                            .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                            .align_x(Horizontal::Left)
+                            .align_y(Vertical::Center)
+                            .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            }))
+                            .into()
                     }));
 
                     let mut button_content = Vec::new();
