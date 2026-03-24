@@ -2,6 +2,7 @@ use crate::{app::iced::event::listen_raw, components, fl, subscriptions::launche
 use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk;
+use cosmic::cctk::sctk::shell::wlr_layer;
 use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::event::Status;
@@ -25,6 +26,7 @@ use cosmic::iced_runtime::core::event::wayland::LayerEvent;
 use cosmic::iced_runtime::core::event::{PlatformSpecific, wayland};
 use cosmic::iced_runtime::core::layout::Limits;
 use cosmic::iced_runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
+use cosmic::iced_runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use cosmic::iced_widget::row;
 use cosmic::iced_widget::scrollable::RelativeOffset;
 use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
@@ -166,6 +168,7 @@ pub struct CosmicLauncher {
     height: f32,
     needs_clear: bool,
     hand_over: String,
+    dummy_id: window::Id,
 }
 
 #[derive(Debug, Clone)]
@@ -320,6 +323,8 @@ impl cosmic::Application for CosmicLauncher {
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
+        let dummy_id = window::Id::unique();
+
         core.set_keyboard_nav(false);
         (
             CosmicLauncher {
@@ -344,8 +349,22 @@ impl cosmic::Application for CosmicLauncher {
                 height: 100.,
                 needs_clear: false,
                 hand_over: String::default(),
+                                dummy_id,
+
             },
-            Task::none(),
+            get_layer_surface(SctkLayerSurfaceSettings {
+                id: dummy_id,
+                layer: wlr_layer::Layer::Bottom,
+                keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+                input_zone: Some(Vec::new()),
+                anchor: wlr_layer::Anchor::empty(),
+                output: cosmic::iced_runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                namespace: "cosmic_launcher_dummy".into(),
+                margin: IcedMargin::default(),
+                size: Some((Some(6), Some(6))),
+                exclusive_zone: -1,
+                size_limits: Limits::NONE,
+            }),
         )
     }
 
