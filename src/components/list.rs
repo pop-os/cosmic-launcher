@@ -2,7 +2,7 @@
 // borrows the column element from iced widgets
 // and draws oddly indexed children first
 
-use cosmic::iced_core::{
+use cosmic::iced::core::{
     Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Vector,
     Widget,
     event::Event,
@@ -14,7 +14,7 @@ pub fn column<'a, Message, Theme, Renderer>(
     children: impl IntoIterator<Item = Element<'a, Message, Theme, Renderer>>,
 ) -> Column<'a, Message, Theme, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     Column::with_children(children)
 }
@@ -33,7 +33,7 @@ pub struct Column<'a, Message, Theme = cosmic::Theme, Renderer = cosmic::Rendere
 
 impl<'a, Message, Theme, Renderer> Column<'a, Message, Theme, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     /// Creates an empty [`Column`].
     pub fn new() -> Self {
@@ -115,7 +115,7 @@ where
 
 impl<Message, Renderer> Default for Column<'_, Message, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     fn default() -> Self {
         Self::new()
@@ -125,7 +125,7 @@ where
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Column<'_, Message, Theme, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     fn children(&self) -> Vec<Tree> {
         self.children.iter().map(Tree::new).collect()
@@ -142,7 +142,7 @@ where
         }
     }
 
-    fn tag(&self) -> cosmic::iced_core::widget::tree::Tag {
+    fn tag(&self) -> cosmic::iced::core::widget::tree::Tag {
         struct MyState;
         Tag::of::<MyState>()
     }
@@ -328,7 +328,7 @@ impl<'a, Message, Theme, Renderer> From<Column<'a, Message, Theme, Renderer>>
 where
     Message: 'a,
     Theme: 'a,
-    Renderer: cosmic::iced_core::Renderer + 'a,
+    Renderer: cosmic::iced::core::Renderer + 'a,
 {
     fn from(column: Column<'a, Message, Theme, Renderer>) -> Self {
         Self::new(column)
