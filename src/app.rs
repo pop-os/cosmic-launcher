@@ -5,6 +5,14 @@ use cosmic::cctk::sctk;
 use cosmic::cctk::sctk::shell::wlr_layer;
 use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::core::event::wayland::LayerEvent;
+use cosmic::iced::core::event::{PlatformSpecific, wayland};
+use cosmic::iced::core::keyboard::key::Named;
+use cosmic::iced::core::layout::Limits;
+use cosmic::iced::core::text::{Ellipsize, EllipsizeHeightLimit};
+use cosmic::iced::core::widget::operation;
+use cosmic::iced::core::window::{Event as WindowEvent, Id as SurfaceId};
+use cosmic::iced::core::{Border, Padding, Point, Rectangle, Shadow, window};
 use cosmic::iced::event::Status;
 use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::id::Id;
@@ -12,25 +20,18 @@ use cosmic::iced::platform_specific::runtime::wayland::{
     layer_surface::SctkLayerSurfaceSettings,
     popup::{SctkPopupSettings, SctkPositioner},
 };
+use cosmic::iced::platform_specific::shell::commands::overlap_notify::overlap_notify;
 use cosmic::iced::platform_specific::shell::commands::{
     self,
     activation::request_token,
     layer_surface::{Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
 };
+use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
+use cosmic::iced::widget::row;
+use cosmic::iced::widget::scrollable::RelativeOffset;
 use cosmic::iced::widget::{Column, column, container};
 use cosmic::iced::{self, Length, Size, Subscription};
-use cosmic::iced_core::keyboard::key::Named;
-use cosmic::iced_core::text::{Ellipsize, EllipsizeHeightLimit};
-use cosmic::iced_core::widget::operation;
-use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow, window};
-use cosmic::iced_runtime::core::event::wayland::LayerEvent;
-use cosmic::iced_runtime::core::event::{PlatformSpecific, wayland};
-use cosmic::iced_runtime::core::layout::Limits;
-use cosmic::iced_runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
-use cosmic::iced_runtime::platform_specific::wayland::layer_surface::IcedMargin;
-use cosmic::iced_widget::row;
-use cosmic::iced_widget::scrollable::RelativeOffset;
-use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
+use cosmic::surface;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
 use cosmic::widget::id_container;
@@ -41,7 +42,6 @@ use cosmic::widget::{
     text_input::{self, StyleSheet as TextInputStyleSheet},
 };
 use cosmic::{Element, keyboard_nav};
-use cosmic::{iced_runtime, surface};
 use iced::keyboard::Key;
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
@@ -57,8 +57,6 @@ use std::{
 };
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
-use unicode_truncate::UnicodeTruncateStr;
-use unicode_width::UnicodeWidthStr;
 
 static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("autosize"));
 static MAIN_ID: LazyLock<Id> = LazyLock::new(|| Id::new("main"));
@@ -359,7 +357,7 @@ impl cosmic::Application for CosmicLauncher {
                 keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
                 input_zone: Some(Vec::new()),
                 anchor: wlr_layer::Anchor::empty(),
-                output: cosmic::iced_runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                output: cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
                 namespace: "cosmic_launcher_dummy".into(),
                 margin: IcedMargin::default(),
                 size: Some((Some(6), Some(6))),
@@ -655,31 +653,35 @@ impl cosmic::Application for CosmicLauncher {
                     keyboard_nav::Action::FocusNext => {
                         self.focus_next();
                         // TODO ideally we could use an operation to scroll exactly to a specific widget.
-                        return iced_runtime::task::widget(operation::scrollable::snap_to(
-                            SCROLLABLE.clone(),
-                            RelativeOffset {
-                                x: None,
-                                y: Some(
-                                    (self.focused as f32
-                                        / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                    .max(0.0),
-                                ),
-                            },
-                        ));
+                        return cosmic::iced::runtime::task::widget(
+                            operation::scrollable::snap_to(
+                                SCROLLABLE.clone(),
+                                RelativeOffset {
+                                    x: None,
+                                    y: Some(
+                                        (self.focused as f32
+                                            / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                        .max(0.0),
+                                    ),
+                                },
+                            ),
+                        );
                     }
                     keyboard_nav::Action::FocusPrevious => {
                         self.focus_previous();
-                        return iced_runtime::task::widget(operation::scrollable::snap_to(
-                            SCROLLABLE.clone(),
-                            RelativeOffset {
-                                x: None,
-                                y: Some(
-                                    (self.focused as f32
-                                        / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                    .max(0.0),
-                                ),
-                            },
-                        ));
+                        return cosmic::iced::runtime::task::widget(
+                            operation::scrollable::snap_to(
+                                SCROLLABLE.clone(),
+                                RelativeOffset {
+                                    x: None,
+                                    y: Some(
+                                        (self.focused as f32
+                                            / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                        .max(0.0),
+                                    ),
+                                },
+                            ),
+                        );
                     }
                     keyboard_nav::Action::Escape => {
                         self.input_value.clear();
@@ -695,7 +697,7 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::AltTab => {
                 self.focus_next();
-                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                return cosmic::iced::runtime::task::widget(operation::scrollable::snap_to(
                     SCROLLABLE.clone(),
                     RelativeOffset {
                         x: None,
@@ -708,7 +710,7 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::ShiftAltTab => {
                 self.focus_previous();
-                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                return cosmic::iced::runtime::task::widget(operation::scrollable::snap_to(
                     SCROLLABLE.clone(),
                     RelativeOffset {
                         x: None,

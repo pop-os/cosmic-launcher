@@ -1,7 +1,4 @@
-use cosmic::{
-    iced::{Subscription, futures::StreamExt},
-    iced_runtime::futures::MaybeSend,
-};
+use cosmic::iced::{Subscription, futures::StreamExt, runtime::futures::MaybeSend};
 use futures::{SinkExt, Stream};
 use pop_launcher_service::{Args, IpcClient};
 use std::hash::Hash;
@@ -29,7 +26,7 @@ pub fn subscription<I: 'static + Hash + Copy + Send + Sync>(
     id: I,
 ) -> cosmic::iced::Subscription<Event> {
     Subscription::run_with(id, |_| {
-        cosmic::iced_futures::stream::channel(
+        cosmic::iced::stream::channel(
             1,
             |mut output: futures::channel::mpsc::Sender<Event>| async move {
                 loop {
