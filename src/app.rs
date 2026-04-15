@@ -25,6 +25,9 @@ use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
 use cosmic::iced::runtime::core::layout::Limits;
 use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
 use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
+use cosmic::iced::runtime::{Action, platform_specific, task};
+use cosmic::iced::widget::operation;
+use cosmic::iced::widget::row;
 use cosmic::iced::widget::scrollable::RelativeOffset;
 use cosmic::iced::widget::{Column, column, container, operation, row};
 use cosmic::iced::{
@@ -254,9 +257,9 @@ impl CosmicLauncher {
         self.focused = (self.focused + self.launcher_items.len() - 1) % self.launcher_items.len();
     }
 
-    fn handle_overlap(&mut self) {
+    fn handle_overlap(&mut self) -> Task<Message> {
         if matches!(self.surface_state, SurfaceState::Hidden) {
-            return;
+            return Task::none();
         }
         let mid_height = self.height / 2.;
         self.margin = 0.;
@@ -269,6 +272,31 @@ impl CosmicLauncher {
                 continue;
             }
             self.margin = o.y + o.height;
+        }
+        // TODO what to do about rounded corners...
+        if self.core.system_theme().cosmic().frosted_system_interface {
+            task::effect(Action::PlatformSpecific(
+                platform_specific::Action::Wayland(
+                    cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
+                        self.window_id,
+                        Some(vec![Rectangle {
+                            x: 0.,
+                            y: self.margin + 16.,
+                            width: f32::MAX,
+                            height: f32::MAX,
+                        }]),
+                    ),
+                ),
+            ))
+        } else {
+            task::effect(Action::PlatformSpecific(
+                platform_specific::Action::Wayland(
+                    cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
+                        self.window_id,
+                        None,
+                    ),
+                ),
+            ))
         }
     }
 }
@@ -315,6 +343,8 @@ impl cosmic::Application for CosmicLauncher {
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
         let dummy_id = window::Id::unique();
+        core.set_app_type(cosmic::core::AppType::System);
+        core.set_auto_blur(false);
 
         core.set_keyboard_nav(false);
         (
@@ -424,15 +454,17 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::Opened(size, window_id) => {
+                let mut tasks = Vec::with_capacity(2);
                 if window_id == self.window_id {
                     self.height = size.height;
-                    self.handle_overlap();
+                    tasks.push(self.handle_overlap());
                 }
                 if !self.hand_over.is_empty() {
                     let input = self.hand_over.clone();
                     self.hand_over.clear();
-                    return self.update(Message::InputChanged(input));
+                    tasks.push(self.update(Message::InputChanged(input)));
                 }
+                return Task::batch(tasks);
             }
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
@@ -621,11 +653,11 @@ impl cosmic::Application for CosmicLauncher {
                     if exclusive > 0 || namespace == "Dock" || namespace == "Panel" {
                         self.overlap.insert(identifier, logical_rect);
                     }
-                    self.handle_overlap();
+                    return self.handle_overlap();
                 }
                 OverlapNotifyEvent::OverlapLayerRemove { identifier } => {
                     self.overlap.remove(&identifier);
-                    self.handle_overlap();
+                    return self.handle_overlap();
                 }
                 _ => {}
             },
