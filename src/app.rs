@@ -360,7 +360,7 @@ impl cosmic::Application for CosmicLauncher {
                 focused: 0,
                 last_hide: Instant::now(),
                 alt_tab: false,
-                window_id: SurfaceId::unique(),
+                window_id: SurfaceId::RESERVED,
                 queue: VecDeque::new(),
                 result_ids: (0..10)
                     .map(|id| Id::new(id.to_string()))
