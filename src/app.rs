@@ -1054,7 +1054,9 @@ impl cosmic::Application for CosmicLauncher {
                             container::Style {
                                 text_color: Some(t.on_bg_color().into()),
                                 icon_color: Some(t.on_bg_color().into()),
-                                background: Some(Color::from(t.background.base).into()),
+                                background: Some(
+                                    Color::from(t.background(theme.transparent).base).into(),
+                                ),
                                 border: Border {
                                     radius: radii.into(),
                                     width: 1.0,
@@ -1100,15 +1102,17 @@ impl cosmic::Application for CosmicLauncher {
                     let cosmic = theme.cosmic();
                     let corners = cosmic.corner_radii;
                     container::Style {
-                        text_color: Some(cosmic.background.on.into()),
-                        background: Some(Color::from(cosmic.background.base).into()),
+                        text_color: Some(cosmic.background(theme.transparent).on.into()),
+                        background: Some(
+                            Color::from(cosmic.background(theme.transparent).base).into(),
+                        ),
                         border: Border {
                             radius: corners.radius_m.into(),
                             width: 1.0,
-                            color: cosmic.background.divider.into(),
+                            color: cosmic.background(theme.transparent).divider.into(),
                         },
                         shadow: Shadow::default(),
-                        icon_color: Some(cosmic.background.on.into()),
+                        icon_color: Some(cosmic.background(theme.transparent).on.into()),
                         snap: true,
                     }
                 })),
