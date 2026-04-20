@@ -12,13 +12,16 @@ use cosmic::iced::event::Status;
 use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::id::Id;
 use cosmic::iced::keyboard::key::Named;
-use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings;
-use cosmic::iced::platform_specific::runtime::wayland::popup::{SctkPopupSettings, SctkPositioner};
-use cosmic::iced::platform_specific::shell::commands::activation::request_token;
-use cosmic::iced::platform_specific::shell::commands::layer_surface::{
-    Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface,
+use cosmic::iced::platform_specific::runtime::wayland::{
+    layer_surface::SctkLayerSurfaceSettings,
+    popup::{SctkPopupSettings, SctkPositioner},
 };
+use cosmic::iced::platform_specific::shell::commands::layer_surface::set_padding;
 use cosmic::iced::platform_specific::shell::commands::{self};
+use cosmic::iced::platform_specific::shell::commands::{
+    activation::request_token,
+    layer_surface::{Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
+};
 use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
 use cosmic::iced::runtime::core::event::wayland::{LayerEvent, OutputEvent};
 use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
@@ -294,31 +297,47 @@ impl CosmicLauncher {
             }
             self.margin = o.y + o.height;
         }
+        let mut cmds = Vec::with_capacity(2);
         // TODO what to do about rounded corners...
-        if self.core.system_theme().cosmic().frosted_system_interface {
-            task::effect(Action::PlatformSpecific(
-                platform_specific::Action::Wayland(
-                    cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
-                        self.window_id,
-                        Some(vec![Rectangle {
-                            x: 0.,
-                            y: self.margin + 16.,
-                            width: f32::MAX,
-                            height: f32::MAX,
-                        }]),
+        // set the padding
+        cmds.push(
+            set_padding::<()>(
+                self.window_id,
+                IcedMargin {
+                    #[allow(clippy::cast_possible_truncation)]
+                    top: self.margin as i32 + 16,
+                    ..Default::default()
+                },
+            )
+            .discard(),
+        );
+        cmds.push(
+            if self.core.system_theme().cosmic().frosted_system_interface {
+                task::effect(Action::PlatformSpecific(
+                    platform_specific::Action::Wayland(
+                        cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
+                            self.window_id,
+                            Some(vec![Rectangle {
+                                x: 0.,
+                                y: 0.,
+                                width: f32::MAX,
+                                height: f32::MAX,
+                            }]),
+                        ),
                     ),
-                ),
-            ))
-        } else {
-            task::effect(Action::PlatformSpecific(
-                platform_specific::Action::Wayland(
-                    cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
-                        self.window_id,
-                        None,
+                ))
+            } else {
+                task::effect(Action::PlatformSpecific(
+                    platform_specific::Action::Wayland(
+                        cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
+                            self.window_id,
+                            None,
+                        ),
                     ),
-                ),
-            ))
-        }
+                ))
+            },
+        );
+        Task::batch(cmds)
     }
 }
 
@@ -367,7 +386,6 @@ impl cosmic::Application for CosmicLauncher {
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
-        let dummy_id = window::Id::unique();
         core.set_app_type(cosmic::core::AppType::System);
         core.set_auto_blur(false);
 
