@@ -14,6 +14,7 @@ use cosmic::iced::platform_specific::runtime::wayland::{
     layer_surface::SctkLayerSurfaceSettings,
     popup::{SctkPopupSettings, SctkPositioner},
 };
+use cosmic::iced::platform_specific::shell::commands::layer_surface::set_padding;
 use cosmic::iced::platform_specific::shell::commands::{
     self,
     activation::request_token,
@@ -168,7 +169,7 @@ pub struct CosmicLauncher {
     height: f32,
     needs_clear: bool,
     hand_over: String,
-    dummy_id: window::Id,
+    _dummy_id: window::Id,
 }
 
 #[derive(Debug, Clone)]
@@ -279,31 +280,47 @@ impl CosmicLauncher {
             }
             self.margin = o.y + o.height;
         }
+        let mut cmds = Vec::with_capacity(2);
         // TODO what to do about rounded corners...
-        if self.core.system_theme().cosmic().frosted_system_interface {
-            task::effect(Action::PlatformSpecific(
-                platform_specific::Action::Wayland(
-                    cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
-                        self.window_id,
-                        Some(vec![Rectangle {
-                            x: 0.,
-                            y: self.margin + 16.,
-                            width: f32::MAX,
-                            height: f32::MAX,
-                        }]),
+        // set the padding
+        cmds.push(
+            set_padding::<()>(
+                self.window_id,
+                IcedMargin {
+                    #[allow(clippy::cast_possible_truncation)]
+                    top: self.margin as i32 + 16,
+                    ..Default::default()
+                },
+            )
+            .discard(),
+        );
+        cmds.push(
+            if self.core.system_theme().cosmic().frosted_system_interface {
+                task::effect(Action::PlatformSpecific(
+                    platform_specific::Action::Wayland(
+                        cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
+                            self.window_id,
+                            Some(vec![Rectangle {
+                                x: 0.,
+                                y: 0.,
+                                width: f32::MAX,
+                                height: f32::MAX,
+                            }]),
+                        ),
                     ),
-                ),
-            ))
-        } else {
-            task::effect(Action::PlatformSpecific(
-                platform_specific::Action::Wayland(
-                    cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
-                        self.window_id,
-                        None,
+                ))
+            } else {
+                task::effect(Action::PlatformSpecific(
+                    platform_specific::Action::Wayland(
+                        cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
+                            self.window_id,
+                            None,
+                        ),
                     ),
-                ),
-            ))
-        }
+                ))
+            },
+        );
+        Task::batch(cmds)
     }
 }
 
@@ -376,7 +393,7 @@ impl cosmic::Application for CosmicLauncher {
                 height: 100.,
                 needs_clear: false,
                 hand_over: String::default(),
-                                dummy_id,
+                                _dummy_id: dummy_id,
 
             },
             get_layer_surface(SctkLayerSurfaceSettings {
