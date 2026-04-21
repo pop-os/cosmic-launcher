@@ -388,7 +388,6 @@ impl cosmic::Application for CosmicLauncher {
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
         core.set_app_type(cosmic::core::AppType::System);
-        core.set_auto_blur(false);
 
         core.set_keyboard_nav(false);
 
