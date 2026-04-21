@@ -363,7 +363,6 @@ impl cosmic::Application for CosmicLauncher {
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
         let dummy_id = window::Id::unique();
         core.set_app_type(cosmic::core::AppType::System);
-        core.set_auto_blur(false);
 
         core.set_keyboard_nav(false);
         (
