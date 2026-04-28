@@ -2,12 +2,12 @@
 // borrows the column element from iced widgets
 // and draws oddly indexed children first
 
+use cosmic::iced::core::event::Event;
+use cosmic::iced::core::widget::tree::Tag;
+use cosmic::iced::core::widget::{Operation, Tree};
 use cosmic::iced::core::{
     Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Vector,
-    Widget,
-    event::Event,
-    layout, mouse, overlay, renderer,
-    widget::{Operation, Tree, tree::Tag},
+    Widget, layout, mouse, overlay, renderer,
 };
 
 pub fn column<'a, Message, Theme, Renderer>(

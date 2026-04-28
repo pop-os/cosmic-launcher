@@ -1,4 +1,6 @@
-use crate::{app::iced::event::listen_raw, components, fl, subscriptions::launcher};
+use crate::app::iced::event::listen_raw;
+use crate::subscriptions::launcher;
+use crate::{components, fl};
 use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk;
@@ -10,51 +12,41 @@ use cosmic::iced::event::Status;
 use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::id::Id;
 use cosmic::iced::keyboard::key::Named;
-use cosmic::iced::platform_specific::runtime::wayland::{
-    layer_surface::SctkLayerSurfaceSettings,
-    popup::{SctkPopupSettings, SctkPositioner},
+use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings;
+use cosmic::iced::platform_specific::runtime::wayland::popup::{SctkPopupSettings, SctkPositioner};
+use cosmic::iced::platform_specific::shell::commands::activation::request_token;
+use cosmic::iced::platform_specific::shell::commands::layer_surface::{
+    Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface,
 };
-use cosmic::iced::platform_specific::shell::commands::{
-    self,
-    activation::request_token,
-    layer_surface::{Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
-};
+use cosmic::iced::platform_specific::shell::commands::{self};
 use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
 use cosmic::iced::runtime::core::event::wayland::LayerEvent;
 use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
 use cosmic::iced::runtime::core::layout::Limits;
 use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
 use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
-use cosmic::iced::widget::operation;
-use cosmic::iced::widget::row;
 use cosmic::iced::widget::scrollable::RelativeOffset;
-use cosmic::iced::widget::{Column, column, container};
-use cosmic::iced::{self, Length, Size, Subscription};
-use cosmic::iced::{Border, Padding, Point, Rectangle, Shadow, window};
-use cosmic::surface;
+use cosmic::iced::widget::{Column, column, container, operation, row};
+use cosmic::iced::{
+    self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
+};
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
-use cosmic::widget::id_container;
-use cosmic::widget::{
-    autosize, button, divider, icon, mouse_area, scrollable,
-    space::{horizontal as horizontal_space, vertical as vertical_space},
-    text,
-    text_input::{self, StyleSheet as TextInputStyleSheet},
-};
-use cosmic::{Element, keyboard_nav};
+use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
+use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
+use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
+use cosmic::{Element, keyboard_nav, surface};
 use iced::keyboard::Key;
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
 use std::path::Path;
+use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::LazyLock;
-use std::{
-    collections::{HashMap, VecDeque},
-    rc::Rc,
-    str::FromStr,
-    time::Instant,
-};
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
 

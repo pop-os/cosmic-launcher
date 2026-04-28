@@ -1,4 +1,6 @@
-use cosmic::iced::{Subscription, futures::StreamExt, runtime::futures::MaybeSend, stream};
+use cosmic::iced::futures::StreamExt;
+use cosmic::iced::runtime::futures::MaybeSend;
+use cosmic::iced::{Subscription, stream};
 use futures::{SinkExt, Stream};
 use pop_launcher_service::{Args, IpcClient};
 use std::hash::Hash;
