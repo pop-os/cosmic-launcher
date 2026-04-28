@@ -1,8 +1,9 @@
 [package]
 name = "cosmic-launcher"
-version = "1.0.3"
+version = "1.0.12"
 authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2024"
+rust-version = "1.93"
 
 [features]
 default = []
