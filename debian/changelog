@@ -1,4 +1,10 @@
-cosmic-launcher (0.1.0) UNRELEASED; urgency=medium
+cosmic-launcher (1.0.12) noble; urgency=medium
+
+  * Update changelog
+
+ -- Michael Murphy <mmstick@pop-os>  Tue, 28 Apr 2026 14:51:57 +0200
+
+cosmic-launcher (0.1.0) noble; urgency=medium
 
   * Initial release.
 
