@@ -2,19 +2,19 @@
 // borrows the column element from iced widgets
 // and draws oddly indexed children first
 
-use cosmic::iced_core::{
+use cosmic::iced::core::event::Event;
+use cosmic::iced::core::widget::tree::Tag;
+use cosmic::iced::core::widget::{Operation, Tree};
+use cosmic::iced::core::{
     Alignment, Clipboard, Element, Layout, Length, Padding, Pixels, Rectangle, Shell, Size, Vector,
-    Widget,
-    event::{self, Event},
-    layout, mouse, overlay, renderer,
-    widget::{Operation, Tree, tree::Tag},
+    Widget, layout, mouse, overlay, renderer,
 };
 
 pub fn column<'a, Message, Theme, Renderer>(
     children: impl IntoIterator<Item = Element<'a, Message, Theme, Renderer>>,
 ) -> Column<'a, Message, Theme, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     Column::with_children(children)
 }
@@ -33,7 +33,7 @@ pub struct Column<'a, Message, Theme = cosmic::Theme, Renderer = cosmic::Rendere
 
 impl<'a, Message, Theme, Renderer> Column<'a, Message, Theme, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     /// Creates an empty [`Column`].
     pub fn new() -> Self {
@@ -113,19 +113,19 @@ where
     }
 }
 
-impl<'a, Message, Renderer> Default for Column<'a, Message, Renderer>
+impl<Message, Renderer> Default for Column<'_, Message, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Column<'a, Message, Theme, Renderer>
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Column<'_, Message, Theme, Renderer>
 where
-    Renderer: cosmic::iced_core::Renderer,
+    Renderer: cosmic::iced::core::Renderer,
 {
     fn children(&self) -> Vec<Tree> {
         self.children.iter().map(Tree::new).collect()
@@ -142,13 +142,13 @@ where
         }
     }
 
-    fn tag(&self) -> cosmic::iced_core::widget::tree::Tag {
+    fn tag(&self) -> cosmic::iced::core::widget::tree::Tag {
         struct MyState;
         Tag::of::<MyState>()
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
@@ -164,59 +164,56 @@ where
             self.padding,
             self.spacing,
             self.align_items,
-            &self.children,
+            &mut self.children,
             &mut tree.children,
         )
     }
 
     fn operate(
-        &self,
+        &mut self,
         tree: &mut Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
         operation: &mut dyn Operation<()>,
     ) {
-        operation.container(None, layout.bounds(), &mut |operation| {
+        operation.container(None, layout.bounds());
+        operation.traverse(&mut |operation| {
             self.children
-                .iter()
+                .iter_mut()
                 .zip(&mut tree.children)
                 .zip(layout.children())
-                .for_each(|((child, state), layout)| {
-                    child
-                        .as_widget()
-                        .operate(state, layout, renderer, operation);
+                .for_each(|((child, state), c_layout)| {
+                    child.as_widget_mut().operate(
+                        state,
+                        c_layout.with_virtual_offset(layout.virtual_offset()),
+                        renderer,
+                        operation,
+                    );
                 });
         });
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
-        self.children
+    ) {
+        for ((child, state), layout) in self
+            .children
             .iter_mut()
             .zip(&mut tree.children)
             .zip(layout.children())
-            .map(|((child, state), layout)| {
-                child.as_widget_mut().on_event(
-                    state,
-                    event.clone(),
-                    layout,
-                    cursor,
-                    renderer,
-                    clipboard,
-                    shell,
-                    viewport,
-                )
-            })
-            .fold(event::Status::Ignored, event::Status::merge)
+        {
+            child.as_widget_mut().update(
+                state, event, layout, cursor, renderer, clipboard, shell, viewport,
+            );
+        }
     }
 
     fn mouse_interaction(
@@ -292,11 +289,19 @@ where
     fn overlay<'b>(
         &'b mut self,
         tree: &'b mut Tree,
-        layout: Layout<'_>,
+        layout: Layout<'b>,
         renderer: &Renderer,
+        viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        overlay::from_children(&mut self.children, tree, layout, renderer, translation)
+        overlay::from_children(
+            &mut self.children,
+            tree,
+            layout,
+            renderer,
+            viewport,
+            translation,
+        )
     }
 
     #[cfg(feature = "a11y")]
@@ -323,7 +328,7 @@ impl<'a, Message, Theme, Renderer> From<Column<'a, Message, Theme, Renderer>>
 where
     Message: 'a,
     Theme: 'a,
-    Renderer: cosmic::iced_core::Renderer + 'a,
+    Renderer: cosmic::iced::core::Renderer + 'a,
 {
     fn from(column: Column<'a, Message, Theme, Renderer>) -> Self {
         Self::new(column)

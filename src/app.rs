@@ -1,60 +1,54 @@
-use crate::{app::iced::event::listen_raw, components, fl, subscriptions::launcher};
+use crate::app::iced::event::listen_raw;
+use crate::subscriptions::launcher;
+use crate::{components, fl};
 use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk;
+use cosmic::cctk::sctk::shell::wlr_layer;
 use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
+use cosmic::iced::core::text::{Ellipsize, EllipsizeHeightLimit};
 use cosmic::iced::event::Status;
 use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::id::Id;
-use cosmic::iced::platform_specific::runtime::wayland::{
-    layer_surface::SctkLayerSurfaceSettings,
-    popup::{SctkPopupSettings, SctkPositioner},
+use cosmic::iced::keyboard::key::Named;
+use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings;
+use cosmic::iced::platform_specific::runtime::wayland::popup::{SctkPopupSettings, SctkPositioner};
+use cosmic::iced::platform_specific::shell::commands::activation::request_token;
+use cosmic::iced::platform_specific::shell::commands::layer_surface::{
+    Anchor, KeyboardInteractivity, destroy_layer_surface, get_layer_surface,
 };
-use cosmic::iced::platform_specific::shell::commands::{
-    self,
-    activation::request_token,
-    layer_surface::{KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
+use cosmic::iced::platform_specific::shell::commands::{self};
+use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
+use cosmic::iced::runtime::core::event::wayland::LayerEvent;
+use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
+use cosmic::iced::runtime::core::layout::Limits;
+use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
+use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
+use cosmic::iced::widget::scrollable::RelativeOffset;
+use cosmic::iced::widget::{Column, column, container, operation, row};
+use cosmic::iced::{
+    self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
 };
-use cosmic::iced::widget::{Column, column, container};
-use cosmic::iced::{self, Length, Size, Subscription};
-use cosmic::iced_core::keyboard::key::Named;
-use cosmic::iced_core::widget::operation;
-use cosmic::iced_core::{Border, Padding, Point, Rectangle, Shadow, window};
-use cosmic::iced_runtime::core::event::wayland::LayerEvent;
-use cosmic::iced_runtime::core::event::{PlatformSpecific, wayland};
-use cosmic::iced_runtime::core::layout::Limits;
-use cosmic::iced_runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
-use cosmic::iced_widget::row;
-use cosmic::iced_widget::scrollable::RelativeOffset;
-use cosmic::iced_winit::commands::overlap_notify::overlap_notify;
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
-use cosmic::widget::id_container;
-use cosmic::widget::{
-    autosize, button, divider, horizontal_space, icon, mouse_area, scrollable, text,
-    text_input::{self, StyleSheet as TextInputStyleSheet},
-    vertical_space,
-};
-use cosmic::{Element, keyboard_nav};
-use cosmic::{iced_runtime, surface};
+use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
+use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
+use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
+use cosmic::{Element, keyboard_nav, surface};
 use iced::keyboard::Key;
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
 use std::path::Path;
+use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::LazyLock;
-use std::{
-    collections::{HashMap, VecDeque},
-    rc::Rc,
-    str::FromStr,
-    time::Instant,
-};
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
-use unicode_truncate::UnicodeTruncateStr;
-use unicode_width::UnicodeWidthStr;
 
 static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("autosize"));
 static MAIN_ID: LazyLock<Id> = LazyLock::new(|| Id::new("main"));
@@ -167,6 +161,7 @@ pub struct CosmicLauncher {
     height: f32,
     needs_clear: bool,
     hand_over: String,
+    dummy_id: window::Id,
 }
 
 #[derive(Debug, Clone)]
@@ -322,6 +317,8 @@ impl cosmic::Application for CosmicLauncher {
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
+        let dummy_id = window::Id::unique();
+
         core.set_keyboard_nav(false);
         let (config_handler, config) = crate::config::Config::load();
 
@@ -350,8 +347,22 @@ impl cosmic::Application for CosmicLauncher {
                 height: 100.,
                 needs_clear: false,
                 hand_over: String::default(),
+                                dummy_id,
+
             },
-            Task::none(),
+            get_layer_surface(SctkLayerSurfaceSettings {
+                id: dummy_id,
+                layer: wlr_layer::Layer::Bottom,
+                keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+                input_zone: Some(Vec::new()),
+                anchor: wlr_layer::Anchor::empty(),
+                output: cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                namespace: "cosmic_launcher_dummy".into(),
+                margin: IcedMargin::default(),
+                size: Some((Some(6), Some(6))),
+                exclusive_zone: -1,
+                size_limits: Limits::NONE,
+            }),
         )
     }
 
@@ -567,7 +578,7 @@ impl cosmic::Application for CosmicLauncher {
                                         .handle(),
                                     // By mime
                                     IconSource::Mime(mime) => {
-                                        icon::from_name(mime.as_ref().replace("/", "-"))
+                                        icon::from_name(mime.as_ref().replace('/', "-"))
                                             .prefer_svg(true)
                                             .size(64)
                                             .fallback(Some(IconFallback::Names(vec![
@@ -644,27 +655,31 @@ impl cosmic::Application for CosmicLauncher {
                     keyboard_nav::Action::FocusNext => {
                         self.focus_next();
                         // TODO ideally we could use an operation to scroll exactly to a specific widget.
-                        return iced_runtime::task::widget(operation::scrollable::snap_to(
+                        return operation::snap_to(
                             SCROLLABLE.clone(),
                             RelativeOffset {
-                                x: 0.,
-                                y: (self.focused as f32
-                                    / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                .max(0.0),
+                                x: None,
+                                y: Some(
+                                    (self.focused as f32
+                                        / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                    .max(0.0),
+                                ),
                             },
-                        ));
+                        );
                     }
                     keyboard_nav::Action::FocusPrevious => {
                         self.focus_previous();
-                        return iced_runtime::task::widget(operation::scrollable::snap_to(
+                        return operation::snap_to(
                             SCROLLABLE.clone(),
                             RelativeOffset {
-                                x: 0.,
-                                y: (self.focused as f32
-                                    / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                .max(0.0),
+                                x: None,
+                                y: Some(
+                                    (self.focused as f32
+                                        / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                    .max(0.0),
+                                ),
                             },
-                        ));
+                        );
                     }
                     keyboard_nav::Action::Escape => {
                         self.input_value.clear();
@@ -680,25 +695,29 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::AltTab => {
                 self.focus_next();
-                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                return operation::snap_to(
                     SCROLLABLE.clone(),
                     RelativeOffset {
-                        x: 0.,
-                        y: (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
-                            .max(0.0),
+                        x: None,
+                        y: Some(
+                            (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                .max(0.0),
+                        ),
                     },
-                ));
+                );
             }
             Message::ShiftAltTab => {
                 self.focus_previous();
-                return iced_runtime::task::widget(operation::scrollable::snap_to(
+                return operation::snap_to(
                     SCROLLABLE.clone(),
                     RelativeOffset {
-                        x: 0.,
-                        y: (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
-                            .max(0.0),
+                        x: None,
+                        y: Some(
+                            (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
+                                .max(0.0),
+                        ),
                     },
-                ));
+                );
             }
             Message::AltRelease => {
                 if self.alt_tab {
@@ -796,7 +815,7 @@ impl cosmic::Application for CosmicLauncher {
                     focused: Box::new(|theme| theme.focused(&cosmic::theme::TextInput::Search)),
                     disabled: Box::new(|theme| theme.disabled(&cosmic::theme::TextInput::Search)),
                 })
-                .width(600)
+                .width(600.)
                 .id(INPUT_ID.clone())
                 .always_active();
 
@@ -812,33 +831,27 @@ impl cosmic::Application for CosmicLauncher {
                     };
 
                     let name = Column::with_children(name.lines().map(|line| {
-                        text::body(if line.width() > 60 {
-                            format!("{}...", line.unicode_truncate(60).0)
-                        } else {
-                            line.to_string()
-                        })
-                        .align_x(Horizontal::Left)
-                        .align_y(Vertical::Center)
-                        .class(cosmic::theme::Text::Custom(|t| {
-                            cosmic::iced::widget::text::Style {
-                                color: Some(t.cosmic().on_bg_color().into()),
-                            }
-                        }))
-                        .into()
+                        text::body(line.to_string())
+                            .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                            .align_x(Horizontal::Left)
+                            .align_y(Vertical::Center)
+                            .class(cosmic::theme::Text::Custom(|t| {
+                                cosmic::iced::widget::text::Style {
+                                    color: Some(t.cosmic().on_bg_color().into()),
+                                }
+                            }))
+                            .into()
                     }));
 
                     let desc = Column::with_children(desc.lines().map(|line| {
-                        text::caption(if line.width() > 80 {
-                            format!("{}...", line.unicode_truncate(80).0)
-                        } else {
-                            line.to_string()
-                        })
-                        .align_x(Horizontal::Left)
-                        .align_y(Vertical::Center)
-                        .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
-                            color: Some(t.cosmic().on_bg_color().into()),
-                        }))
-                        .into()
+                        text::caption(line.to_string())
+                            .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                            .align_x(Horizontal::Left)
+                            .align_y(Vertical::Center)
+                            .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
+                                color: Some(t.cosmic().on_bg_color().into()),
+                            }))
+                            .into()
                     }));
 
                     let mut button_content = Vec::new();
@@ -855,7 +868,7 @@ impl cosmic::Application for CosmicLauncher {
                             }
 
                             IconSource::Mime(mime) => {
-                                icon::from_name(mime.as_ref().replace("/", "-")).handle()
+                                icon::from_name(mime.as_ref().replace('/', "-")).handle()
                             }
                         };
 
@@ -981,7 +994,7 @@ impl cosmic::Application for CosmicLauncher {
                 Column::new()
                     .max_width(600)
                     .spacing(16)
-                    .width(Length::Shrink)
+                    .width(Length::Fixed(600.))
                     .height(Length::Shrink)
             } else {
                 column![launcher_entry]
@@ -998,7 +1011,7 @@ impl cosmic::Application for CosmicLauncher {
                 );
             } else if !buttons.is_empty() {
                 content = content.push(components::list::column(buttons));
-            };
+            }
 
             let window = Column::new()
                 .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
@@ -1020,6 +1033,7 @@ impl cosmic::Application for CosmicLauncher {
                                     color: t.bg_divider().into(),
                                 },
                                 shadow: Shadow::default(),
+                                snap: true,
                             }
                         })))
                         .padding([24, 32]),
@@ -1069,6 +1083,7 @@ impl cosmic::Application for CosmicLauncher {
                         },
                         shadow: Shadow::default(),
                         icon_color: Some(cosmic.background.on.into()),
+                        snap: true,
                     }
                 })),
             )
