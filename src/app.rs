@@ -32,7 +32,7 @@ use cosmic::iced::runtime::{Action, platform_specific, task};
 use cosmic::iced::widget::operation;
 use cosmic::iced::widget::row;
 use cosmic::iced::widget::scrollable::RelativeOffset;
-use cosmic::iced::widget::{Column, column, container, operation, row};
+use cosmic::iced::widget::{Column, column, container};
 use cosmic::iced::{
     self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
 };
