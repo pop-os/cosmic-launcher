@@ -36,7 +36,7 @@ use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
 use cosmic::{Element, keyboard_nav, surface};
-use iced::keyboard::Key;
+use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
 use serde::{Deserialize, Serialize};
@@ -151,6 +151,7 @@ pub struct CosmicLauncher {
     focused: usize,
     last_hide: Instant,
     alt_tab: bool,
+    alt_tab_released: bool,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -175,7 +176,7 @@ pub enum Message {
     CursorMoved(Point<f32>),
     Hide,
     LauncherEvent(launcher::Event),
-    Layer(LayerEvent),
+    Layer(LayerEvent, window::Id),
     KeyboardNav(keyboard_nav::Action),
     ActivationToken(Option<String>, String, String, GpuPreference, bool),
     AltTab,
@@ -221,6 +222,7 @@ impl CosmicLauncher {
         self.input_value.clear();
         self.focused = 0;
         self.alt_tab = false;
+        self.alt_tab_released = false;
         self.queue.clear();
         self.hand_over.clear();
 
@@ -271,6 +273,10 @@ impl CosmicLauncher {
             self.margin = o.y + o.height;
         }
     }
+}
+
+fn alt_tab_modifier_is_released(modifiers: Modifiers) -> bool {
+    !modifiers.alt() && !modifiers.logo()
 }
 
 async fn launch(
@@ -330,6 +336,7 @@ impl cosmic::Application for CosmicLauncher {
                 focused: 0,
                 last_hide: Instant::now(),
                 alt_tab: false,
+                alt_tab_released: false,
                 window_id: SurfaceId::unique(),
                 queue: VecDeque::new(),
                 result_ids: (0..10)
@@ -398,8 +405,12 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::Activate(i) => {
+                let alt_tab = self.alt_tab;
                 if let Some(item) = self.launcher_items.get(i.unwrap_or(self.focused)) {
                     self.request(launcher::Request::Activate(item.id));
+                    if alt_tab {
+                        return self.hide();
+                    }
                 } else {
                     return self.hide();
                 }
@@ -588,7 +599,9 @@ impl cosmic::Application for CosmicLauncher {
                             cmds.push(updated);
                         }
 
-                        if self.surface_state == SurfaceState::WaitingToBeShown {
+                        if self.alt_tab_released {
+                            cmds.push(self.update(Message::Activate(None)));
+                        } else if self.surface_state == SurfaceState::WaitingToBeShown {
                             cmds.push(self.show());
                         }
                         return Task::batch(cmds);
@@ -599,7 +612,8 @@ impl cosmic::Application for CosmicLauncher {
                     }
                 },
             },
-            Message::Layer(e) => match e {
+            Message::Layer(_, id) if id != self.window_id => {}
+            Message::Layer(e, _) => match e {
                 LayerEvent::Focused | LayerEvent::Done => {}
                 LayerEvent::Unfocused => {
                     self.last_hide = Instant::now();
@@ -711,7 +725,15 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::AltRelease => {
                 if self.alt_tab {
-                    return self.update(Message::Activate(None));
+                    if self.surface_state == SurfaceState::Visible {
+                        debug!("alt-tab modifier released; activating focused item");
+                        return self.update(Message::Activate(None));
+                    }
+
+                    debug!(
+                        "alt-tab modifier released before launcher was visible; deferring activation"
+                    );
+                    self.alt_tab_released = true;
                 }
             }
             Message::Surface(a) => {
@@ -754,19 +776,33 @@ impl cosmic::Application for CosmicLauncher {
                 match cmd {
                     LauncherTasks::AltTab => {
                         if self.alt_tab {
+                            if self.surface_state == SurfaceState::WaitingToBeShown
+                                || self.launcher_items.is_empty()
+                            {
+                                self.queue.push_back(Message::AltTab);
+                                return Task::none();
+                            }
                             return self.update(Message::AltTab);
                         }
 
                         self.alt_tab = true;
+                        self.alt_tab_released = false;
                         self.request(launcher::Request::Search(String::new()));
                         self.queue.push_back(Message::AltTab);
                     }
                     LauncherTasks::ShiftAltTab => {
                         if self.alt_tab {
+                            if self.surface_state == SurfaceState::WaitingToBeShown
+                                || self.launcher_items.is_empty()
+                            {
+                                self.queue.push_back(Message::ShiftAltTab);
+                                return Task::none();
+                            }
                             return self.update(Message::ShiftAltTab);
                         }
 
                         self.alt_tab = true;
+                        self.alt_tab_released = false;
                         self.request(launcher::Request::Search(String::new()));
                         self.queue.push_back(Message::ShiftAltTab);
                     }
@@ -1098,8 +1134,8 @@ impl cosmic::Application for CosmicLauncher {
             launcher::subscription(0).map(Message::LauncherEvent),
             listen_raw(|e, status, id| match e {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
-                    wayland::Event::Layer(e, ..),
-                )) => Some(Message::Layer(e)),
+                    wayland::Event::Layer(e, _, layer_id),
+                )) => Some(Message::Layer(e, layer_id)),
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::OverlapNotify(event, ..),
                 )) => Some(Message::Overlap(event)),
@@ -1107,6 +1143,13 @@ impl cosmic::Application for CosmicLauncher {
                     key: Key::Named(Named::Alt | Named::Super),
                     ..
                 }) => Some(Message::AltRelease),
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
+                    modifiers,
+                    ..
+                }) if alt_tab_modifier_is_released(modifiers) => Some(Message::AltRelease),
+                cosmic::iced::Event::Keyboard(iced::keyboard::Event::ModifiersChanged(
+                    modifiers,
+                )) if alt_tab_modifier_is_released(modifiers) => Some(Message::AltRelease),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
                     key,
                     text: _,
