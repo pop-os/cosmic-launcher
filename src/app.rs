@@ -230,27 +230,24 @@ impl CosmicLauncher {
         self.surface_state = SurfaceState::Visible;
         self.needs_clear = true;
 
-        Task::batch(vec![
-            cosmic::surface::surface_task(app_layer_shell(
-                |app: &CosmicLauncher| LiveSettings {
-                    padding: Some(app.layer_padding()),
-                    corners: None,
-                    blur: None,
-                },
-                move |app: &mut CosmicLauncher| SctkLayerSurfaceSettings {
-                    id: app.window_id,
-                    keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                    anchor: Anchor::TOP,
-                    namespace: "launcher".into(),
-                    size: None,
-                    size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
-                    exclusive_zone: -1,
-                    ..Default::default()
-                },
-                None,
-            )),
-            overlap_notify(self.window_id, true),
-        ])
+        cosmic::surface::surface_task(app_layer_shell(
+            |app: &CosmicLauncher| LiveSettings {
+                padding: Some(app.layer_padding()),
+                corners: None,
+                blur: None,
+            },
+            move |app: &mut CosmicLauncher| SctkLayerSurfaceSettings {
+                id: app.window_id,
+                keyboard_interactivity: KeyboardInteractivity::Exclusive,
+                anchor: Anchor::TOP,
+                namespace: "launcher".into(),
+                size: None,
+                size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
+                exclusive_zone: -1,
+                ..Default::default()
+            },
+            None,
+        ))
     }
 
     fn hide(&mut self) -> Task<Message> {
@@ -496,7 +493,8 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::Opened(size, window_id) => {
-                let mut tasks = Vec::with_capacity(2);
+                let mut tasks = Vec::with_capacity(3);
+                tasks.push(overlap_notify(self.window_id, true));
                 if window_id == self.window_id {
                     self.height = size.height;
                     tasks.push(self.handle_overlap());
