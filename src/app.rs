@@ -36,6 +36,7 @@ use cosmic::iced::widget::{Column, column, container};
 use cosmic::iced::{
     self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
 };
+use cosmic::surface::action::{LiveSettings, app_layer_shell};
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
 use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
@@ -230,16 +231,24 @@ impl CosmicLauncher {
         self.needs_clear = true;
 
         Task::batch(vec![
-            get_layer_surface(SctkLayerSurfaceSettings {
-                id: self.window_id,
-                keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                anchor: Anchor::TOP,
-                namespace: "launcher".into(),
-                size: None,
-                size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
-                exclusive_zone: -1,
-                ..Default::default()
-            }),
+            cosmic::surface::surface_task(app_layer_shell(
+                |app: &CosmicLauncher| LiveSettings {
+                    padding: Some(app.layer_padding()),
+                    corners: None,
+                    blur: None,
+                },
+                move |app: &mut CosmicLauncher| SctkLayerSurfaceSettings {
+                    id: app.window_id,
+                    keyboard_interactivity: KeyboardInteractivity::Exclusive,
+                    anchor: Anchor::TOP,
+                    namespace: "launcher".into(),
+                    size: None,
+                    size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
+                    exclusive_zone: -1,
+                    ..Default::default()
+                },
+                None,
+            )),
             overlap_notify(self.window_id, true),
         ])
     }
@@ -301,17 +310,7 @@ impl CosmicLauncher {
         let mut cmds = Vec::with_capacity(2);
         // TODO what to do about rounded corners...
         // set the padding
-        cmds.push(
-            set_padding::<()>(
-                self.window_id,
-                IcedMargin {
-                    #[allow(clippy::cast_possible_truncation)]
-                    top: self.margin as i32 + 16,
-                    ..Default::default()
-                },
-            )
-            .discard(),
-        );
+        cmds.push(set_padding::<()>(self.window_id, self.layer_padding()).discard());
         cmds.push(
             if self.core.system_theme().cosmic().frosted_system_interface {
                 task::effect(Action::PlatformSpecific(
@@ -339,6 +338,14 @@ impl CosmicLauncher {
             },
         );
         Task::batch(cmds)
+    }
+
+    fn layer_padding(&self) -> IcedMargin {
+        IcedMargin {
+            #[allow(clippy::cast_possible_truncation)]
+            top: self.margin as i32 + 16,
+            ..Default::default()
+        }
     }
 }
 
