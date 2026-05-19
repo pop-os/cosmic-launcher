@@ -497,7 +497,8 @@ impl cosmic::Application for CosmicLauncher {
                 }
             }
             Message::Opened(size, window_id) => {
-                let mut tasks = Vec::with_capacity(2);
+                let mut tasks = Vec::with_capacity(3);
+                tasks.push(overlap_notify(self.window_id, true));
                 if window_id == self.window_id {
                     self.height = size.height;
                     tasks.push(self.handle_overlap());
