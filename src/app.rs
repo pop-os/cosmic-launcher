@@ -826,8 +826,10 @@ impl cosmic::Application for CosmicLauncher {
                             .align_x(Horizontal::Left)
                             .align_y(Vertical::Center)
                             .class(cosmic::theme::Text::Custom(|t| {
+                                let theme = t.cosmic();
                                 cosmic::iced::widget::text::Style {
-                                    color: Some(t.cosmic().on_bg_color().into()),
+                                    color: Some(theme.on_bg_color().into()),
+                                    selected_fill: theme.accent_color().into(),
                                 }
                             }))
                             .into()
@@ -838,8 +840,12 @@ impl cosmic::Application for CosmicLauncher {
                             .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
                             .align_x(Horizontal::Left)
                             .align_y(Vertical::Center)
-                            .class(theme::Text::Custom(|t| cosmic::iced::widget::text::Style {
-                                color: Some(t.cosmic().on_bg_color().into()),
+                            .class(theme::Text::Custom(|t| {
+                                let theme = t.cosmic();
+                                cosmic::iced::widget::text::Style {
+                                    color: Some(theme.on_bg_color().into()),
+                                    selected_fill: theme.accent_color().into(),
+                                }
                             }))
                             .into()
                     }));
@@ -891,8 +897,10 @@ impl cosmic::Application for CosmicLauncher {
                                     .align_y(Vertical::Center)
                                     .align_x(Horizontal::Right)
                                     .class(theme::Text::Custom(|t| {
+                                        let theme = t.cosmic();
                                         cosmic::iced::widget::text::Style {
-                                            color: Some(t.cosmic().on_bg_color().into()),
+                                            color: Some(theme.on_bg_color().into()),
+                                            selected_fill: theme.accent_color().into(),
                                         }
                                     })),
                             )
