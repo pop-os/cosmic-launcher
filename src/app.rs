@@ -199,6 +199,23 @@ impl CosmicLauncher {
         }
     }
 
+    fn create_dummy_layer_surface(id: window::Id) -> Task<Message> {
+        get_layer_surface(SctkLayerSurfaceSettings {
+            id,
+            layer: wlr_layer::Layer::Bottom,
+            keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+            input_zone: Some(Vec::new()),
+            anchor: wlr_layer::Anchor::empty(),
+            output:
+                cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+            namespace: "cosmic_launcher_dummy".into(),
+            margin: IcedMargin::default(),
+            size: Some((Some(6), Some(6))),
+            exclusive_zone: -1,
+            size_limits: Limits::NONE,
+        })
+    }
+
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
         self.needs_clear = true;
@@ -347,22 +364,9 @@ impl cosmic::Application for CosmicLauncher {
                 height: 100.,
                 needs_clear: false,
                 hand_over: String::default(),
-                                dummy_id,
-
+                dummy_id,
             },
-            get_layer_surface(SctkLayerSurfaceSettings {
-                id: dummy_id,
-                layer: wlr_layer::Layer::Bottom,
-                keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
-                input_zone: Some(Vec::new()),
-                anchor: wlr_layer::Anchor::empty(),
-                output: cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
-                namespace: "cosmic_launcher_dummy".into(),
-                margin: IcedMargin::default(),
-                size: Some((Some(6), Some(6))),
-                exclusive_zone: -1,
-                size_limits: Limits::NONE,
-            }),
+            Self::create_dummy_layer_surface(dummy_id),
         )
     }
 
@@ -612,6 +616,10 @@ impl cosmic::Application for CosmicLauncher {
                     }
                 },
             },
+            Message::Layer(LayerEvent::Done, id) if id == self.dummy_id => {
+                self.dummy_id = window::Id::unique();
+                return Self::create_dummy_layer_surface(self.dummy_id);
+            }
             Message::Layer(_, id) if id != self.window_id => {}
             Message::Layer(e, _) => match e {
                 LayerEvent::Focused | LayerEvent::Done => {}
