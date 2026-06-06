@@ -20,7 +20,7 @@ use cosmic::iced::platform_specific::shell::commands::layer_surface::{
 };
 use cosmic::iced::platform_specific::shell::commands::{self};
 use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
-use cosmic::iced::runtime::core::event::wayland::LayerEvent;
+use cosmic::iced::runtime::core::event::wayland::{LayerEvent, OutputEvent};
 use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
 use cosmic::iced::runtime::core::layout::Limits;
 use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
@@ -160,7 +160,7 @@ pub struct CosmicLauncher {
     height: f32,
     needs_clear: bool,
     hand_over: String,
-    dummy_id: window::Id,
+    dummy_id: Option<window::Id>,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +177,7 @@ pub enum Message {
     Hide,
     LauncherEvent(launcher::Event),
     Layer(LayerEvent, window::Id),
+    Output(OutputEvent),
     KeyboardNav(keyboard_nav::Action),
     ActivationToken(Option<String>, String, String, GpuPreference, bool),
     AltTab,
@@ -199,7 +200,9 @@ impl CosmicLauncher {
         }
     }
 
-    fn create_dummy_layer_surface(id: window::Id) -> Task<Message> {
+    fn create_dummy_layer_surface(&mut self) -> Task<Message> {
+        let id = window::Id::unique();
+        self.dummy_id = Some(id);
         get_layer_surface(SctkLayerSurfaceSettings {
             id,
             layer: wlr_layer::Layer::Bottom,
@@ -337,37 +340,35 @@ impl cosmic::Application for CosmicLauncher {
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
-        let dummy_id = window::Id::unique();
-
         core.set_keyboard_nav(false);
-        (
-            CosmicLauncher {
-                core,
-                input_value: String::new(),
-                surface_state: SurfaceState::Hidden,
-                launcher_items: Vec::new(),
-                launcher_item_icon_handles: Vec::new(),
-                tx: None,
-                menu: None,
-                cursor_position: None,
-                focused: 0,
-                last_hide: Instant::now(),
-                alt_tab: false,
-                alt_tab_released: false,
-                window_id: SurfaceId::unique(),
-                queue: VecDeque::new(),
-                result_ids: (0..10)
-                    .map(|id| Id::new(id.to_string()))
-                    .collect::<Vec<_>>(),
-                margin: 0.,
-                overlap: HashMap::new(),
-                height: 100.,
-                needs_clear: false,
-                hand_over: String::default(),
-                dummy_id,
-            },
-            Self::create_dummy_layer_surface(dummy_id),
-        )
+
+        let mut app = CosmicLauncher {
+            core,
+            input_value: String::new(),
+            surface_state: SurfaceState::Hidden,
+            launcher_items: Vec::new(),
+            launcher_item_icon_handles: Vec::new(),
+            tx: None,
+            menu: None,
+            cursor_position: None,
+            focused: 0,
+            last_hide: Instant::now(),
+            alt_tab: false,
+            alt_tab_released: false,
+            window_id: SurfaceId::unique(),
+            queue: VecDeque::new(),
+            result_ids: (0..10)
+                .map(|id| Id::new(id.to_string()))
+                .collect::<Vec<_>>(),
+            margin: 0.,
+            overlap: HashMap::new(),
+            height: 100.,
+            needs_clear: false,
+            hand_over: String::default(),
+            dummy_id: None,
+        };
+        let task = app.create_dummy_layer_surface();
+        (app, task)
     }
 
     fn core(&self) -> &Core {
@@ -616,9 +617,15 @@ impl cosmic::Application for CosmicLauncher {
                     }
                 },
             },
-            Message::Layer(LayerEvent::Done, id) if id == self.dummy_id => {
-                self.dummy_id = window::Id::unique();
-                return Self::create_dummy_layer_surface(self.dummy_id);
+            Message::Layer(LayerEvent::Done, id) if self.dummy_id == Some(id) => {
+                self.dummy_id = None;
+            }
+            Message::Output(event) => {
+                if matches!(event, OutputEvent::Created(_) | OutputEvent::InfoUpdate(_))
+                    && self.dummy_id.is_none()
+                {
+                    return self.create_dummy_layer_surface();
+                }
             }
             Message::Layer(_, id) if id != self.window_id => {}
             Message::Layer(e, _) => match e {
@@ -1147,6 +1154,9 @@ impl cosmic::Application for CosmicLauncher {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::OverlapNotify(event, ..),
                 )) => Some(Message::Overlap(event)),
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::Output(event, _),
+                )) => Some(Message::Output(event)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
                     key: Key::Named(Named::Alt | Named::Super),
                     ..
