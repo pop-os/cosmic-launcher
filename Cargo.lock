@@ -4333,7 +4333,6 @@ checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
 [[package]]
 name = "pop-launcher"
 version = "1.2.7"
-source = "git+https://github.com/pop-os/launcher/#5b868510716673b31a650488401489898352e2d9"
 dependencies = [
  "const_format",
  "dirs",
@@ -4348,7 +4347,6 @@ dependencies = [
 [[package]]
 name = "pop-launcher-service"
 version = "1.2.7"
-source = "git+https://github.com/pop-os/launcher/#5b868510716673b31a650488401489898352e2d9"
 dependencies = [
  "async-oneshot",
  "async-trait",

@@ -1,4 +1,5 @@
 use crate::app::iced::event::listen_raw;
+use crate::config::{WindowSwitcher, window_switcher_config};
 use crate::subscriptions::launcher;
 use crate::{components, fl};
 use clap::Parser;
@@ -38,7 +39,7 @@ use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, 
 use cosmic::{Element, keyboard_nav, surface};
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
-use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
+use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult, WorkspaceFilter};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
@@ -48,7 +49,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use std::time::Instant;
 use tokio::sync::mpsc;
-use tracing::{debug, error, info};
+use tracing::{debug, error, warn};
 
 static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("autosize"));
 static MAIN_ID: LazyLock<Id> = LazyLock::new(|| Id::new("main"));
@@ -68,14 +69,48 @@ pub struct Args {
 
 #[derive(Debug, Serialize, Deserialize, Clone, clap::Subcommand)]
 pub enum LauncherTasks {
-    #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
+    #[clap(name = "alt-tab", about = "Toggle the window switcher (configured default scope)")]
     AltTab,
-    #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
+    #[clap(
+        name = "alt-tab-all",
+        about = "Toggle the window switcher across all workspaces"
+    )]
+    AltTabAll,
+    #[clap(
+        name = "alt-tab-workspace",
+        about = "Toggle the window switcher for the current workspace only"
+    )]
+    AltTabWorkspace,
+    #[clap(
+        name = "shift-alt-tab",
+        about = "Toggle the window switcher in reverse (configured default scope)"
+    )]
     ShiftAltTab,
+    #[clap(
+        name = "shift-alt-tab-all",
+        about = "Toggle the window switcher in reverse across all workspaces"
+    )]
+    ShiftAltTabAll,
+    #[clap(
+        name = "shift-alt-tab-workspace",
+        about = "Toggle the window switcher in reverse for the current workspace only"
+    )]
+    ShiftAltTabWorkspace,
     #[clap(about = "Start the launcher with an input")]
     Input { input: Option<String> },
     #[clap(about = "Close the launcher if open")]
     Close,
+}
+
+impl LauncherTasks {
+    pub fn workspace_filter(&self, config: &WindowSwitcher) -> WorkspaceFilter {
+        match self {
+            Self::AltTab | Self::ShiftAltTab => config.default_scope.to_filter(),
+            Self::AltTabAll | Self::ShiftAltTabAll => WorkspaceFilter::All,
+            Self::AltTabWorkspace | Self::ShiftAltTabWorkspace => WorkspaceFilter::Current,
+            Self::Input { .. } | Self::Close => WorkspaceFilter::All,
+        }
+    }
 }
 
 impl Display for LauncherTasks {
@@ -88,7 +123,31 @@ impl FromStr for LauncherTasks {
     type Err = serde_json::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::de::from_str(s)
+        if let Ok(cmd) = serde_json::de::from_str(s) {
+            return Ok(cmd);
+        }
+
+        let variant = s.trim_matches('"');
+        let json = match variant {
+            "alt-tab" => "\"AltTab\"",
+            "alt-tab-all" => "\"AltTabAll\"",
+            "alt-tab-workspace" => "\"AltTabWorkspace\"",
+            "shift-alt-tab" => "\"ShiftAltTab\"",
+            "shift-alt-tab-all" => "\"ShiftAltTabAll\"",
+            "shift-alt-tab-workspace" => "\"ShiftAltTabWorkspace\"",
+            "AltTab" => "\"AltTab\"",
+            "AltTabAll" => "\"AltTabAll\"",
+            "AltTabWorkspace" => "\"AltTabWorkspace\"",
+            "ShiftAltTab" => "\"ShiftAltTab\"",
+            "ShiftAltTabAll" => "\"ShiftAltTabAll\"",
+            "ShiftAltTabWorkspace" => "\"ShiftAltTabWorkspace\"",
+            other if other.starts_with('"') => other,
+            other => {
+                return serde_json::de::from_str(&format!("\"{other}\""));
+            }
+        };
+
+        serde_json::de::from_str(json)
     }
 }
 
@@ -152,6 +211,8 @@ pub struct CosmicLauncher {
     last_hide: Instant,
     alt_tab: bool,
     alt_tab_released: bool,
+    alt_tab_workspace_filter: WorkspaceFilter,
+    window_switcher_config: WindowSwitcher,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -196,7 +257,22 @@ impl CosmicLauncher {
                 error!("tx: {e}");
             }
         } else {
-            info!("tx not found");
+            warn!("tx not found for request {:?}", r);
+        }
+    }
+
+    fn request_search(&self, query: String) {
+        if self.alt_tab {
+            debug!(
+                "window search with workspace filter {:?}",
+                self.alt_tab_workspace_filter
+            );
+            self.request(launcher::Request::SearchFiltered {
+                query,
+                workspace_filter: self.alt_tab_workspace_filter,
+            });
+        } else {
+            self.request(launcher::Request::Search(query));
         }
     }
 
@@ -355,6 +431,8 @@ impl cosmic::Application for CosmicLauncher {
             last_hide: Instant::now(),
             alt_tab: false,
             alt_tab_released: false,
+            alt_tab_workspace_filter: WorkspaceFilter::All,
+            window_switcher_config: window_switcher_config(),
             window_id: SurfaceId::unique(),
             queue: VecDeque::new(),
             result_ids: (0..10)
@@ -453,7 +531,11 @@ impl cosmic::Application for CosmicLauncher {
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
                     self.tx.replace(tx);
-                    self.request(launcher::Request::Search(self.input_value.clone()));
+                    if self.alt_tab || self.input_value.is_empty() {
+                        self.request_search(String::new());
+                    } else {
+                        self.request_search(self.input_value.clone());
+                    }
                 }
                 launcher::Event::ServiceIsClosed => {
                     self.request(launcher::Request::ServiceIsClosed);
@@ -613,7 +695,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     pop_launcher::Response::Fill(s) => {
                         self.input_value = s;
-                        self.request(launcher::Request::Search(self.input_value.clone()));
+                        self.request_search(self.input_value.clone());
                     }
                 },
             },
@@ -702,7 +784,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     keyboard_nav::Action::Escape => {
                         self.input_value.clear();
-                        self.request(launcher::Request::Search(String::new()));
+                        self.request_search(String::new());
                     }
                     _ => {}
                 };
@@ -781,16 +863,33 @@ impl cosmic::Application for CosmicLauncher {
                 debug!("ActivateAction {}", action);
 
                 let Ok(cmd) = LauncherTasks::from_str(&action) else {
+                    warn!("failed to parse launcher action {:?}", action);
                     return Task::none();
                 };
+
+                debug!(
+                    "launcher action {:?} -> workspace filter {:?}",
+                    cmd,
+                    cmd.workspace_filter(&self.window_switcher_config)
+                );
 
                 if self.surface_state == SurfaceState::Hidden {
                     self.surface_state = SurfaceState::WaitingToBeShown;
                 }
 
                 match cmd {
-                    LauncherTasks::AltTab => {
+                    LauncherTasks::AltTab
+                    | LauncherTasks::AltTabAll
+                    | LauncherTasks::AltTabWorkspace => {
+                        let workspace_filter =
+                            cmd.workspace_filter(&self.window_switcher_config);
+                        let filter_changed =
+                            self.alt_tab_workspace_filter != workspace_filter;
+                        self.alt_tab_workspace_filter = workspace_filter;
                         if self.alt_tab {
+                            if filter_changed {
+                                self.request_search(String::new());
+                            }
                             if self.surface_state == SurfaceState::WaitingToBeShown
                                 || self.launcher_items.is_empty()
                             {
@@ -802,11 +901,21 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
+                        self.request_search(String::new());
                         self.queue.push_back(Message::AltTab);
                     }
-                    LauncherTasks::ShiftAltTab => {
+                    LauncherTasks::ShiftAltTab
+                    | LauncherTasks::ShiftAltTabAll
+                    | LauncherTasks::ShiftAltTabWorkspace => {
+                        let workspace_filter =
+                            cmd.workspace_filter(&self.window_switcher_config);
+                        let filter_changed =
+                            self.alt_tab_workspace_filter != workspace_filter;
+                        self.alt_tab_workspace_filter = workspace_filter;
                         if self.alt_tab {
+                            if filter_changed {
+                                self.request_search(String::new());
+                            }
                             if self.surface_state == SurfaceState::WaitingToBeShown
                                 || self.launcher_items.is_empty()
                             {
@@ -818,7 +927,7 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
+                        self.request_search(String::new());
                         self.queue.push_back(Message::ShiftAltTab);
                     }
                     LauncherTasks::Input { input } => {
