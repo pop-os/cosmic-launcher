@@ -1,9 +1,9 @@
 use cosmic::cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry};
 use pop_launcher::WorkspaceFilter;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const CONFIG_VERSION: u64 = 1;
 pub const APP_ID: &str = "com.system76.CosmicLauncher";
 
 pub fn profile() -> &'static str {
@@ -51,11 +51,16 @@ impl Default for WindowSwitcher {
 }
 
 pub fn window_switcher_config() -> WindowSwitcher {
-    cosmic_config::Config::new(
-        APP_ID,
-        WindowSwitcher::VERSION,
-    )
-    .ok()
-    .and_then(|config| WindowSwitcher::get_entry(&config).ok())
-    .unwrap_or_default()
+    let Some(config) = cosmic_config::Config::new(APP_ID, WindowSwitcher::VERSION) else {
+        warn!("failed to load window switcher config for {APP_ID}");
+        return WindowSwitcher::default();
+    };
+
+    match WindowSwitcher::get_entry(&config) {
+        Ok(entry) => entry,
+        Err(why) => {
+            warn!("failed to parse window switcher config: {why}");
+            WindowSwitcher::default()
+        }
+    }
 }

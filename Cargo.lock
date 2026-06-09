@@ -4333,6 +4333,7 @@ checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
 [[package]]
 name = "pop-launcher"
 version = "1.2.7"
+source = "git+https://github.com/erik-balfe/launcher?branch=feature%2Fworkspace-filtered-window-search#6417ea344128af71840de670d6b50081467cc20e"
 dependencies = [
  "const_format",
  "dirs",
@@ -4347,6 +4348,7 @@ dependencies = [
 [[package]]
 name = "pop-launcher-service"
 version = "1.2.7"
+source = "git+https://github.com/erik-balfe/launcher?branch=feature%2Fworkspace-filtered-window-search#6417ea344128af71840de670d6b50081467cc20e"
 dependencies = [
  "async-oneshot",
  "async-trait",

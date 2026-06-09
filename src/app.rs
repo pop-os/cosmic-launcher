@@ -323,6 +323,7 @@ impl CosmicLauncher {
         self.focused = 0;
         self.alt_tab = false;
         self.alt_tab_released = false;
+        self.alt_tab_workspace_filter = WorkspaceFilter::All;
         self.queue.clear();
         self.hand_over.clear();
 
@@ -618,7 +619,10 @@ impl cosmic::Application for CosmicLauncher {
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
-                        if self.alt_tab && list.is_empty() {
+                        if self.alt_tab
+                            && list.is_empty()
+                            && self.alt_tab_workspace_filter != WorkspaceFilter::Current
+                        {
                             return self.hide();
                         }
                         if self.alt_tab || self.input_value.is_empty() {
@@ -630,6 +634,13 @@ impl cosmic::Application for CosmicLauncher {
                             a.cmp(&b)
                         });
                         self.launcher_items.splice(.., list);
+                        if !self.launcher_items.is_empty() {
+                            self.focused = self
+                                .focused
+                                .min(self.launcher_items.len().saturating_sub(1));
+                        } else {
+                            self.focused = 0;
+                        }
                         if self.result_ids.len() < self.launcher_items.len() {
                             self.result_ids.extend(
                                 (self.result_ids.len()..self.launcher_items.len())
@@ -894,7 +905,9 @@ impl cosmic::Application for CosmicLauncher {
                         self.alt_tab_workspace_filter = workspace_filter;
                         if self.alt_tab {
                             if filter_changed {
+                                self.focused = 0;
                                 self.request_search(String::new());
+                                return Task::none();
                             }
                             if self.surface_state == SurfaceState::WaitingToBeShown
                                 || self.launcher_items.is_empty()
@@ -920,7 +933,9 @@ impl cosmic::Application for CosmicLauncher {
                         self.alt_tab_workspace_filter = workspace_filter;
                         if self.alt_tab {
                             if filter_changed {
+                                self.focused = 0;
                                 self.request_search(String::new());
+                                return Task::none();
                             }
                             if self.surface_state == SurfaceState::WaitingToBeShown
                                 || self.launcher_items.is_empty()

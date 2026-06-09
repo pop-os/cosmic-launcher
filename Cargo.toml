@@ -38,10 +38,11 @@ tracing-subscriber = { version = "0.3.22", default-features = false, features = 
 tracing-journald = "0.3.2"
 tokio-stream = "0.1.18"
 nix = { version = "0.31.1", features = ["process"] }
-pop-launcher = { path = "../pop-launcher" }
-pop-launcher-service = { path = "../pop-launcher/service" }
-# pop-launcher = { git = "https://github.com/pop-os/launcher/" }
-# pop-launcher-service = { git = "https://github.com/pop-os/launcher/" }
+pop-launcher = { git = "https://github.com/erik-balfe/launcher", branch = "feature/workspace-filtered-window-search" }
+pop-launcher-service = { git = "https://github.com/erik-balfe/launcher", branch = "feature/workspace-filtered-window-search" }
+# Local dev override:
+# pop-launcher = { path = "../pop-launcher" }
+# pop-launcher-service = { path = "../pop-launcher/service" }
 rust-embed = "8.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
