@@ -119,35 +119,39 @@ impl Display for LauncherTasks {
     }
 }
 
+fn parse_launcher_action(action: &str, args: &[String]) -> Result<LauncherTasks, serde_json::Error> {
+    if let Ok(cmd) = serde_json::de::from_str(action) {
+        return Ok(cmd);
+    }
+
+    let variant = action.trim_matches('"');
+    match variant {
+        "alt-tab" => Ok(LauncherTasks::AltTab),
+        "alt-tab-all" => Ok(LauncherTasks::AltTabAll),
+        "alt-tab-workspace" => Ok(LauncherTasks::AltTabWorkspace),
+        "shift-alt-tab" => Ok(LauncherTasks::ShiftAltTab),
+        "shift-alt-tab-all" => Ok(LauncherTasks::ShiftAltTabAll),
+        "shift-alt-tab-workspace" => Ok(LauncherTasks::ShiftAltTabWorkspace),
+        "AltTab" => Ok(LauncherTasks::AltTab),
+        "AltTabAll" => Ok(LauncherTasks::AltTabAll),
+        "AltTabWorkspace" => Ok(LauncherTasks::AltTabWorkspace),
+        "ShiftAltTab" => Ok(LauncherTasks::ShiftAltTab),
+        "ShiftAltTabAll" => Ok(LauncherTasks::ShiftAltTabAll),
+        "ShiftAltTabWorkspace" => Ok(LauncherTasks::ShiftAltTabWorkspace),
+        "Input" | "input" => Ok(LauncherTasks::Input {
+            input: args.first().cloned().filter(|input| !input.is_empty()),
+        }),
+        "Close" | "close" => Ok(LauncherTasks::Close),
+        other if other.starts_with('"') => serde_json::de::from_str(other),
+        other => serde_json::de::from_str(&format!("\"{other}\"")),
+    }
+}
+
 impl FromStr for LauncherTasks {
     type Err = serde_json::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(cmd) = serde_json::de::from_str(s) {
-            return Ok(cmd);
-        }
-
-        let variant = s.trim_matches('"');
-        let json = match variant {
-            "alt-tab" => "\"AltTab\"",
-            "alt-tab-all" => "\"AltTabAll\"",
-            "alt-tab-workspace" => "\"AltTabWorkspace\"",
-            "shift-alt-tab" => "\"ShiftAltTab\"",
-            "shift-alt-tab-all" => "\"ShiftAltTabAll\"",
-            "shift-alt-tab-workspace" => "\"ShiftAltTabWorkspace\"",
-            "AltTab" => "\"AltTab\"",
-            "AltTabAll" => "\"AltTabAll\"",
-            "AltTabWorkspace" => "\"AltTabWorkspace\"",
-            "ShiftAltTab" => "\"ShiftAltTab\"",
-            "ShiftAltTabAll" => "\"ShiftAltTabAll\"",
-            "ShiftAltTabWorkspace" => "\"ShiftAltTabWorkspace\"",
-            other if other.starts_with('"') => other,
-            other => {
-                return serde_json::de::from_str(&format!("\"{other}\""));
-            }
-        };
-
-        serde_json::de::from_str(json)
+        parse_launcher_action(s, &[])
     }
 }
 
@@ -462,11 +466,11 @@ impl cosmic::Application for CosmicLauncher {
         match message {
             Message::InputChanged(value) => {
                 self.input_value.clone_from(&value);
-                self.request(launcher::Request::Search(value));
+                self.request_search(value);
             }
             Message::Backspace => {
                 self.input_value.pop();
-                self.request(launcher::Request::Search(self.input_value.clone()));
+                self.request_search(self.input_value.clone());
             }
             Message::TabPress if !self.alt_tab => {
                 let focused = self.focused;
@@ -853,16 +857,18 @@ impl cosmic::Application for CosmicLauncher {
                 }
                 // hack: allow to close the launcher from the panel button
                 if self.last_hide.elapsed().as_millis() > 100 {
-                    self.request(launcher::Request::Search(String::new()));
+                    self.alt_tab = false;
+                    self.alt_tab_released = false;
+                    self.request_search(String::new());
 
                     self.surface_state = SurfaceState::WaitingToBeShown;
                     return Task::none();
                 }
             }
-            Details::ActivateAction { action, .. } => {
-                debug!("ActivateAction {}", action);
+            Details::ActivateAction { action, args, .. } => {
+                debug!("ActivateAction {} {:?}", action, args);
 
-                let Ok(cmd) = LauncherTasks::from_str(&action) else {
+                let Ok(cmd) = parse_launcher_action(&action, &args) else {
                     warn!("failed to parse launcher action {:?}", action);
                     return Task::none();
                 };
@@ -931,10 +937,12 @@ impl cosmic::Application for CosmicLauncher {
                         self.queue.push_back(Message::ShiftAltTab);
                     }
                     LauncherTasks::Input { input } => {
-                        self.request(launcher::Request::Search(String::new()));
+                        self.alt_tab = false;
+                        self.alt_tab_released = false;
+                        self.request_search(String::new());
                         if let Some(input) = input {
                             self.hand_over.push_str(&input);
-                        };
+                        }
                     }
                     LauncherTasks::Close => {
                         return self.update(Message::Hide);
