@@ -155,6 +155,51 @@ impl FromStr for LauncherTasks {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_launcher_action_accepts_kebab_case() {
+        assert!(matches!(
+            parse_launcher_action("alt-tab-workspace", &[]),
+            Ok(LauncherTasks::AltTabWorkspace)
+        ));
+    }
+
+    #[test]
+    fn parse_launcher_action_accepts_json_variant() {
+        assert!(matches!(
+            parse_launcher_action("\"AltTabAll\"", &[]),
+            Ok(LauncherTasks::AltTabAll)
+        ));
+    }
+
+    #[test]
+    fn parse_launcher_action_accepts_input_with_args() {
+        let cmd = parse_launcher_action("Input", &["firefox".into()]).unwrap();
+        assert!(matches!(
+            cmd,
+            LauncherTasks::Input {
+                input: Some(ref value)
+            } if value == "firefox"
+        ));
+    }
+
+    #[test]
+    fn workspace_filter_maps_alt_tab_to_config_default() {
+        let config = WindowSwitcher::default();
+        assert_eq!(
+            LauncherTasks::AltTab.workspace_filter(&config),
+            WorkspaceFilter::All
+        );
+        assert_eq!(
+            LauncherTasks::AltTabWorkspace.workspace_filter(&config),
+            WorkspaceFilter::Current
+        );
+    }
+}
+
 impl CosmicFlags for Args {
     type SubCommand = LauncherTasks;
     type Args = Vec<String>;
