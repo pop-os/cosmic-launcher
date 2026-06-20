@@ -4,6 +4,7 @@ mod config;
 mod app;
 mod localize;
 mod subscriptions;
+mod thumbnails;
 use tracing::info;
 
 use localize::localize;
