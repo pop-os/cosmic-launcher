@@ -1,5 +1,8 @@
 use crate::app::iced::event::listen_raw;
 use crate::subscriptions::launcher;
+use crate::thumbnails::loader::load_thumbnail;
+use crate::thumbnails::model::ThumbnailResult;
+use crate::thumbnails::{provider::ThumbnailProvider, view::thumbnail_view};
 use crate::{components, fl};
 use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
@@ -161,6 +164,7 @@ pub struct CosmicLauncher {
     needs_clear: bool,
     hand_over: String,
     dummy_id: Option<window::Id>,
+    thumbnail_provider: ThumbnailProvider,
 }
 
 #[derive(Debug, Clone)]
@@ -186,6 +190,7 @@ pub enum Message {
     AltRelease,
     Overlap(OverlapNotifyEvent),
     Surface(surface::Action),
+    ThumbnailLoaded(ThumbnailResult),
 }
 
 impl CosmicLauncher {
@@ -366,7 +371,9 @@ impl cosmic::Application for CosmicLauncher {
             needs_clear: false,
             hand_over: String::default(),
             dummy_id: None,
+            thumbnail_provider: ThumbnailProvider::new(),
         };
+
         let task = app.create_dummy_layer_surface();
         (app, task)
     }
@@ -543,6 +550,9 @@ impl cosmic::Application for CosmicLauncher {
                             let b = i32::from(b.window.is_none());
                             a.cmp(&b)
                         });
+                        if self.alt_tab {
+                            self.thumbnail_provider.retain_visible_windows(list.iter());
+                        }
                         self.launcher_items.splice(.., list);
                         if self.result_ids.len() < self.launcher_items.len() {
                             self.result_ids.extend(
@@ -598,6 +608,19 @@ impl cosmic::Application for CosmicLauncher {
                             .collect();
 
                         let mut cmds = Vec::new();
+                        if self.alt_tab {
+                            let thumbnail_requests = self
+                                .launcher_items
+                                .iter()
+                                .filter_map(|item| self.thumbnail_provider.request_thumbnail(item))
+                                .collect::<Vec<_>>();
+
+                            for request in thumbnail_requests {
+                                cmds.push(Task::perform(load_thumbnail(request), |result| {
+                                    cosmic::action::app(Message::ThumbnailLoaded(result))
+                                }));
+                            }
+                        }
 
                         while let Some(element) = self.queue.pop_front() {
                             let updated = self.update(element);
@@ -755,6 +778,10 @@ impl cosmic::Application for CosmicLauncher {
                 return cosmic::task::message(cosmic::Action::Cosmic(
                     cosmic::app::Action::Surface(a),
                 ));
+            }
+            Message::ThumbnailLoaded(result) => {
+                self.thumbnail_provider
+                    .set_thumbnail_state(result.window, result.state);
             }
         }
         Task::none()
@@ -938,6 +965,14 @@ impl cosmic::Application for CosmicLauncher {
                                 .height(Length::Fixed(32.0))
                                 .into(),
                         );
+                    }
+
+                    if self.alt_tab {
+                        if let Some(thumbnail) =
+                            thumbnail_view(self.thumbnail_provider.thumbnail_state(item))
+                        {
+                            button_content.push(thumbnail);
+                        }
                     }
 
                     button_content.push(column![name, desc].width(Length::FillPortion(5)).into());
