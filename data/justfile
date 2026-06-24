@@ -7,9 +7,13 @@ desktop-dst := install-dir / 'applications' / desktop-src
 metainfo-src := appid + '.metainfo.xml'
 metainfo-dst := install-dir / 'metainfo' / metainfo-src
 
+window-switcher-src := 'cosmic' / appid / 'v1' / 'window_switcher'
+window-switcher-dst := install-dir / 'cosmic' / appid / 'v1' / 'window_switcher'
+
 install:
     install -Dm0644 {{desktop-src}} {{desktop-dst}}
     install -Dm0644 {{metainfo-src}} {{metainfo-dst}}
+    install -Dm0644 {{window-switcher-src}} {{window-switcher-dst}}
 
 uninstall:
-    rm {{desktop-dst}} {{metainfo-dst}}
+    rm {{desktop-dst}} {{metainfo-dst}} {{window-switcher-dst}}
