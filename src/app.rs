@@ -192,7 +192,6 @@ pub enum Message {
     Opened(Size, window::Id),
     AltRelease,
     Overlap(OverlapNotifyEvent),
-    Surface(surface::Action),
 }
 
 impl CosmicLauncher {
@@ -234,7 +233,6 @@ impl CosmicLauncher {
 
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
-
         cosmic::surface::surface_task(app_layer_shell(
             |app: &CosmicLauncher| LiveSettings {
                 padding: Some(app.layer_padding()),
@@ -253,6 +251,7 @@ impl CosmicLauncher {
             },
             None,
         ))
+        .chain(self.handle_overlap())
     }
 
     fn hide(&mut self) -> Task<Message> {
@@ -307,8 +306,6 @@ impl CosmicLauncher {
             self.margin = o.y + o.height;
         }
         let mut cmds = Vec::with_capacity(2);
-        // TODO what to do about rounded corners...
-        // set the padding
         cmds.push(set_padding::<()>(self.window_id, self.layer_padding()).discard());
         cmds.push(
             if self.core.system_theme().cosmic().frosted_system_interface {
@@ -424,7 +421,6 @@ impl cosmic::Application for CosmicLauncher {
         };
         let task = app.create_dummy_layer_surface();
         app.needs_clear = false;
-
         (app, task)
     }
 
@@ -498,11 +494,10 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::Opened(size, window_id) => {
                 let mut tasks = Vec::with_capacity(3);
-                tasks.push(overlap_notify(self.window_id, true));
-                if window_id == self.window_id {
-                    self.height = size.height;
-                    tasks.push(self.handle_overlap());
+                if self.dummy_id.is_none() {
+                    tasks.push(overlap_notify(self.window_id, true));
                 }
+
                 if !self.hand_over.is_empty() {
                     let input = self.hand_over.clone();
                     self.hand_over.clear();
@@ -810,11 +805,6 @@ impl cosmic::Application for CosmicLauncher {
                     );
                     self.alt_tab_released = true;
                 }
-            }
-            Message::Surface(a) => {
-                return cosmic::task::message(cosmic::Action::Cosmic(
-                    cosmic::app::Action::Surface(a),
-                ));
             }
         }
         Task::none()
