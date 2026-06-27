@@ -295,7 +295,7 @@ impl CosmicLauncher {
 }
 
 fn alt_tab_modifier_is_released(modifiers: Modifiers) -> bool {
-    !modifiers.alt() && !modifiers.logo()
+    !modifiers.alt() && !modifiers.logo() && !modifiers.control()
 }
 
 async fn launch(
@@ -1155,7 +1155,7 @@ impl cosmic::Application for CosmicLauncher {
                     wayland::Event::Output(event, _),
                 )) => Some(Message::Output(event)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                    key: Key::Named(Named::Alt | Named::Super),
+                    key: Key::Named(Named::Alt | Named::Super | Named::Control),
                     ..
                 }) => Some(Message::AltRelease),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
