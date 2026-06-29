@@ -27,6 +27,7 @@ use cosmic::iced::runtime::core::event::wayland::{LayerEvent, OutputEvent};
 use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
 use cosmic::iced::runtime::core::layout::Limits;
 use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
+use cosmic::iced::runtime::platform_specific::wayland::CornerRadius;
 use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use cosmic::iced::runtime::{Action, platform_specific, task};
 use cosmic::iced::widget::operation;
@@ -36,7 +37,7 @@ use cosmic::iced::widget::{Column, column, container};
 use cosmic::iced::{
     self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
 };
-use cosmic::surface::action::{LiveSettings, app_layer_shell};
+use cosmic::surface::action::{LiveSettings, app_layer_shell, simple_layer_shell};
 use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
 use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
@@ -210,23 +211,33 @@ impl CosmicLauncher {
         self.needs_clear = true;
         let id = window::Id::unique();
         self.dummy_id = Some(id);
-        self.handle_overlap();
 
         Task::batch(vec![
-            get_layer_surface(SctkLayerSurfaceSettings {
-                id,
-                layer: wlr_layer::Layer::Bottom,
-                keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
-                input_zone: Some(Vec::new()),
-                anchor: wlr_layer::Anchor::TOP,
-                output:
-                    cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
-                namespace: "cosmic_launcher_dummy".into(),
-                margin: IcedMargin::default(),
-                size: Some((Some(600), Some(200))),
-                exclusive_zone: -1,
-                size_limits: Limits::NONE,
-            }),
+            cosmic::surface::surface_task(simple_layer_shell::<Message>(
+                || LiveSettings {
+                    padding: Some(IcedMargin::default()),
+                    corners: Some(CornerRadius::default()),
+                    blur: Some(false),
+                },
+                move || {
+                    SctkLayerSurfaceSettings {
+                    id,
+                    layer: wlr_layer::Layer::Bottom,
+                    keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+                    input_zone: Some(Vec::new()),
+                    anchor: wlr_layer::Anchor::TOP,
+                    output:
+                        cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                    namespace: "cosmic_launcher_dummy".into(),
+                    margin: IcedMargin::default(),
+                    size: Some((Some(200), Some(200))),
+                    exclusive_zone: -1,
+                    size_limits: Limits::NONE,
+                }
+                },
+                None::<fn() -> Element<'static, cosmic::Action<Message>>>,
+            )),
+            self.handle_overlap(),
             overlap_notify(id, true),
         ])
     }
