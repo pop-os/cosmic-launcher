@@ -206,41 +206,43 @@ impl CosmicLauncher {
     }
 
     fn create_dummy_layer_surface(&mut self) -> Task<Message> {
+        self.needs_clear = true;
         let id = window::Id::unique();
         self.dummy_id = Some(id);
-        get_layer_surface(SctkLayerSurfaceSettings {
-            id,
-            layer: wlr_layer::Layer::Bottom,
-            keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
-            input_zone: Some(Vec::new()),
-            anchor: wlr_layer::Anchor::empty(),
-            output:
-                cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
-            namespace: "cosmic_launcher_dummy".into(),
-            margin: IcedMargin::default(),
-            size: Some((Some(6), Some(6))),
-            exclusive_zone: -1,
-            size_limits: Limits::NONE,
-        })
+        self.handle_overlap();
+
+        Task::batch(vec![
+            get_layer_surface(SctkLayerSurfaceSettings {
+                id,
+                layer: wlr_layer::Layer::Bottom,
+                keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+                input_zone: Some(Vec::new()),
+                anchor: wlr_layer::Anchor::TOP,
+                output:
+                    cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                namespace: "cosmic_launcher_dummy".into(),
+                margin: IcedMargin::default(),
+                size: Some((Some(600), Some(200))),
+                exclusive_zone: -1,
+                size_limits: Limits::NONE,
+            }),
+            overlap_notify(id, true),
+        ])
     }
 
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
-        self.needs_clear = true;
 
-        Task::batch(vec![
-            get_layer_surface(SctkLayerSurfaceSettings {
-                id: self.window_id,
-                keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                anchor: Anchor::TOP,
-                namespace: "launcher".into(),
-                size: None,
-                size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
-                exclusive_zone: -1,
-                ..Default::default()
-            }),
-            overlap_notify(self.window_id, true),
-        ])
+        get_layer_surface(SctkLayerSurfaceSettings {
+            id: self.window_id,
+            keyboard_interactivity: KeyboardInteractivity::Exclusive,
+            anchor: Anchor::TOP,
+            namespace: "launcher".into(),
+            size: None,
+            size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
+            exclusive_zone: -1,
+            ..Default::default()
+        })
     }
 
     fn hide(&mut self) -> Task<Message> {
@@ -282,9 +284,6 @@ impl CosmicLauncher {
     }
 
     fn handle_overlap(&mut self) {
-        if matches!(self.surface_state, SurfaceState::Hidden) {
-            return;
-        }
         let mid_height = self.height / 2.;
         self.margin = 0.;
 
@@ -367,7 +366,7 @@ impl cosmic::Application for CosmicLauncher {
                 .collect::<Vec<_>>(),
             margin: 0.,
             overlap: HashMap::new(),
-            height: 100.,
+            height: 500.,
             needs_clear: false,
             hand_over: String::default(),
             dummy_id: None,
@@ -375,6 +374,8 @@ impl cosmic::Application for CosmicLauncher {
         };
 
         let task = app.create_dummy_layer_surface();
+        app.needs_clear = false;
+
         (app, task)
     }
 
@@ -446,11 +447,7 @@ impl cosmic::Application for CosmicLauncher {
                     return commands::popup::destroy_popup(*MENU_ID);
                 }
             }
-            Message::Opened(size, window_id) => {
-                if window_id == self.window_id {
-                    self.height = size.height;
-                    self.handle_overlap();
-                }
+            Message::Opened(_, _) => {
                 if !self.hand_over.is_empty() {
                     let input = self.hand_over.clone();
                     self.hand_over.clear();
