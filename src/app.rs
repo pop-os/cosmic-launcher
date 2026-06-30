@@ -211,7 +211,6 @@ impl CosmicLauncher {
         self.needs_clear = true;
         let id = window::Id::unique();
         self.dummy_id = Some(id);
-
         Task::batch(vec![
             cosmic::surface::surface_task(simple_layer_shell::<Message>(
                 || LiveSettings {
@@ -425,7 +424,7 @@ impl cosmic::Application for CosmicLauncher {
                 .collect::<Vec<_>>(),
             margin: 0.,
             overlap: HashMap::new(),
-            height: 500.,
+            height: 800.,
             needs_clear: false,
             hand_over: String::default(),
             dummy_id: None,
@@ -505,7 +504,11 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::Opened(size, window_id) => {
                 let mut tasks = Vec::with_capacity(3);
-                if self.dummy_id.is_none() {
+                if let Some(dummy) = self.dummy_id
+                    && dummy == window_id
+                {
+                    tasks.push(overlap_notify(window_id, true));
+                } else if self.dummy_id.is_none() {
                     tasks.push(overlap_notify(self.window_id, true));
                 }
 
