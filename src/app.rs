@@ -220,19 +220,19 @@ impl CosmicLauncher {
                 },
                 move || {
                     SctkLayerSurfaceSettings {
-                    id,
-                    layer: wlr_layer::Layer::Bottom,
-                    keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
-                    input_zone: Some(Vec::new()),
-                    anchor: wlr_layer::Anchor::TOP,
-                    output:
-                        cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
-                    namespace: "cosmic_launcher_dummy".into(),
-                    margin: IcedMargin::default(),
-                    size: Some((Some(200), Some(200))),
-                    exclusive_zone: -1,
-                    size_limits: Limits::NONE,
-                }
+                        id,
+                        layer: wlr_layer::Layer::Bottom,
+                        keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+                        input_zone: Some(Vec::new()),
+                        anchor: wlr_layer::Anchor::TOP,
+                        output:
+                            cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                        namespace: "cosmic_launcher_dummy".into(),
+                        margin: IcedMargin::default(),
+                        size: Some((Some(200), Some(200))),
+                        exclusive_zone: -1,
+                        size_limits: Limits::NONE,
+                    }
                 },
                 None::<fn() -> Element<'static, cosmic::Action<Message>>>,
             )),
