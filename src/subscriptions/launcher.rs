@@ -9,6 +9,10 @@ use tokio::sync::{mpsc, oneshot};
 #[derive(Debug, Clone)]
 pub enum Request {
     Search(String),
+    SearchFiltered {
+        query: String,
+        workspace_filter: pop_launcher::WorkspaceFilter,
+    },
     Activate(u32),
     Context(u32),
     Complete(u32),
@@ -108,7 +112,24 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
             match request {
                 Request::Search(s) => {
                     if let Some((client, _)) = client_request(&responses_tx, client) {
+                        tracing::debug!("ipc: Search({s:?})");
                         let _res = client.send(pop_launcher::Request::Search(s)).await;
+                    }
+                }
+                Request::SearchFiltered {
+                    query,
+                    workspace_filter,
+                } => {
+                    if let Some((client, _)) = client_request(&responses_tx, client) {
+                        tracing::debug!(
+                            "ipc: SearchFiltered({query:?}, workspace_filter={workspace_filter:?})"
+                        );
+                        let _res = client
+                            .send(pop_launcher::Request::SearchFiltered {
+                                query,
+                                workspace_filter,
+                            })
+                            .await;
                     }
                 }
                 Request::Activate(i) => {
