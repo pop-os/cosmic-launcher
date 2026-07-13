@@ -447,11 +447,15 @@ impl cosmic::Application for CosmicLauncher {
         match message {
             Message::InputChanged(value) => {
                 self.input_value.clone_from(&value);
+                self.focused = 0;
                 self.request(launcher::Request::Search(value));
+                return operation::snap_to(SCROLLABLE.clone(), RelativeOffset::START);
             }
             Message::Backspace => {
                 self.input_value.pop();
+                self.focused = 0;
                 self.request(launcher::Request::Search(self.input_value.clone()));
+                return operation::snap_to(SCROLLABLE.clone(), RelativeOffset::START);
             }
             Message::TabPress if !self.alt_tab => {
                 let focused = self.focused;
