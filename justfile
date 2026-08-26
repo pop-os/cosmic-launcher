@@ -2,6 +2,7 @@ mod cargo 'cargo.just'
 
 name := 'cosmic-launcher'
 appid := 'com.system76.CosmicLauncher'
+export APP_ID := appid
 
 rootdir := ''
 prefix := '/usr'
@@ -18,10 +19,11 @@ appdata-dst := base-dir / 'share' / 'appdata' / appdata
 desktop-dst := base-dir / 'share' / 'applications' / desktop
 icon-dst := base-dir / 'share' / 'icons' / 'hicolor' / 'scalable' / 'apps' / appid + '.svg'
 
+export LOCKSTEP_XML_PATH := absolute_path('vendor/atspi-common/xml')
 export RUSTFLAGS := env_var_or_default('RUSTFLAGS', '') + ' --cfg tokio_unstable '
 
 # Default recipe which runs `just build-release`
-default: xdgen build-release
+default: build-release
 
 # Runs `cargo clean`
 clean: cargo::clean
@@ -50,14 +52,10 @@ check *args: (cargo::check args)
 check-json: (check '--message-format=json')
 
 # Vendor dependencies locally
-vendor: xdgen cargo::vendor
+vendor: cargo::vendor
 
 # Extracts vendored dependencies
 vendor-extract: cargo::vendor-extract
-
-# Generate desktop entries and appstream metadata with translations
-xdgen:
-    env APP_ID={{appid}} APP_NAME={{name}} cargo run --manifest-path scripts/xdgen/Cargo.toml
 
 # Build and run with tokio-console enabled
 tokio-console: (build-release '--features console')

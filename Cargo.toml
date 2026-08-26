@@ -10,6 +10,9 @@ default = []
 wgpu = ["libcosmic/wgpu"]
 console = ["tokio/tracing"]
 
+[build-dependencies]
+xdgen = "0.1.0"
+
 [dependencies]
 console-subscriber = "0.5.0"
 futures = "0.3.31"
