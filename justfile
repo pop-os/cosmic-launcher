@@ -19,7 +19,6 @@ appdata-dst := base-dir / 'share' / 'appdata' / appdata
 desktop-dst := base-dir / 'share' / 'applications' / desktop
 icon-dst := base-dir / 'share' / 'icons' / 'hicolor' / 'scalable' / 'apps' / appid + '.svg'
 
-export LOCKSTEP_XML_PATH := absolute_path('vendor/atspi-common/xml')
 export RUSTFLAGS := env_var_or_default('RUSTFLAGS', '') + ' --cfg tokio_unstable '
 
 # Default recipe which runs `just build-release`

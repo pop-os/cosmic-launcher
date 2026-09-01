@@ -13,7 +13,8 @@ build-release *args: (build-debug '--release' args)
 
 # Compile with a vendored tarball
 [no-cd]
-build-vendored *args: vendor-extract (build-release '--frozen --offline' args)
+build-vendored *args: vendor-extract
+    LOCKSTEP_XML_PATH="${PWD}/vendor/atspi-common/xml" cargo build --release --frozen --offline {{args}}
 
 # Check for errors and linter warnings
 [no-cd]
