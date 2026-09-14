@@ -1,6 +1,4 @@
-[private]
-default:
-    @just --justfile cargo.just --list
+cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
 
 # Compile with debug profile
 [no-cd]
@@ -13,8 +11,7 @@ build-release *args: (build-debug '--release' args)
 
 # Compile with a vendored tarball
 [no-cd]
-build-vendored *args: vendor-extract
-    LOCKSTEP_XML_PATH="${PWD}/vendor/atspi-common/xml" cargo build --release --frozen --offline {{args}}
+build-vendored *args: vendor-extract (build-release '--frozen --offline' args)
 
 # Check for errors and linter warnings
 [no-cd]
