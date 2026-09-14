@@ -944,6 +944,7 @@ impl cosmic::Application for CosmicLauncher {
                                 cosmic::iced::widget::text::Style {
                                     color: Some(theme.on_bg_color().into()),
                                     selected_fill: theme.accent_color().into(),
+                                    selected_text_color: Some(theme.on_accent_color().into()),
                                 }
                             }))
                             .into()
@@ -959,6 +960,7 @@ impl cosmic::Application for CosmicLauncher {
                                 cosmic::iced::widget::text::Style {
                                     color: Some(theme.on_bg_color().into()),
                                     selected_fill: theme.accent_color().into(),
+                                    selected_text_color: Some(theme.on_accent_color().into()),
                                 }
                             }))
                             .into()
@@ -1015,6 +1017,9 @@ impl cosmic::Application for CosmicLauncher {
                                         cosmic::iced::widget::text::Style {
                                             color: Some(theme.on_bg_color().into()),
                                             selected_fill: theme.accent_color().into(),
+                                            selected_text_color: Some(
+                                                theme.on_accent_color().into(),
+                                            ),
                                         }
                                     })),
                             )
