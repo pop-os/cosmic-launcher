@@ -39,7 +39,8 @@ build-debug *args: (cargo::build-debug args)
 build-release *args: (cargo::build-release args)
 
 # Compiles release profile with vendored dependencies
-build-vendored *args: (cargo::build-vendored args)
+build-vendored *args: cargo::vendor-extract
+    LOCKSTEP_XML_PATH="${PWD}/vendor/atspi-common/xml" cargo build --release --frozen --offline {{args}}
 
 # Compiles and runs a standalone instance
 run *args: (cargo::run args)
