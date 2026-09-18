@@ -1,5 +1,5 @@
-app-name = Amsekkar COSMIC
+app-name = Amsekker COSMIC
 type-to-search = Aru iwakken ad tnadiḍ isnasen neɣ aru “?” i wugar n iɣewwaṛen…
-xdg-name = Amsekkar
-xdg-comment = Agrudem COSMIC i umsekkar Pop
-xdg-keywords = Amsekkar
+xdg-name = Amsekker
+xdg-comment = Agrudem COSMIC i umsekker Pop
+xdg-keywords = Amsekker
