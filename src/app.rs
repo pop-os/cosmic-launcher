@@ -168,6 +168,7 @@ pub struct CosmicLauncher {
     hand_over: String,
     dummy_id: Option<window::Id>,
     thumbnail_provider: ThumbnailProvider,
+    thumbnail_refresh_requested: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -271,6 +272,7 @@ impl CosmicLauncher {
         self.alt_tab_released = false;
         self.queue.clear();
         self.hand_over.clear();
+        self.thumbnail_refresh_requested = false;
 
         self.request(launcher::Request::Close);
 
@@ -429,6 +431,7 @@ impl cosmic::Application for CosmicLauncher {
             hand_over: String::default(),
             dummy_id: None,
             thumbnail_provider: ThumbnailProvider::new(),
+            thumbnail_refresh_requested: false,
         };
 
         let task = app.create_dummy_layer_surface();
@@ -675,6 +678,16 @@ impl cosmic::Application for CosmicLauncher {
                             })
                             .collect();
 
+                        if self.alt_tab && !self.thumbnail_refresh_requested {
+                            self.thumbnail_refresh_requested = true;
+
+                            for item in &self.launcher_items {
+                                if item.window.is_some() {
+                                    self.request(launcher::Request::Refresh(item.id));
+                                }
+                            }
+                        }
+
                         let mut cmds = Vec::new();
                         if self.alt_tab {
                             let thumbnail_requests = self
@@ -890,6 +903,7 @@ impl cosmic::Application for CosmicLauncher {
                             return self.update(Message::AltTab);
                         }
 
+                        self.thumbnail_refresh_requested = false;
                         self.alt_tab = true;
                         self.alt_tab_released = false;
                         self.request(launcher::Request::Search(String::new()));
@@ -906,6 +920,7 @@ impl cosmic::Application for CosmicLauncher {
                             return self.update(Message::ShiftAltTab);
                         }
 
+                        self.thumbnail_refresh_requested = false;
                         self.alt_tab = true;
                         self.alt_tab_released = false;
                         self.request(launcher::Request::Search(String::new()));

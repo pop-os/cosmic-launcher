@@ -13,6 +13,7 @@ pub enum Request {
     Context(u32),
     Complete(u32),
     ActivateContext(u32, u32),
+    Refresh(u32),
     Close,
     ServiceIsClosed,
 }
@@ -126,6 +127,11 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
                         let _res = client
                             .send(pop_launcher::Request::ActivateContext { id, context })
                             .await;
+                    }
+                }
+                Request::Refresh(id) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client) {
+                        let _res = client.send(pop_launcher::Request::Refresh(id)).await;
                     }
                 }
                 Request::Close => {
