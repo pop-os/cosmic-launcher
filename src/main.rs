@@ -11,6 +11,18 @@ use localize::localize;
 use crate::config::VERSION;
 
 fn main() -> cosmic::iced::Result {
+    // Always software rendering unless `COSMIC_LAUNCHER_WGPU=1` then try wgpu first
+    #[cfg(feature = "wgpu")]
+    {
+        let backend = if std::env::var("COSMIC_LAUNCHER_WGPU").as_deref() == Ok("1") {
+            "wgpu,tiny-skia"
+        } else {
+            "tiny-skia"
+        };
+        // SAFETY: no other threads exist yet.
+        unsafe { std::env::set_var("ICED_BACKEND", backend) };
+    }
+
     init_logging();
 
     info!(
