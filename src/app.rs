@@ -8,6 +8,8 @@ use cosmic::cctk::sctk::shell::wlr_layer;
 use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::core::text::{Ellipsize, EllipsizeHeightLimit};
+use cosmic::iced::core::widget::Operation;
+use cosmic::iced::core::widget::operation::Scrollable;
 use cosmic::iced::event::Status;
 use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::id::Id;
@@ -27,10 +29,10 @@ use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId}
 use cosmic::iced::runtime::platform_specific::wayland::CornerRadius;
 use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use cosmic::iced::runtime::{Action, platform_specific, task};
-use cosmic::iced::widget::scrollable::RelativeOffset;
+use cosmic::iced::widget::scrollable::{AbsoluteOffset, RelativeOffset};
 use cosmic::iced::widget::{Column, column, container, operation, row};
 use cosmic::iced::{
-    self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
+    self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, Vector, window,
 };
 use cosmic::surface::action::{LiveSettings, app_layer_shell, simple_layer_shell};
 use cosmic::theme::{self, Button, Container};
@@ -257,6 +259,51 @@ impl CosmicLauncher {
             None,
         ))
         .chain(self.handle_overlap())
+    }
+
+    /// Scroll only when the focused row leaves the viewport
+    fn scroll_to_focused(&self) -> Task<Message> {
+        struct EnsureVisible {
+            index: usize,
+            len: usize,
+        }
+
+        impl Operation for EnsureVisible {
+            fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation)) {
+                operate(self);
+            }
+
+            fn scrollable(
+                &mut self,
+                id: Option<&Id>,
+                bounds: Rectangle,
+                content_bounds: Rectangle,
+                translation: Vector,
+                state: &mut dyn Scrollable,
+            ) {
+                if id != Some(&*SCROLLABLE) {
+                    return;
+                }
+                let row_h = content_bounds.height / self.len.max(1) as f32;
+                let top = self.index as f32 * row_h;
+                let y = if top < translation.y {
+                    top
+                } else if top + row_h > translation.y + bounds.height {
+                    top + row_h - bounds.height
+                } else {
+                    return;
+                };
+                state.scroll_to(AbsoluteOffset {
+                    x: None,
+                    y: Some(y),
+                });
+            }
+        }
+
+        task::effect(Action::widget(EnsureVisible {
+            index: self.focused,
+            len: self.launcher_items.len(),
+        }))
     }
 
     fn hide(&mut self) -> Task<Message> {
@@ -741,32 +788,11 @@ impl cosmic::Application for CosmicLauncher {
                 match e {
                     keyboard_nav::Action::FocusNext => {
                         self.focus_next();
-                        // TODO ideally we could use an operation to scroll exactly to a specific widget.
-                        return operation::snap_to(
-                            SCROLLABLE.clone(),
-                            RelativeOffset {
-                                x: None,
-                                y: Some(
-                                    (self.focused as f32
-                                        / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                    .max(0.0),
-                                ),
-                            },
-                        );
+                        return self.scroll_to_focused();
                     }
                     keyboard_nav::Action::FocusPrevious => {
                         self.focus_previous();
-                        return operation::snap_to(
-                            SCROLLABLE.clone(),
-                            RelativeOffset {
-                                x: None,
-                                y: Some(
-                                    (self.focused as f32
-                                        / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                    .max(0.0),
-                                ),
-                            },
-                        );
+                        return self.scroll_to_focused();
                     }
                     keyboard_nav::Action::Escape => {
                         self.input_value.clear();
@@ -782,29 +808,11 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::AltTab => {
                 self.focus_next();
-                return operation::snap_to(
-                    SCROLLABLE.clone(),
-                    RelativeOffset {
-                        x: None,
-                        y: Some(
-                            (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                .max(0.0),
-                        ),
-                    },
-                );
+                return self.scroll_to_focused();
             }
             Message::ShiftAltTab => {
                 self.focus_previous();
-                return operation::snap_to(
-                    SCROLLABLE.clone(),
-                    RelativeOffset {
-                        x: None,
-                        y: Some(
-                            (self.focused as f32 / (self.launcher_items.len() as f32 - 1.).max(1.))
-                                .max(0.0),
-                        ),
-                    },
-                );
+                return self.scroll_to_focused();
             }
             Message::AltRelease => {
                 if self.alt_tab {
