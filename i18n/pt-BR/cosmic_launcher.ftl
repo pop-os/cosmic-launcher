@@ -1,4 +1,4 @@
-app-name = Lançador
+app-name = Lançador COSMIC
 type-to-search = Digite para procurar aplicativos ou digite "?" para mais opções...
 xdg-name = Lançador
 xdg-comment = A interface COSMIC para o Lançador Pop
