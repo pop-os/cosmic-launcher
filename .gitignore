@@ -1,3 +1,4 @@
+.cargo
 target/
 build/
 _build/

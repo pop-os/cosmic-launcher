@@ -1,8 +1,6 @@
 #!/usr/bin/make -f
 
 DESTDIR = debian/cosmic-launcher
-CLEAN ?= 1
-VENDOR ?= 1
 
 %:
 	dh $@
@@ -11,18 +9,7 @@ override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
 
 override_dh_auto_clean:
-	if test "${CLEAN}" = "1"; then \
-		cargo clean; \
-	fi
-
-	if ! ischroot && test "${VENDOR}" = "1"; then \
-		cp .cargo/config.default .cargo/config.toml; \
-		cargo vendor --sync Cargo.toml | head -n -1 >> .cargo/config.toml; \
-		echo 'directory = "vendor"' >> .cargo/config.toml; \
-		rm -rf vendor/winapi*gnu*/lib/*.a; \
-		tar pcf vendor.tar vendor; \
-		rm -rf vendor; \
-	fi
+	ischroot || (just clean-dist && just vendor)
 
 override_dh_auto_build:
 	just build-vendored

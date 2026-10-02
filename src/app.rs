@@ -12,16 +12,13 @@ use cosmic::iced::event::Status;
 use cosmic::iced::event::wayland::OverlapNotifyEvent;
 use cosmic::iced::id::Id;
 use cosmic::iced::keyboard::key::Named;
-use cosmic::iced::platform_specific::runtime::wayland::{
-    layer_surface::SctkLayerSurfaceSettings,
-    popup::{SctkPopupSettings, SctkPositioner},
+use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerSurfaceSettings;
+use cosmic::iced::platform_specific::runtime::wayland::popup::{SctkPopupSettings, SctkPositioner};
+use cosmic::iced::platform_specific::shell::commands::activation::request_token;
+use cosmic::iced::platform_specific::shell::commands::layer_surface::{
+    Anchor, KeyboardInteractivity, destroy_layer_surface, set_padding,
 };
-use cosmic::iced::platform_specific::shell::commands::layer_surface::set_padding;
 use cosmic::iced::platform_specific::shell::commands::{self};
-use cosmic::iced::platform_specific::shell::commands::{
-    activation::request_token,
-    layer_surface::{KeyboardInteractivity, destroy_layer_surface, get_layer_surface},
-};
 use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
 use cosmic::iced::runtime::core::event::wayland::{LayerEvent, OutputEvent};
 use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
@@ -30,10 +27,8 @@ use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId}
 use cosmic::iced::runtime::platform_specific::wayland::CornerRadius;
 use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
 use cosmic::iced::runtime::{Action, platform_specific, task};
-use cosmic::iced::widget::operation;
-use cosmic::iced::widget::row;
 use cosmic::iced::widget::scrollable::RelativeOffset;
-use cosmic::iced::widget::{Column, column, container};
+use cosmic::iced::widget::{Column, column, container, operation, row};
 use cosmic::iced::{
     self, Border, Length, Padding, Point, Rectangle, Shadow, Size, Subscription, window,
 };
@@ -43,7 +38,7 @@ use cosmic::widget::icon::IconFallback;
 use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
-use cosmic::{Element, keyboard_nav, surface};
+use cosmic::{Element, keyboard_nav};
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
@@ -361,7 +356,7 @@ impl CosmicLauncher {
 }
 
 fn alt_tab_modifier_is_released(modifiers: Modifiers) -> bool {
-    !modifiers.alt() && !modifiers.logo()
+    !modifiers.alt() && !modifiers.logo() && !modifiers.control()
 }
 
 async fn launch(
@@ -519,7 +514,7 @@ impl cosmic::Application for CosmicLauncher {
                     return commands::popup::destroy_popup(*MENU_ID);
                 }
             }
-            Message::Opened(size, window_id) => {
+            Message::Opened(_size, window_id) => {
                 let mut tasks = Vec::with_capacity(3);
                 if let Some(dummy) = self.dummy_id
                     && dummy == window_id
@@ -962,6 +957,7 @@ impl cosmic::Application for CosmicLauncher {
                                 cosmic::iced::widget::text::Style {
                                     color: Some(theme.on_bg_color().into()),
                                     selected_fill: theme.accent_color().into(),
+                                    selected_text_color: Some(theme.on_accent_color().into()),
                                 }
                             }))
                             .into()
@@ -977,6 +973,7 @@ impl cosmic::Application for CosmicLauncher {
                                 cosmic::iced::widget::text::Style {
                                     color: Some(theme.on_bg_color().into()),
                                     selected_fill: theme.accent_color().into(),
+                                    selected_text_color: Some(theme.on_accent_color().into()),
                                 }
                             }))
                             .into()
@@ -1033,6 +1030,9 @@ impl cosmic::Application for CosmicLauncher {
                                         cosmic::iced::widget::text::Style {
                                             color: Some(theme.on_bg_color().into()),
                                             selected_fill: theme.accent_color().into(),
+                                            selected_text_color: Some(
+                                                theme.on_accent_color().into(),
+                                            ),
                                         }
                                     })),
                             )
@@ -1245,7 +1245,7 @@ impl cosmic::Application for CosmicLauncher {
                     wayland::Event::Output(event, _),
                 )) => Some(Message::Output(event)),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                    key: Key::Named(Named::Alt | Named::Super),
+                    key: Key::Named(Named::Alt | Named::Super | Named::Control),
                     ..
                 }) => Some(Message::AltRelease),
                 cosmic::iced::Event::Keyboard(iced::keyboard::Event::KeyReleased {

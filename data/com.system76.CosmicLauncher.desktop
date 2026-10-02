@@ -1,34 +1,11 @@
 [Desktop Entry]
 Name=Launcher
-Name[zh_CN]=启动器
-Name[ar]=المُشَغِّل
-Name[cs]=Spouštěč
-Name[hu]=Indító
-Name[pl]=Program startowy
-Name[pt]=Lançador
-Name[ru]=Панель запуска
-Name[sk]=Spúšťač COSMIC
-Name[sv]=Programstartare
-Name[it]=Launcher
-Comment=COSMIC Launcher
-Comment[zh_CN]=COSMIC 启动器
-Comment[ar]=مُشَغِّلُ COSMIC
-Comment[cs]=Spouštěč aplikací pro prostředí COSMIC
-Comment[hu]=COSMIC Indító
-Comment[pl]=Program startowy COSMIC
-Comment[pt]=Botão de inicialização do COSMIC
-Comment[ru]=Панель запуска COSMIC
-Comment[sk]=Spúšťač aplikácií pre prostredie COSMIC
-Comment[sv]=COSMIC Programstartare
-Comment[it]=Launcher COSMIC
+Comment=The COSMIC frontend for Pop Launcher
 Type=Application
 Exec=cosmic-launcher
 Terminal=false
 Categories=COSMIC;
-# Translators: Search terms to find this application. Do NOT translate or localize the semicolons! The list MUST also end with a semicolon!
-Keywords=COSMIC;ICED;
-Keywords[ar]=COSMIC;آيسِد;
-# Translators: Do NOT translate or transliterate this text (this is an icon file name)!
+Keywords=Launcher;
 Icon=com.system76.CosmicLauncher
 StartupNotify=true
 X-HostWaylandDisplay=true

@@ -1,65 +1,61 @@
-export NAME := 'cosmic-launcher'
-export APPID := 'com.system76.CosmicLauncher'
+mod cargo 'cargo.just'
+
+name := 'cosmic-launcher'
+appid := 'com.system76.CosmicLauncher'
+export APP_ID := appid
 
 rootdir := ''
 prefix := '/usr'
 debug := '0'
 
+appdata := appid + '.metainfo.xml'
+desktop := appid + '.desktop'
+
 base-dir := absolute_path(clean(rootdir / prefix))
-
-export INSTALL_DIR := base-dir / 'share'
-
 cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
-bin-src := if debug == '1' { 'debug' / NAME } else { cargo-target-dir / 'release' / NAME }
-bin-dst := base-dir / 'bin' / NAME
+bin-src := if debug == '1' { 'debug' / name } else { cargo-target-dir / 'release' / name }
+bin-dst := base-dir / 'bin' / name
+appdata-dst := base-dir / 'share' / 'appdata' / appdata
+desktop-dst := base-dir / 'share' / 'applications' / desktop
+icon-dst := base-dir / 'share' / 'icons' / 'hicolor' / 'scalable' / 'apps' / appid + '.svg'
 
-# Use mold linker if clang and mold exists.
-clang-path := `which clang || true`
-mold-path := `which mold || true`
-
-ld-args := if clang-path != '' {
-    if mold-path != '' {
-        '-C linker=' + clang-path + ' -C link-arg=--ld-path=' + mold-path + ' '
-    } else {
-        ''
-    }
-} else {
-    ''
-}
-
-export RUSTFLAGS := env_var_or_default('RUSTFLAGS', '') + ' --cfg tokio_unstable ' + ld-args
+export RUSTFLAGS := env_var_or_default('RUSTFLAGS', '') + ' --cfg tokio_unstable '
 
 # Default recipe which runs `just build-release`
 default: build-release
 
 # Runs `cargo clean`
-clean:
-    cargo clean
+clean: cargo::clean
 
 # `cargo clean` and removes vendored dependencies
-clean-dist: clean
-    rm -rf vendor vendor.tar
+clean-dist: cargo::clean-dist
+    mkdir -p .cargo
+    cp data/cargo/config.toml .cargo/config.toml
 
 # Compiles with debug profile
-build-debug *args:
-    cargo build {{args}}
+build-debug *args: (cargo::build-debug args)
 
 # Compiles with release profile
-build-release *args: (build-debug '--release' args)
+build-release *args: (cargo::build-release args)
 
 # Compiles release profile with vendored dependencies
-build-vendored *args: vendor-extract (build-release '--frozen --offline' args)
+build-vendored *args: cargo::vendor-extract
+    LOCKSTEP_XML_PATH="${PWD}/vendor/atspi-common/xml" cargo build --release --frozen --offline {{args}}
+
+# Compiles and runs a standalone instance
+run *args: (cargo::run args)
 
 # Runs a clippy check
-check *args:
-    cargo clippy --all-features {{args}} -- -W clippy::pedantic
+check *args: (cargo::check args)
 
 # Runs a clippy check with JSON message format
 check-json: (check '--message-format=json')
 
-# Runs after compiling a release build
-run: build-release
-    {{bin-src}}
+# Vendor dependencies locally
+vendor: cargo::vendor
+
+# Extracts vendored dependencies
+vendor-extract: cargo::vendor-extract
 
 # Build and run with tokio-console enabled
 tokio-console: (build-release '--features console')
@@ -68,27 +64,10 @@ tokio-console: (build-release '--features console')
 # Installs files
 install:
     install -Dm0755 {{bin-src}} {{bin-dst}}
-    @just data/install
-    @just data/icons/install
+    install -Dm0644 {{ 'target' / 'xdgen' / desktop }} {{desktop-dst}}
+    install -Dm0644 {{ 'target' / 'xdgen' / appdata }} {{appdata-dst}}
+    install -Dm0644 {{ 'data' / 'icons' / appid + '.svg' }} {{icon-dst}}
 
 # Uninstalls installed files
 uninstall:
-    rm {{bin-dst}}
-    @just data/uninstall
-    @just data/icons/uninstall
-
-# Vendor dependencies locally
-vendor:
-    cp .cargo/config.default .cargo/config.toml
-    cargo vendor --sync Cargo.toml \
-        | head -n -1 >> .cargo/config.toml
-    echo 'directory = "vendor"' >> .cargo/config.toml
-    rm -rf vendor/winapi*gnu*/lib/*.a; \
-    tar pcf vendor.tar vendor
-    rm -rf vendor
-
-# Extracts vendored dependencies
-vendor-extract:
-    #!/usr/bin/env sh
-    rm -rf vendor
-    tar pxf vendor.tar
+    rm {{bin-dst}} {{desktop-dst}} {{appdata-dst}} {{icon-dst}}

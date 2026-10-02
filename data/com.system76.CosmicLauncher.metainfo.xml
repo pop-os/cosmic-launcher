@@ -1,38 +1,11 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <!-- Ashley Wulber 2019 <ashley@system76.com> -->
 <component type="desktop-application">
   <id>com.system76.CosmicLauncher</id>
   <metadata_license>CC0</metadata_license>
   <project_license>GPL-3.0-only</project_license>
-  <name>COSMIC Launcher</name>
-  <name xml:lang="ar">مُشَغِّلُ COSMIC</name>
-  <name xml:lang="cs">Spouštěč COSMIC</name>
-  <name xml:lang="hu">COSMIC Indító</name>
-  <name xml:lang="pt">Lançador</name>
-  <name xml:lang="pt_BR">Lançador</name>
-  <name xml:lang="sk">Spúšťač COSMIC</name>
-  <name xml:lang="sv">COSMIC Programstartare</name>
-  <name xml:lang="it">Launcher COSMIC</name>
+  <name>Launcher</name>
   <summary>COSMIC frontend for Pop Launcher</summary>
-  <summary xml:lang="ar">واجِهَةُ COSMIC لِمُشَغِّلِ بْوب</summary>
-  <summary xml:lang="cs">Spouštěč aplikací pro prostředí COSMIC</summary>
-  <summary xml:lang="hu">COSMIC felület a Pop Launcherhez</summary>
-  <summary xml:lang="pt">Botão de inicialização do COSMIC</summary>
-  <summary xml:lang="pt_BR">Botão de inicialização do COSMIC</summary>
-  <summary xml:lang="sk">Spúšťač aplikácií pre prostredie COSMIC</summary>
-  <summary xml:lang="sv">Programstartare för skrivbordsmiljön COSMIC</summary>
-  <summary xml:lang="it">Frontend COSMIC di Pop Launcher</summary>
-  <description>
-    <p>The COSMIC frontend for Pop Launcher</p>
-    <p xml:lang="ar">واجِهَةُ COSMIC لِمُشَغِّلِ بْوب</p>
-    <p xml:lang="cs">Spouštěč aplikací pro prostředí COSMIC</p>
-    <p xml:lang="hu">COSMIC felület a Pop Launcherhez</p>
-    <p xml:lang="pt">Botão de inicialização do COSMIC</p>
-    <p xml:lang="pt_BR">Botão de inicialização do COSMIC</p>
-    <p xml:lang="sk">Spúšťač aplikácií pre prostredie COSMIC</p>
-    <p xml:lang="sv">Programstartaren för skrivbordsmiljön COSMIC</p>
-    <p xml:lang="it">Frontend COSMIC di Pop Launcher</p>
-  </description>
   <url type="homepage">https://github.com/pop-os/cosmic-launcher</url>
   <url type="bugtracker">https://github.com/pop-os/cosmic-launcher/issues</url>
   <content_rating type="oars-1.0" />
@@ -47,4 +20,17 @@
   <update_contact>ashley@system76.com</update_contact>
   <translation type="gettext">cosmic-launcher</translation>
   <launchable type="desktop-id">com.system76.CosmicLauncher.desktop</launchable>
+  <categories>
+    <category>COSMIC</category>
+  </categories>
+  <keywords>
+    <keyword>COSMIC</keyword>
+    <keyword>Launcher</keyword>
+  </keywords>
+  <provides>
+    <id>com.system76.CosmicApplication</id>
+    <binaries>
+        <binary>cosmic-launcher</binary>
+    </binaries>
+  </provides>
 </component>
