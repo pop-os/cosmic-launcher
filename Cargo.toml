@@ -6,7 +6,7 @@ edition = "2024"
 rust-version = "1.93"
 
 [features]
-default = []
+default = ["wgpu"]
 wgpu = ["libcosmic/wgpu"]
 console = ["tokio/tracing"]
 
