@@ -23,6 +23,8 @@ use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::o
 use cosmic::iced::runtime::core::event::wayland::{LayerEvent, OutputEvent};
 use cosmic::iced::runtime::core::event::{PlatformSpecific, wayland};
 use cosmic::iced::runtime::core::layout::Limits;
+use cosmic::iced::runtime::core::widget::Operation;
+use cosmic::iced::runtime::core::widget::operation::Outcome;
 use cosmic::iced::runtime::core::window::{Event as WindowEvent, Id as SurfaceId};
 use cosmic::iced::runtime::platform_specific::wayland::CornerRadius;
 use cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedMargin;
@@ -37,7 +39,7 @@ use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
 use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
-use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
+use cosmic::widget::{autosize, button, divider, icon, mouse_area, scrollable, text};
 use cosmic::{Element, keyboard_nav};
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
@@ -60,6 +62,9 @@ static SCROLLABLE: LazyLock<Id> = LazyLock::new(|| Id::new("scrollable"));
 
 pub(crate) static MENU_ID: LazyLock<SurfaceId> = LazyLock::new(SurfaceId::unique);
 const SCROLL_MIN: usize = 8;
+/// Fixed height of the centered launcher surface, so it does not jump around
+/// as the number of results changes.
+const CENTERED_SURFACE_HEIGHT: f32 = 600.;
 
 #[derive(Parser, Debug, Serialize, Deserialize, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -144,6 +149,8 @@ pub enum SurfaceState {
 #[derive(Clone)]
 pub struct CosmicLauncher {
     core: Core,
+    config: crate::config::Config,
+    _config_handler: Option<cosmic::cosmic_config::Config>,
     input_value: String,
     surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
@@ -161,6 +168,8 @@ pub struct CosmicLauncher {
     overlap: HashMap<String, Rectangle>,
     margin: f32,
     height: f32,
+    /// Last measured bounds of the visible card, relative to the surface.
+    card_bounds: Option<Rectangle>,
     needs_clear: bool,
     hand_over: String,
     dummy_id: Option<window::Id>,
@@ -168,6 +177,7 @@ pub struct CosmicLauncher {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Config(crate::config::Config),
     InputChanged(String),
     Backspace,
     TabPress,
@@ -188,6 +198,7 @@ pub enum Message {
     Opened(Size, window::Id),
     AltRelease,
     Overlap(OverlapNotifyEvent),
+    CardBounds(Option<Rectangle>),
 }
 
 impl CosmicLauncher {
@@ -206,6 +217,7 @@ impl CosmicLauncher {
         self.needs_clear = true;
         let id = window::Id::unique();
         self.dummy_id = Some(id);
+        let anchor = self.config.anchor.into();
         Task::batch(vec![
             cosmic::surface::surface_task(simple_layer_shell::<Message>(
                 || LiveSettings {
@@ -219,7 +231,7 @@ impl CosmicLauncher {
                         layer: wlr_layer::Layer::Bottom,
                         keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
                         input_zone: Some(Vec::new()),
-                        anchor: wlr_layer::Anchor::TOP,
+                        anchor,
                         output:
                             cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
                         namespace: "cosmic_launcher_dummy".into(),
@@ -238,6 +250,7 @@ impl CosmicLauncher {
 
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
+        let anchor = self.config.anchor.into();
         cosmic::surface::surface_task(app_layer_shell(
             |app: &CosmicLauncher| LiveSettings {
                 padding: Some(app.layer_padding()),
@@ -247,7 +260,7 @@ impl CosmicLauncher {
             move |app: &mut CosmicLauncher| SctkLayerSurfaceSettings {
                 id: app.window_id,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                anchor: Anchor::TOP,
+                anchor,
                 namespace: "launcher".into(),
                 size: None,
                 size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
@@ -310,6 +323,21 @@ impl CosmicLauncher {
             }
             self.margin = o.y + o.height;
         }
+        Task::batch(vec![self.update_surface_regions(), self.measure_card()])
+    }
+
+    /// Queries the card's bounds so the blur region and padding can follow it.
+    fn measure_card(&self) -> Task<Message> {
+        cosmic::iced::advanced::widget::operate(FindBounds {
+            target: MAIN_ID.clone(),
+            bounds: None,
+        })
+        .map(|bounds| cosmic::action::app(Message::CardBounds(bounds)))
+    }
+
+    /// Restricts the padding and blur region to the visible card instead of
+    /// the whole fixed-height surface.
+    fn update_surface_regions(&self) -> Task<Message> {
         let mut cmds = Vec::with_capacity(2);
         cmds.push(set_padding::<()>(self.window_id, self.layer_padding()).discard());
         cmds.push(
@@ -318,12 +346,12 @@ impl CosmicLauncher {
                     platform_specific::Action::Wayland(
                         cosmic::iced::runtime::platform_specific::wayland::Action::BlurSurface(
                             self.window_id,
-                            Some(vec![Rectangle {
+                            Some(vec![self.card_bounds.unwrap_or(Rectangle {
                                 x: 0.,
                                 y: 0.,
                                 width: f32::MAX,
                                 height: f32::MAX,
-                            }]),
+                            })]),
                         ),
                     ),
                 ))
@@ -341,12 +369,55 @@ impl CosmicLauncher {
         Task::batch(cmds)
     }
 
+    /// The surface only has a fixed height when centered; when anchored to the
+    /// top it shrinks to fit the card.
+    fn fixed_surface_height(&self) -> Option<f32> {
+        match self.config.anchor {
+            crate::config::Anchor::Top => None,
+            crate::config::Anchor::Center => Some(CENTERED_SURFACE_HEIGHT),
+        }
+    }
+
     fn layer_padding(&self) -> IcedMargin {
         IcedMargin {
             #[allow(clippy::cast_possible_truncation)]
             top: self.margin as i32 + 16,
+            #[allow(clippy::cast_possible_truncation)]
+            bottom: self
+                .fixed_surface_height()
+                .zip(self.card_bounds)
+                .map_or(0, |(height, card)| {
+                    (height - card.y - card.height).max(0.).round() as i32
+                }),
             ..Default::default()
         }
+    }
+}
+
+/// Finds the layout bounds of the container with the given id.
+///
+/// Used instead of `container::visible_bounds`, whose `traverse` recurses
+/// into itself and overflows the stack in the current libcosmic.
+struct FindBounds {
+    target: Id,
+    bounds: Option<Rectangle>,
+}
+
+impl Operation<Option<Rectangle>> for FindBounds {
+    fn container(&mut self, id: Option<&Id>, bounds: Rectangle) {
+        if self.bounds.is_none() && id == Some(&self.target) {
+            self.bounds = Some(bounds);
+        }
+    }
+
+    fn traverse(&mut self, operate: &mut dyn FnMut(&mut dyn Operation<Option<Rectangle>>)) {
+        if self.bounds.is_none() {
+            operate(self);
+        }
+    }
+
+    fn finish(&self) -> Outcome<Option<Rectangle>> {
+        Outcome::Some(self.bounds)
     }
 }
 
@@ -399,8 +470,12 @@ impl cosmic::Application for CosmicLauncher {
 
         core.set_keyboard_nav(false);
 
+        let (config_handler, config) = crate::config::Config::load();
+
         let mut app = CosmicLauncher {
             core,
+            config,
+            _config_handler: config_handler,
             input_value: String::new(),
             surface_state: SurfaceState::Hidden,
             launcher_items: Vec::new(),
@@ -420,6 +495,7 @@ impl cosmic::Application for CosmicLauncher {
             margin: 0.,
             overlap: HashMap::new(),
             height: 800.,
+            card_bounds: None,
             needs_clear: false,
             hand_over: String::default(),
             dummy_id: None,
@@ -440,6 +516,9 @@ impl cosmic::Application for CosmicLauncher {
     #[allow(clippy::too_many_lines)]
     fn update(&mut self, message: Message) -> Task<Self::Message> {
         match message {
+            Message::Config(config) => {
+                self.config = config;
+            }
             Message::InputChanged(value) => {
                 self.input_value.clone_from(&value);
                 self.focused = 0;
@@ -509,6 +588,10 @@ impl cosmic::Application for CosmicLauncher {
                     tasks.push(overlap_notify(window_id, true));
                 } else if self.dummy_id.is_none() {
                     tasks.push(overlap_notify(self.window_id, true));
+                }
+
+                if window_id == self.window_id {
+                    tasks.push(self.measure_card());
                 }
 
                 if !self.hand_over.is_empty() {
@@ -677,6 +760,7 @@ impl cosmic::Application for CosmicLauncher {
                         } else if self.surface_state == SurfaceState::WaitingToBeShown {
                             cmds.push(self.show());
                         }
+                        cmds.push(self.measure_card());
                         return Task::batch(cmds);
                     }
                     pop_launcher::Response::Fill(s) => {
@@ -726,6 +810,12 @@ impl cosmic::Application for CosmicLauncher {
                 }
                 _ => {}
             },
+            Message::CardBounds(bounds) => {
+                if bounds.is_some() && bounds != self.card_bounds {
+                    self.card_bounds = bounds;
+                    return self.update_surface_regions();
+                }
+            }
             Message::CloseContextMenu => {
                 if self.menu.take().is_some() {
                     return commands::popup::destroy_popup(*MENU_ID);
@@ -1133,7 +1223,8 @@ impl cosmic::Application for CosmicLauncher {
             let window = Column::new()
                 .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
                 .push(
-                    container(id_container(content, MAIN_ID.clone()))
+                    container(content)
+                        .id(MAIN_ID.clone())
                         .width(Length::Shrink)
                         .height(Length::Shrink)
                         .class(Container::Custom(Box::new(|theme| {
@@ -1158,15 +1249,20 @@ impl cosmic::Application for CosmicLauncher {
                         .padding([24, 32]),
                 );
 
+            let window_with_constraint = container(window).width(Length::Shrink).height(
+                self.fixed_surface_height()
+                    .map_or(Length::Shrink, Length::Fixed),
+            );
+
             let autosize = autosize::autosize(
                 if self.menu.is_some() {
                     Element::from(
-                        mouse_area(window)
+                        mouse_area(window_with_constraint)
                             .on_release(Message::CloseContextMenu)
                             .on_right_release(Message::CloseContextMenu),
                     )
                 } else {
-                    window.into()
+                    window_with_constraint.into()
                 },
                 AUTOSIZE_ID.clone(),
             );
@@ -1284,6 +1380,15 @@ impl cosmic::Application for CosmicLauncher {
                     Some(Message::Opened(s, id))
                 }
                 _ => None,
+            }),
+            crate::config::Config::subscription().map(|update| {
+                if !update.errors.is_empty() {
+                    info!(
+                        "errors loading config {:?}: {:?}",
+                        update.keys, update.errors
+                    );
+                }
+                Message::Config(update.config)
             }),
         ])
     }
