@@ -376,17 +376,28 @@ async fn launch(
 }
 
 async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>> {
+    use cosmic::desktop::gpu::{Descriptor, Preference};
+
     let connection = zbus::Connection::system().await.ok()?;
     let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection)
         .await
         .ok()?;
     let gpus = proxy.get_gpus().await.ok()?;
-    match gpu {
-        GpuPreference::Default => gpus.into_iter().find(|gpu| gpu.default),
-        GpuPreference::NonDefault => gpus.into_iter().find(|gpu| !gpu.default),
-        GpuPreference::SpecificIdx(idx) => gpus.into_iter().nth(idx as usize),
-    }
-    .map(|gpu| gpu.environment)
+    let gpus = gpus
+        .into_iter()
+        .map(|gpu| Descriptor {
+            name: gpu.name,
+            environment: gpu.environment,
+            default: gpu.default,
+            discrete: gpu.discrete,
+        })
+        .collect::<Vec<_>>();
+    let idx = match gpu {
+        GpuPreference::Default => Preference::Default.select(&gpus),
+        GpuPreference::NonDefault => Preference::NonDefault.select(&gpus),
+        GpuPreference::SpecificIdx(idx) => usize::try_from(idx).ok(),
+    }?;
+    gpus.get(idx).map(|gpu| gpu.environment.clone())
 }
 
 impl cosmic::Application for CosmicLauncher {
