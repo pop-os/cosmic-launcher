@@ -16,7 +16,7 @@ use cosmic::iced::platform_specific::runtime::wayland::layer_surface::SctkLayerS
 use cosmic::iced::platform_specific::runtime::wayland::popup::{SctkPopupSettings, SctkPositioner};
 use cosmic::iced::platform_specific::shell::commands::activation::request_token;
 use cosmic::iced::platform_specific::shell::commands::layer_surface::{
-    Anchor, KeyboardInteractivity, destroy_layer_surface, set_padding,
+    Anchor, KeyboardInteractivity, destroy_layer_surface, set_margin,
 };
 use cosmic::iced::platform_specific::shell::commands::{self};
 use cosmic::iced::platform_specific::shell::wayland::commands::overlap_notify::overlap_notify;
@@ -239,8 +239,8 @@ impl CosmicLauncher {
     fn show(&mut self) -> Task<Message> {
         self.surface_state = SurfaceState::Visible;
         cosmic::surface::surface_task(app_layer_shell(
-            |app: &CosmicLauncher| LiveSettings {
-                padding: Some(app.layer_padding()),
+            |_: &CosmicLauncher| LiveSettings {
+                padding: None,
                 corners: None,
                 blur: None,
             },
@@ -248,6 +248,7 @@ impl CosmicLauncher {
                 id: app.window_id,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
                 anchor: Anchor::TOP,
+                margin: app.layer_margin(),
                 namespace: "launcher".into(),
                 size: None,
                 size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
@@ -311,7 +312,7 @@ impl CosmicLauncher {
             self.margin = o.y + o.height;
         }
         let mut cmds = Vec::with_capacity(2);
-        cmds.push(set_padding::<()>(self.window_id, self.layer_padding()).discard());
+        cmds.push(set_margin::<()>(self.window_id, self.layer_margin().top, 0, 0, 0).discard());
         cmds.push(
             if self.core.system_theme().cosmic().frosted_system_interface {
                 task::effect(Action::PlatformSpecific(
@@ -341,7 +342,7 @@ impl CosmicLauncher {
         Task::batch(cmds)
     }
 
-    fn layer_padding(&self) -> IcedMargin {
+    fn layer_margin(&self) -> IcedMargin {
         IcedMargin {
             #[allow(clippy::cast_possible_truncation)]
             top: self.margin as i32 + 16,
@@ -1130,33 +1131,31 @@ impl cosmic::Application for CosmicLauncher {
                 content = content.push(components::list::column(buttons));
             }
 
-            let window = Column::new()
-                .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
-                .push(
-                    container(id_container(content, MAIN_ID.clone()))
-                        .width(Length::Shrink)
-                        .height(Length::Shrink)
-                        .class(Container::Custom(Box::new(|theme| {
-                            let t = theme.cosmic();
-                            let radii = t.radius_s().map(|x| if x < 4.0 { x } else { x + 4.0 });
+            let window = Column::new().push(
+                container(id_container(content, MAIN_ID.clone()))
+                    .width(Length::Shrink)
+                    .height(Length::Shrink)
+                    .class(Container::Custom(Box::new(|theme| {
+                        let t = theme.cosmic();
+                        let radii = t.radius_s().map(|x| if x < 4.0 { x } else { x + 4.0 });
 
-                            container::Style {
-                                text_color: Some(t.on_bg_color().into()),
-                                icon_color: Some(t.on_bg_color().into()),
-                                background: Some(
-                                    Color::from(t.background(theme.transparent).base).into(),
-                                ),
-                                border: Border {
-                                    radius: radii.into(),
-                                    width: 1.0,
-                                    color: t.bg_divider().into(),
-                                },
-                                shadow: Shadow::default(),
-                                snap: true,
-                            }
-                        })))
-                        .padding([24, 32]),
-                );
+                        container::Style {
+                            text_color: Some(t.on_bg_color().into()),
+                            icon_color: Some(t.on_bg_color().into()),
+                            background: Some(
+                                Color::from(t.background(theme.transparent).base).into(),
+                            ),
+                            border: Border {
+                                radius: radii.into(),
+                                width: 1.0,
+                                color: t.bg_divider().into(),
+                            },
+                            shadow: Shadow::default(),
+                            snap: true,
+                        }
+                    })))
+                    .padding([24, 32]),
+            );
 
             let autosize = autosize::autosize(
                 if self.menu.is_some() {
