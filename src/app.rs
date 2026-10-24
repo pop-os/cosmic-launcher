@@ -161,6 +161,9 @@ pub struct CosmicLauncher {
     alt_tab_released: bool,
     /// Filter of the current alt-tab session, read from the config when it starts.
     switcher_query: WindowSwitcherQuery,
+    /// The switcher is shown but its window list hasn't been requested yet:
+    /// it is waiting to learn which output it landed on.
+    awaiting_switcher_output: bool,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -207,6 +210,27 @@ impl CosmicLauncher {
         } else {
             self.request(launcher::Request::Search(self.input_value.clone()));
         }
+    }
+
+    /// Begin an alt-tab session: read its settings and ask for the windows.
+    ///
+    /// "This display only" needs to know which output the switcher is on,
+    /// and only the compositor knows (it places the switcher on the active
+    /// output). So in that mode the switcher is shown first, empty, and the
+    /// request goes out once its surface reports the output it entered.
+    fn start_switcher(&mut self) -> Task<Message> {
+        self.switcher_query = load_switcher_query();
+
+        if self.switcher_query.scope != WorkspaceScope::FocusedOutputWorkspace {
+            self.refresh_results();
+            return Task::none();
+        }
+
+        // Don't flash the previous session's windows while waiting.
+        self.launcher_items.clear();
+        self.launcher_item_icon_handles.clear();
+        self.awaiting_switcher_output = true;
+        self.show()
     }
 
     fn request(&self, r: launcher::Request) {
@@ -283,6 +307,7 @@ impl CosmicLauncher {
         self.focused = 0;
         self.alt_tab = false;
         self.alt_tab_released = false;
+        self.awaiting_switcher_output = false;
         self.queue.clear();
         self.hand_over.clear();
 
@@ -404,8 +429,11 @@ fn load_switcher_query() -> WindowSwitcherQuery {
         CosmicLauncherConfig::default()
     });
 
+    // The output is only known once the switcher is shown; see
+    // `CosmicLauncher::start_switcher`.
     WindowSwitcherQuery {
         scope: ipc_scope(config.window_switcher_scope),
+        output: None,
     }
 }
 
@@ -472,6 +500,7 @@ impl cosmic::Application for CosmicLauncher {
             alt_tab: false,
             alt_tab_released: false,
             switcher_query: WindowSwitcherQuery::default(),
+            awaiting_switcher_output: false,
             window_id: SurfaceId::unique(),
             queue: VecDeque::new(),
             result_ids: (0..10)
@@ -758,6 +787,14 @@ impl cosmic::Application for CosmicLauncher {
             Message::Layer(_, id) if id != self.window_id => {}
             Message::Layer(e, _) => match e {
                 LayerEvent::Focused | LayerEvent::Done => {}
+                LayerEvent::OutputEnter { name, .. } => {
+                    if self.awaiting_switcher_output {
+                        debug!("alt-tab switcher shown on output {name:?}");
+                        self.awaiting_switcher_output = false;
+                        self.switcher_query.output = name;
+                        self.refresh_results();
+                    }
+                }
                 LayerEvent::Unfocused => {
                     self.last_hide = Instant::now();
                     return self.hide();
@@ -868,7 +905,12 @@ impl cosmic::Application for CosmicLauncher {
             }
             Message::AltRelease => {
                 if self.alt_tab {
-                    if self.surface_state == SurfaceState::Visible {
+                    // A switcher shown before its list arrived has nothing (or
+                    // a stale list) to activate yet; wait for the results.
+                    if self.surface_state == SurfaceState::Visible
+                        && !self.awaiting_switcher_output
+                        && !self.launcher_items.is_empty()
+                    {
                         debug!("alt-tab modifier released; activating focused item");
                         return self.update(Message::Activate(None));
                     }
@@ -925,11 +967,8 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.switcher_query = load_switcher_query();
-                        self.request(launcher::Request::WindowSwitcher(
-                            self.switcher_query.clone(),
-                        ));
                         self.queue.push_back(Message::AltTab);
+                        return self.start_switcher();
                     }
                     LauncherTasks::ShiftAltTab => {
                         if self.alt_tab {
@@ -944,11 +983,8 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.switcher_query = load_switcher_query();
-                        self.request(launcher::Request::WindowSwitcher(
-                            self.switcher_query.clone(),
-                        ));
                         self.queue.push_back(Message::ShiftAltTab);
+                        return self.start_switcher();
                     }
                     LauncherTasks::Input { input } => {
                         self.request(launcher::Request::Search(String::new()));
