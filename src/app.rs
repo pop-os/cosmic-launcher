@@ -5,6 +5,7 @@ use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk;
 use cosmic::cctk::sctk::shell::wlr_layer;
+use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::core::text::{Ellipsize, EllipsizeHeightLimit};
@@ -39,9 +40,12 @@ use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
 use cosmic::{Element, keyboard_nav};
+use cosmic_launcher_config::{CosmicLauncherConfig, WindowSwitcherScope};
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
-use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
+use pop_launcher::{
+    ContextOption, GpuPreference, IconSource, SearchResult, WindowSwitcherQuery, WorkspaceScope,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
@@ -155,6 +159,8 @@ pub struct CosmicLauncher {
     last_hide: Instant,
     alt_tab: bool,
     alt_tab_released: bool,
+    /// Filter of the current alt-tab session, read from the config when it starts.
+    switcher_query: WindowSwitcherQuery,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -191,6 +197,18 @@ pub enum Message {
 }
 
 impl CosmicLauncher {
+    /// Ask the service again for what the view currently shows: the filtered
+    /// window list while alt-tabbing, otherwise the current search.
+    fn refresh_results(&self) {
+        if self.alt_tab {
+            self.request(launcher::Request::WindowSwitcher(
+                self.switcher_query.clone(),
+            ));
+        } else {
+            self.request(launcher::Request::Search(self.input_value.clone()));
+        }
+    }
+
     fn request(&self, r: launcher::Request) {
         debug!("request: {:?}", r);
         if let Some(tx) = &self.tx {
@@ -351,6 +369,46 @@ impl CosmicLauncher {
     }
 }
 
+/// Convert the configured switcher scope into its pop-launcher request form.
+fn ipc_scope(scope: WindowSwitcherScope) -> WorkspaceScope {
+    // Exhaustive on purpose: a new config variant must fail to build here
+    // rather than silently map to some other scope.
+    match scope {
+        WindowSwitcherScope::AllWorkspaces => WorkspaceScope::AllWorkspaces,
+        WindowSwitcherScope::ActiveWorkspaces => WorkspaceScope::ActiveWorkspaces,
+        WindowSwitcherScope::FocusedOutputWorkspace => WorkspaceScope::FocusedOutputWorkspace,
+    }
+}
+
+/// Read the window switcher settings for a new alt-tab session.
+///
+/// Read fresh on every Alt+Tab so a change in COSMIC Settings applies to the
+/// next press without restarting the launcher. Falls back to the defaults
+/// (all workspaces) when the config can't be read.
+fn load_switcher_query() -> WindowSwitcherQuery {
+    let config = cosmic_config::Config::new(
+        cosmic_launcher_config::APP_ID,
+        CosmicLauncherConfig::VERSION,
+    )
+    .map(|config| match CosmicLauncherConfig::get_entry(&config) {
+        Ok(config) => config,
+        Err((errors, config)) => {
+            for error in errors.into_iter().filter(cosmic_config::Error::is_err) {
+                tracing::warn!(?error, "failed to read launcher config");
+            }
+            config
+        }
+    })
+    .unwrap_or_else(|error| {
+        tracing::warn!(?error, "failed to open launcher config");
+        CosmicLauncherConfig::default()
+    });
+
+    WindowSwitcherQuery {
+        scope: ipc_scope(config.window_switcher_scope),
+    }
+}
+
 fn alt_tab_modifier_is_released(modifiers: Modifiers) -> bool {
     !modifiers.alt() && !modifiers.logo() && !modifiers.control()
 }
@@ -413,6 +471,7 @@ impl cosmic::Application for CosmicLauncher {
             last_hide: Instant::now(),
             alt_tab: false,
             alt_tab_released: false,
+            switcher_query: WindowSwitcherQuery::default(),
             window_id: SurfaceId::unique(),
             queue: VecDeque::new(),
             result_ids: (0..10)
@@ -522,7 +581,7 @@ impl cosmic::Application for CosmicLauncher {
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
                     self.tx.replace(tx);
-                    self.request(launcher::Request::Search(self.input_value.clone()));
+                    self.refresh_results();
                 }
                 launcher::Event::ServiceIsClosed => {
                     self.request(launcher::Request::ServiceIsClosed);
@@ -771,7 +830,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     keyboard_nav::Action::Escape => {
                         self.input_value.clear();
-                        self.request(launcher::Request::Search(String::new()));
+                        self.refresh_results();
                     }
                     _ => {}
                 };
@@ -866,7 +925,10 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
+                        self.switcher_query = load_switcher_query();
+                        self.request(launcher::Request::WindowSwitcher(
+                            self.switcher_query.clone(),
+                        ));
                         self.queue.push_back(Message::AltTab);
                     }
                     LauncherTasks::ShiftAltTab => {
@@ -882,7 +944,10 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
+                        self.switcher_query = load_switcher_query();
+                        self.request(launcher::Request::WindowSwitcher(
+                            self.switcher_query.clone(),
+                        ));
                         self.queue.push_back(Message::ShiftAltTab);
                     }
                     LauncherTasks::Input { input } => {
@@ -1285,5 +1350,22 @@ impl cosmic::Application for CosmicLauncher {
                 _ => None,
             }),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ipc_scope_maps_every_variant() {
+        use cosmic_launcher_config::WindowSwitcherScope as S;
+        use pop_launcher::WorkspaceScope as W;
+        assert_eq!(ipc_scope(S::AllWorkspaces), W::AllWorkspaces);
+        assert_eq!(ipc_scope(S::ActiveWorkspaces), W::ActiveWorkspaces);
+        assert_eq!(
+            ipc_scope(S::FocusedOutputWorkspace),
+            W::FocusedOutputWorkspace
+        );
     }
 }

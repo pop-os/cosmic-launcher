@@ -8,6 +8,10 @@ This document provides a regression testing checklist for the COSMIC Launcher. T
 - [ ] Cut text from the launcher, then close it; pasting into an app works
 - [ ] All windows on all workspaces appear on launch
 - [ ] Choosing an app on another workspace moves workspaces and focus to that app
+- [ ] Alt+Tab with "All workspaces" lists windows from every workspace
+- [ ] Alt+Tab with "Current workspace on all displays" lists only windows on the workspace shown on each display
+- [ ] Alt+Tab with "Current workspace on this display only" lists only the focused display's workspace
+- [ ] Changing the window switcher scope in Settings applies on the next Alt+Tab without restarting
 - [ ] Launching an application works
 - [ ] Typing text and then removing it will re-show the open windows
 - [ ] Search works for applications and windows

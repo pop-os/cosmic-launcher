@@ -1190,6 +1190,7 @@ version = "1.11.0"
 dependencies = [
  "clap",
  "console-subscriber",
+ "cosmic-launcher-config",
  "futures",
  "i18n-embed",
  "i18n-embed-fl",
@@ -1208,6 +1209,14 @@ dependencies = [
  "tracing-subscriber",
  "xdgen",
  "zbus",
+]
+
+[[package]]
+name = "cosmic-launcher-config"
+version = "1.11.0"
+dependencies = [
+ "cosmic-config",
+ "serde",
 ]
 
 [[package]]
