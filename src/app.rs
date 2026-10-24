@@ -79,6 +79,10 @@ pub enum LauncherTasks {
     AltTab,
     #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
     ShiftAltTab,
+    #[clap(about = "Switch between the focused app's windows in the alt-tab view")]
+    AltGrave,
+    #[clap(about = "Switch between the focused app's windows in the alt-tab view, reversed")]
+    ShiftAltGrave,
     #[clap(about = "Start the launcher with an input")]
     Input { input: Option<String> },
     #[clap(about = "Close the launcher if open")]
@@ -216,14 +220,15 @@ impl CosmicLauncher {
         }
     }
 
-    /// Begin an alt-tab session: read its settings and ask for the windows.
+    /// Begin a window switcher session: read its settings and ask for the
+    /// windows. `same_app` limits it to the focused app's windows (Alt+`).
     ///
     /// "This display only" needs to know which output the switcher is on,
     /// and only the compositor knows (it places the switcher on the active
     /// output). So in that mode the switcher is shown first, empty, and the
     /// request goes out once its surface reports the output it entered.
-    fn start_switcher(&mut self) -> Task<Message> {
-        self.switcher_query = load_switcher_query();
+    fn start_switcher(&mut self, same_app: bool) -> Task<Message> {
+        self.switcher_query = load_switcher_query(same_app);
 
         if self.switcher_query.scope != WorkspaceScope::FocusedOutputWorkspace {
             self.refresh_results();
@@ -244,6 +249,35 @@ impl CosmicLauncher {
         self.launcher_item_icon_handles.clear();
         self.awaiting_switcher_output = true;
         self.show()
+    }
+
+    /// Handle a switcher key press (Alt+Tab, Alt+`, or their Shift variants)
+    /// arriving as a D-Bus action.
+    ///
+    /// `step` is [`Message::AltTab`] to move forward or
+    /// [`Message::ShiftAltTab`] to move back. The first press starts a
+    /// session, `same_app` deciding whether it lists only the focused app's
+    /// windows; later presses only move the selection, whichever key they
+    /// come from, since the list on screen is already the session's.
+    fn switcher_key(&mut self, step: Message, same_app: bool) -> Task<Message> {
+        if self.alt_tab {
+            // Nothing to move through yet: replay the step once the list
+            // arrives.
+            if self.surface_state == SurfaceState::WaitingToBeShown
+                || self.launcher_items.is_empty()
+            {
+                self.queue.push_back(step);
+                return Task::none();
+            }
+            // `update` belongs to the `cosmic::Application` impl, which isn't
+            // in scope in this inherent impl.
+            return cosmic::Application::update(self, step);
+        }
+
+        self.alt_tab = true;
+        self.alt_tab_released = false;
+        self.queue.push_back(step);
+        self.start_switcher(same_app)
     }
 
     fn request(&self, r: launcher::Request) {
@@ -432,12 +466,14 @@ fn switcher_request(query: &WindowSwitcherQuery) -> launcher::Request {
     }
 }
 
-/// Read the window switcher settings for a new alt-tab session.
+/// Read the window switcher settings for a new switcher session.
 ///
-/// Read fresh on every Alt+Tab so a change in COSMIC Settings applies to the
-/// next press without restarting the launcher. Falls back to the defaults
-/// (all workspaces) when the config can't be read.
-fn load_switcher_query() -> WindowSwitcherQuery {
+/// Read fresh on every Alt+Tab or Alt+` so a change in COSMIC Settings
+/// applies to the next press without restarting the launcher. Falls back to
+/// the defaults (all workspaces) when the config can't be read. `same_app`
+/// is passed through to the query, since it comes from the key, not the
+/// config.
+fn load_switcher_query(same_app: bool) -> WindowSwitcherQuery {
     let config = cosmic_config::Config::new(
         cosmic_launcher_config::APP_ID,
         CosmicLauncherConfig::VERSION,
@@ -460,7 +496,8 @@ fn load_switcher_query() -> WindowSwitcherQuery {
     // `CosmicLauncher::start_switcher`.
     WindowSwitcherQuery {
         scope: ipc_scope(config.window_switcher_scope),
-        output: None,
+        same_app,
+        ..Default::default()
     }
 }
 
@@ -996,37 +1033,13 @@ impl cosmic::Application for CosmicLauncher {
                 }
 
                 match cmd {
-                    LauncherTasks::AltTab => {
-                        if self.alt_tab {
-                            if self.surface_state == SurfaceState::WaitingToBeShown
-                                || self.launcher_items.is_empty()
-                            {
-                                self.queue.push_back(Message::AltTab);
-                                return Task::none();
-                            }
-                            return self.update(Message::AltTab);
-                        }
-
-                        self.alt_tab = true;
-                        self.alt_tab_released = false;
-                        self.queue.push_back(Message::AltTab);
-                        return self.start_switcher();
-                    }
+                    LauncherTasks::AltTab => return self.switcher_key(Message::AltTab, false),
                     LauncherTasks::ShiftAltTab => {
-                        if self.alt_tab {
-                            if self.surface_state == SurfaceState::WaitingToBeShown
-                                || self.launcher_items.is_empty()
-                            {
-                                self.queue.push_back(Message::ShiftAltTab);
-                                return Task::none();
-                            }
-                            return self.update(Message::ShiftAltTab);
-                        }
-
-                        self.alt_tab = true;
-                        self.alt_tab_released = false;
-                        self.queue.push_back(Message::ShiftAltTab);
-                        return self.start_switcher();
+                        return self.switcher_key(Message::ShiftAltTab, false);
+                    }
+                    LauncherTasks::AltGrave => return self.switcher_key(Message::AltTab, true),
+                    LauncherTasks::ShiftAltGrave => {
+                        return self.switcher_key(Message::ShiftAltTab, true);
                     }
                     LauncherTasks::Input { input } => {
                         self.request(launcher::Request::Search(String::new()));
@@ -1453,6 +1466,44 @@ mod tests {
             switcher_request(&query),
             launcher::Request::WindowSwitcher(sent) if sent == query
         ));
+    }
+
+    // cosmic-settings-daemon's system_actions spawn these exact command lines,
+    // and the running instance receives them back as JSON over D-Bus.
+    #[test]
+    fn alt_grave_subcommands_parse() {
+        for (arg, forward) in [("alt-grave", true), ("shift-alt-grave", false)] {
+            let task = Args::try_parse_from(["cosmic-launcher", arg])
+                .unwrap()
+                .subcommand
+                .unwrap();
+            let task = LauncherTasks::from_str(&task.to_string()).unwrap();
+            assert!(match task {
+                LauncherTasks::AltGrave => forward,
+                LauncherTasks::ShiftAltGrave => !forward,
+                _ => false,
+            });
+        }
+    }
+
+    // Same-app is never the default query, so it must not fall back to the
+    // plain search an old service understands: that would list every window.
+    #[test]
+    fn same_app_query_sends_window_switcher() {
+        let query = WindowSwitcherQuery {
+            same_app: true,
+            ..Default::default()
+        };
+        assert!(matches!(
+            switcher_request(&query),
+            launcher::Request::WindowSwitcher(sent) if sent == query
+        ));
+    }
+
+    #[test]
+    fn load_switcher_query_sets_same_app() {
+        assert!(load_switcher_query(true).same_app);
+        assert!(!load_switcher_query(false).same_app);
     }
 
     #[test]
