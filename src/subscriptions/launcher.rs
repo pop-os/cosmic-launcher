@@ -9,6 +9,8 @@ use tokio::sync::{mpsc, oneshot};
 #[derive(Debug, Clone)]
 pub enum Request {
     Search(String),
+    /// List windows for the window switcher (alt-tab).
+    WindowSwitcher(pop_launcher::WindowSwitcherQuery),
     Activate(u32),
     Context(u32),
     Complete(u32),
@@ -109,6 +111,13 @@ pub fn service() -> impl Stream<Item = Event> + MaybeSend {
                 Request::Search(s) => {
                     if let Some((client, _)) = client_request(&responses_tx, client) {
                         let _res = client.send(pop_launcher::Request::Search(s)).await;
+                    }
+                }
+                Request::WindowSwitcher(query) => {
+                    if let Some((client, _)) = client_request(&responses_tx, client) {
+                        let _res = client
+                            .send(pop_launcher::Request::WindowSwitcher(query))
+                            .await;
                     }
                 }
                 Request::Activate(i) => {

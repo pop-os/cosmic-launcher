@@ -5,6 +5,9 @@ authors = ["Ashley Wulber <ashley@system76.com>"]
 edition = "2024"
 rust-version = "1.93"
 
+[workspace]
+members = ["cosmic-launcher-config"]
+
 [features]
 default = ["wgpu"]
 wgpu = ["libcosmic/wgpu"]
@@ -15,6 +18,7 @@ xdgen = "0.1.0"
 
 [dependencies]
 console-subscriber = "0.5.0"
+cosmic-launcher-config = { path = "cosmic-launcher-config" }
 futures = "0.3.31"
 i18n-embed = { version = "0.16", features = [
     "fluent-system",
