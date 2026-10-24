@@ -17,7 +17,7 @@ This document provides a regression testing checklist for the COSMIC Launcher. T
 - [ ] Alt+` follows each of the three window switcher scopes in Settings
 - [ ] Alt+` with only one window of the focused app (in scope) shows nothing
 - [ ] Alt+` on an empty workspace (no focused window) shows nothing
-- [ ] With "Current workspace on this display only", keyboard focus on a window on one display and the pointer on another: Alt+` lists the focused window's app's windows on the pointer's display, and Alt+Tab keeps the order in which those windows were last used
+- [ ] With "Current workspace on this display only", keyboard focus on a window on one display and the pointer on another: Alt+` cycles the windows of the app last used on the pointer's display, and Alt+Tab keeps the order in which those windows were last used
 - [ ] With "Current workspace on this display only", no empty switcher frame flashes before the list, and an empty result shows nothing at all
 - [ ] Holding Alt, Tab and ` both move within the list already shown
 - [ ] ` and dead-key accents (e.g. on US alt-intl) still type normally, also with AltGr
