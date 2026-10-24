@@ -17,7 +17,8 @@ pub enum WindowSwitcherScope {
     AllWorkspaces,
     /// Windows on the workspace currently shown on each display.
     ActiveWorkspaces,
-    /// Windows on the workspace shown on the display with the focused window.
+    /// Windows on the workspace shown on the display the switcher appears on
+    /// (the compositor's active display, which follows the pointer).
     FocusedOutputWorkspace,
 }
 

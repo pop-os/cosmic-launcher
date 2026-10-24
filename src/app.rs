@@ -164,6 +164,8 @@ pub struct CosmicLauncher {
     /// The switcher is shown but its window list hasn't been requested yet:
     /// it is waiting to learn which output it landed on.
     awaiting_switcher_output: bool,
+    /// Name of the output the launcher surface last entered, while it exists.
+    entered_output: Option<String>,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -204,9 +206,11 @@ impl CosmicLauncher {
     /// window list while alt-tabbing, otherwise the current search.
     fn refresh_results(&self) {
         if self.alt_tab {
-            self.request(launcher::Request::WindowSwitcher(
-                self.switcher_query.clone(),
-            ));
+            // The output handler sends the request once the output is known;
+            // one sent now would go out without it.
+            if !self.awaiting_switcher_output {
+                self.request(switcher_request(&self.switcher_query));
+            }
         } else {
             self.request(launcher::Request::Search(self.input_value.clone()));
         }
@@ -222,6 +226,15 @@ impl CosmicLauncher {
         self.switcher_query = load_switcher_query();
 
         if self.switcher_query.scope != WorkspaceScope::FocusedOutputWorkspace {
+            self.refresh_results();
+            return Task::none();
+        }
+
+        // Already on screen (e.g. the launcher was open): showing it again
+        // creates no new surface, so no output would be reported. Use the
+        // one it is on.
+        if self.surface_state == SurfaceState::Visible {
+            self.switcher_query.output = self.entered_output.clone();
             self.refresh_results();
             return Task::none();
         }
@@ -308,6 +321,7 @@ impl CosmicLauncher {
         self.alt_tab = false;
         self.alt_tab_released = false;
         self.awaiting_switcher_output = false;
+        self.entered_output = None;
         self.queue.clear();
         self.hand_over.clear();
 
@@ -402,6 +416,19 @@ fn ipc_scope(scope: WindowSwitcherScope) -> WorkspaceScope {
         WindowSwitcherScope::AllWorkspaces => WorkspaceScope::AllWorkspaces,
         WindowSwitcherScope::ActiveWorkspaces => WorkspaceScope::ActiveWorkspaces,
         WindowSwitcherScope::FocusedOutputWorkspace => WorkspaceScope::FocusedOutputWorkspace,
+    }
+}
+
+/// The request that lists the windows for an alt-tab session.
+///
+/// The default (all workspaces) is sent as the empty search alt-tab always
+/// used, so it keeps working with a pop-launcher service that predates
+/// `Request::WindowSwitcher`.
+fn switcher_request(query: &WindowSwitcherQuery) -> launcher::Request {
+    if *query == WindowSwitcherQuery::default() {
+        launcher::Request::Search(String::new())
+    } else {
+        launcher::Request::WindowSwitcher(query.clone())
     }
 }
 
@@ -501,6 +528,7 @@ impl cosmic::Application for CosmicLauncher {
             alt_tab_released: false,
             switcher_query: WindowSwitcherQuery::default(),
             awaiting_switcher_output: false,
+            entered_output: None,
             window_id: SurfaceId::unique(),
             queue: VecDeque::new(),
             result_ids: (0..10)
@@ -688,6 +716,10 @@ impl cosmic::Application for CosmicLauncher {
                             });
                         }
                     }
+                    // An answer to an earlier request (e.g. the launcher's own
+                    // search) is not the switcher's list, which isn't even
+                    // requested yet.
+                    pop_launcher::Response::Update(_) if self.awaiting_switcher_output => {}
                     pop_launcher::Response::Update(mut list) => {
                         if self.alt_tab && list.is_empty() {
                             return self.hide();
@@ -788,6 +820,7 @@ impl cosmic::Application for CosmicLauncher {
             Message::Layer(e, _) => match e {
                 LayerEvent::Focused | LayerEvent::Done => {}
                 LayerEvent::OutputEnter { name, .. } => {
+                    self.entered_output.clone_from(&name);
                     if self.awaiting_switcher_output {
                         debug!("alt-tab switcher shown on output {name:?}");
                         self.awaiting_switcher_output = false;
@@ -904,7 +937,16 @@ impl cosmic::Application for CosmicLauncher {
                 );
             }
             Message::AltRelease => {
-                if self.alt_tab {
+                if self.alt_tab && self.awaiting_switcher_output {
+                    // The output was never reported (e.g. it appeared just
+                    // now). Don't wait forever: ask without it, so pop-launcher
+                    // falls back to the focused window's output, and activate
+                    // once the list arrives.
+                    debug!("alt-tab released before the switcher's output was known");
+                    self.awaiting_switcher_output = false;
+                    self.refresh_results();
+                    self.alt_tab_released = true;
+                } else if self.alt_tab {
                     // A switcher shown before its list arrived has nothing (or
                     // a stale list) to activate yet; wait for the results.
                     if self.surface_state == SurfaceState::Visible
@@ -1392,6 +1434,26 @@ impl cosmic::Application for CosmicLauncher {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_switcher_query_sends_plain_search() {
+        assert!(matches!(
+            switcher_request(&WindowSwitcherQuery::default()),
+            launcher::Request::Search(query) if query.is_empty()
+        ));
+    }
+
+    #[test]
+    fn scoped_switcher_query_sends_window_switcher() {
+        let query = WindowSwitcherQuery {
+            scope: WorkspaceScope::ActiveWorkspaces,
+            ..Default::default()
+        };
+        assert!(matches!(
+            switcher_request(&query),
+            launcher::Request::WindowSwitcher(sent) if sent == query
+        ));
+    }
 
     #[test]
     fn ipc_scope_maps_every_variant() {
