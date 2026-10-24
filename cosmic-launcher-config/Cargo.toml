@@ -1,0 +1,9 @@
+[package]
+name = "cosmic-launcher-config"
+version = "1.11.0"
+edition = "2024"
+license = "GPL-3.0-only"
+
+[dependencies]
+cosmic-config = { git = "https://github.com/pop-os/libcosmic/" }
+serde = { version = "1.0.228", features = ["derive"] }

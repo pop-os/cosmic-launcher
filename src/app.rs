@@ -5,6 +5,7 @@ use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk;
 use cosmic::cctk::sctk::shell::wlr_layer;
+use cosmic::cosmic_config::{self, CosmicConfigEntry};
 use cosmic::dbus_activation::Details;
 use cosmic::iced::alignment::{Horizontal, Vertical};
 use cosmic::iced::core::text::{Ellipsize, EllipsizeHeightLimit};
@@ -39,9 +40,12 @@ use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
 use cosmic::{Element, keyboard_nav};
+use cosmic_launcher_config::{CosmicLauncherConfig, WindowSwitcherScope};
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
-use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
+use pop_launcher::{
+    ContextOption, GpuPreference, IconSource, SearchResult, WindowSwitcherQuery, WorkspaceScope,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
@@ -75,6 +79,10 @@ pub enum LauncherTasks {
     AltTab,
     #[clap(about = "Toggle the launcher and switch to the alt-tab view")]
     ShiftAltTab,
+    #[clap(about = "Switch between the focused app's windows in the alt-tab view")]
+    AltGrave,
+    #[clap(about = "Switch between the focused app's windows in the alt-tab view, reversed")]
+    ShiftAltGrave,
     #[clap(about = "Start the launcher with an input")]
     Input { input: Option<String> },
     #[clap(about = "Close the launcher if open")]
@@ -155,6 +163,13 @@ pub struct CosmicLauncher {
     last_hide: Instant,
     alt_tab: bool,
     alt_tab_released: bool,
+    /// Filter of the current alt-tab session, read from the config when it starts.
+    switcher_query: WindowSwitcherQuery,
+    /// A switcher session's window list hasn't been requested yet: the
+    /// output probe hasn't reported which output the switcher will go on.
+    awaiting_switcher_output: bool,
+    /// Name of the output the launcher surface last entered, while it exists.
+    entered_output: Option<String>,
     window_id: window::Id,
     queue: VecDeque<Message>,
     result_ids: Vec<Id>,
@@ -164,6 +179,9 @@ pub struct CosmicLauncher {
     needs_clear: bool,
     hand_over: String,
     dummy_id: Option<window::Id>,
+    /// Invisible surface mapped to learn the switcher's output; see
+    /// `CosmicLauncher::create_output_probe`.
+    output_probe: Option<window::Id>,
 }
 
 #[derive(Debug, Clone)]
@@ -191,6 +209,135 @@ pub enum Message {
 }
 
 impl CosmicLauncher {
+    /// Ask the service again for what the view currently shows: the filtered
+    /// window list while alt-tabbing, otherwise the current search.
+    fn refresh_results(&self) {
+        if self.alt_tab {
+            // The output handler sends the request once the output is known;
+            // one sent now would go out without it.
+            if !self.awaiting_switcher_output {
+                self.request(switcher_request(&self.switcher_query));
+            }
+        } else {
+            self.request(launcher::Request::Search(self.input_value.clone()));
+        }
+    }
+
+    /// Begin a window switcher session: read its settings and ask for the
+    /// windows. `same_app` limits it to the focused app's windows (Alt+`).
+    ///
+    /// The switcher itself is only shown once its list arrives (see the
+    /// `Update` handler), so an empty list never flashes on screen. For
+    /// "this display only" the output is learned first; see
+    /// [`switcher_start`].
+    fn start_switcher(&mut self, same_app: bool) -> Task<Message> {
+        self.switcher_query = load_switcher_query(same_app);
+
+        match switcher_start(
+            self.switcher_query.scope,
+            self.surface_state == SurfaceState::Visible,
+        ) {
+            SwitcherStart::Request => {
+                self.refresh_results();
+                Task::none()
+            }
+            SwitcherStart::RequestOnVisibleOutput => {
+                self.switcher_query.output = self.entered_output.clone();
+                self.refresh_results();
+                Task::none()
+            }
+            SwitcherStart::ProbeOutput => {
+                // Don't show the previous session's windows once shown.
+                self.launcher_items.clear();
+                self.launcher_item_icon_handles.clear();
+                self.awaiting_switcher_output = true;
+                self.create_output_probe()
+            }
+        }
+    }
+
+    /// Map a tiny invisible layer surface to learn which output the
+    /// compositor puts the switcher on (the one under the pointer).
+    ///
+    /// It takes no keyboard focus, unlike the switcher: while a layer surface
+    /// has focus, cosmic-comp marks the top window of *that* surface's output
+    /// as activated, which would make the plugin see the wrong window as
+    /// focused. Its `OutputEnter` sends the request, then it is destroyed.
+    fn create_output_probe(&mut self) -> Task<Message> {
+        let id = window::Id::unique();
+        self.output_probe = Some(id);
+        cosmic::surface::surface_task(simple_layer_shell::<Message>(
+            || LiveSettings {
+                padding: Some(IcedMargin::default()),
+                corners: Some(CornerRadius::default()),
+                blur: Some(false),
+            },
+            move || {
+                SctkLayerSurfaceSettings {
+                id,
+                layer: wlr_layer::Layer::Top,
+                keyboard_interactivity: wlr_layer::KeyboardInteractivity::None,
+                input_zone: Some(Vec::new()),
+                anchor: wlr_layer::Anchor::TOP,
+                // Same placement rule as the switcher surface in `show`.
+                output: cosmic::iced::runtime::platform_specific::wayland::layer_surface::IcedOutput::Active,
+                namespace: "cosmic_launcher_output_probe".into(),
+                margin: IcedMargin::default(),
+                size: Some((Some(1), Some(1))),
+                exclusive_zone: -1,
+                size_limits: Limits::NONE,
+            }
+            },
+            None::<fn() -> Element<'static, cosmic::Action<Message>>>,
+        ))
+    }
+
+    /// Destroy the output probe, if one is mapped.
+    fn destroy_output_probe(&mut self) -> Task<Message> {
+        self.output_probe
+            .take()
+            .map_or_else(Task::none, destroy_layer_surface)
+    }
+
+    /// Handle a switcher key press (Alt+Tab, Alt+`, or their Shift variants)
+    /// arriving as a D-Bus action.
+    ///
+    /// `step` is [`Message::AltTab`] to move forward or
+    /// [`Message::ShiftAltTab`] to move back. The first press starts a
+    /// session, `same_app` deciding whether it lists only the focused app's
+    /// windows; later presses only move the selection, whichever key they
+    /// come from, since the list on screen is already the session's.
+    fn switcher_key(&mut self, step: Message, same_app: bool) -> Task<Message> {
+        if self.alt_tab && self.awaiting_switcher_output {
+            // The probe never reported its output (e.g. the output appeared
+            // just now). Stop waiting and ask without it; pop-launcher then
+            // falls back to the focused window's output.
+            debug!("switcher output still unknown on the next press; asking without it");
+            self.awaiting_switcher_output = false;
+            self.refresh_results();
+            self.queue.push_back(step);
+            return self.destroy_output_probe();
+        }
+        if self.alt_tab {
+            // Nothing to move through yet: replay the step once the list
+            // arrives.
+            if self.surface_state == SurfaceState::WaitingToBeShown
+                || self.launcher_items.is_empty()
+            {
+                self.queue.push_back(step);
+                return Task::none();
+            }
+            // `update` belongs to the `cosmic::Application` impl, which isn't
+            // in scope in this inherent impl.
+            return cosmic::Application::update(self, step);
+        }
+
+        self.alt_tab = true;
+        self.alt_tab_released = false;
+        self.queue.push_back(step);
+        self.start_switcher(same_app)
+    }
+
     fn request(&self, r: launcher::Request) {
         debug!("request: {:?}", r);
         if let Some(tx) = &self.tx {
@@ -265,12 +412,14 @@ impl CosmicLauncher {
         self.focused = 0;
         self.alt_tab = false;
         self.alt_tab_released = false;
+        self.awaiting_switcher_output = false;
+        self.entered_output = None;
         self.queue.clear();
         self.hand_over.clear();
 
         self.request(launcher::Request::Close);
 
-        let mut tasks = Vec::new();
+        let mut tasks = vec![self.destroy_output_probe()];
 
         if self.surface_state == SurfaceState::Visible {
             tasks.push(destroy_layer_surface(self.window_id));
@@ -351,6 +500,92 @@ impl CosmicLauncher {
     }
 }
 
+/// Convert the configured switcher scope into its pop-launcher request form.
+fn ipc_scope(scope: WindowSwitcherScope) -> WorkspaceScope {
+    // Exhaustive on purpose: a new config variant must fail to build here
+    // rather than silently map to some other scope.
+    match scope {
+        WindowSwitcherScope::AllWorkspaces => WorkspaceScope::AllWorkspaces,
+        WindowSwitcherScope::ActiveWorkspaces => WorkspaceScope::ActiveWorkspaces,
+        WindowSwitcherScope::FocusedOutputWorkspace => WorkspaceScope::FocusedOutputWorkspace,
+    }
+}
+
+/// The request that lists the windows for an alt-tab session.
+///
+/// The default (all workspaces) is sent as the empty search alt-tab always
+/// used, so it keeps working with a pop-launcher service that predates
+/// `Request::WindowSwitcher`.
+fn switcher_request(query: &WindowSwitcherQuery) -> launcher::Request {
+    if *query == WindowSwitcherQuery::default() {
+        launcher::Request::Search(String::new())
+    } else {
+        launcher::Request::WindowSwitcher(query.clone())
+    }
+}
+
+/// How a new switcher session asks for its windows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SwitcherStart {
+    /// Send the request right away; no output is needed.
+    Request,
+    /// Send it for the output the open launcher surface is already on.
+    RequestOnVisibleOutput,
+    /// Learn the output with an invisible probe surface first.
+    ProbeOutput,
+}
+
+/// Decide how a switcher session with `scope` starts, given whether the
+/// launcher surface is already on screen (`visible`).
+///
+/// Only "this display only" needs an output name. An open launcher already
+/// reported its output; otherwise only the compositor knows where the
+/// switcher will go, so it is probed rather than the switcher shown early.
+fn switcher_start(scope: WorkspaceScope, visible: bool) -> SwitcherStart {
+    match (scope, visible) {
+        (WorkspaceScope::FocusedOutputWorkspace, true) => SwitcherStart::RequestOnVisibleOutput,
+        (WorkspaceScope::FocusedOutputWorkspace, false) => SwitcherStart::ProbeOutput,
+        (WorkspaceScope::AllWorkspaces | WorkspaceScope::ActiveWorkspaces, _) => {
+            SwitcherStart::Request
+        }
+    }
+}
+
+/// Read the window switcher settings for a new switcher session.
+///
+/// Read fresh on every Alt+Tab or Alt+` so a change in COSMIC Settings
+/// applies to the next press without restarting the launcher. Falls back to
+/// the defaults (all workspaces) when the config can't be read. `same_app`
+/// is passed through to the query, since it comes from the key, not the
+/// config.
+fn load_switcher_query(same_app: bool) -> WindowSwitcherQuery {
+    let config = cosmic_config::Config::new(
+        cosmic_launcher_config::APP_ID,
+        CosmicLauncherConfig::VERSION,
+    )
+    .map(|config| match CosmicLauncherConfig::get_entry(&config) {
+        Ok(config) => config,
+        Err((errors, config)) => {
+            for error in errors.into_iter().filter(cosmic_config::Error::is_err) {
+                tracing::warn!(?error, "failed to read launcher config");
+            }
+            config
+        }
+    })
+    .unwrap_or_else(|error| {
+        tracing::warn!(?error, "failed to open launcher config");
+        CosmicLauncherConfig::default()
+    });
+
+    // The output is only known once the switcher is shown; see
+    // `CosmicLauncher::start_switcher`.
+    WindowSwitcherQuery {
+        scope: ipc_scope(config.window_switcher_scope),
+        same_app,
+        ..Default::default()
+    }
+}
+
 fn alt_tab_modifier_is_released(modifiers: Modifiers) -> bool {
     !modifiers.alt() && !modifiers.logo() && !modifiers.control()
 }
@@ -413,6 +648,9 @@ impl cosmic::Application for CosmicLauncher {
             last_hide: Instant::now(),
             alt_tab: false,
             alt_tab_released: false,
+            switcher_query: WindowSwitcherQuery::default(),
+            awaiting_switcher_output: false,
+            entered_output: None,
             window_id: SurfaceId::unique(),
             queue: VecDeque::new(),
             result_ids: (0..10)
@@ -424,6 +662,7 @@ impl cosmic::Application for CosmicLauncher {
             needs_clear: false,
             hand_over: String::default(),
             dummy_id: None,
+            output_probe: None,
         };
         let task = app.create_dummy_layer_surface();
         app.needs_clear = false;
@@ -522,7 +761,7 @@ impl cosmic::Application for CosmicLauncher {
             Message::LauncherEvent(e) => match e {
                 launcher::Event::Started(tx) => {
                     self.tx.replace(tx);
-                    self.request(launcher::Request::Search(self.input_value.clone()));
+                    self.refresh_results();
                 }
                 launcher::Event::ServiceIsClosed => {
                     self.request(launcher::Request::ServiceIsClosed);
@@ -600,6 +839,10 @@ impl cosmic::Application for CosmicLauncher {
                             });
                         }
                     }
+                    // An answer to an earlier request (e.g. the launcher's own
+                    // search) is not the switcher's list, which isn't even
+                    // requested yet.
+                    pop_launcher::Response::Update(_) if self.awaiting_switcher_output => {}
                     pop_launcher::Response::Update(mut list) => {
                         if self.alt_tab && list.is_empty() {
                             return self.hide();
@@ -696,9 +939,25 @@ impl cosmic::Application for CosmicLauncher {
                     return self.create_dummy_layer_surface();
                 }
             }
+            Message::Layer(LayerEvent::OutputEnter { name, .. }, id)
+                if self.output_probe == Some(id) =>
+            {
+                if self.awaiting_switcher_output {
+                    debug!("window switcher goes on output {name:?}");
+                    self.awaiting_switcher_output = false;
+                    self.switcher_query.output = name;
+                    self.refresh_results();
+                }
+                return self.destroy_output_probe();
+            }
             Message::Layer(_, id) if id != self.window_id => {}
             Message::Layer(e, _) => match e {
                 LayerEvent::Focused | LayerEvent::Done => {}
+                // Remembered for a switcher started while the launcher is
+                // already open (`SwitcherStart::RequestOnVisibleOutput`).
+                LayerEvent::OutputEnter { name, .. } => {
+                    self.entered_output = name;
+                }
                 LayerEvent::Unfocused => {
                     self.last_hide = Instant::now();
                     return self.hide();
@@ -771,7 +1030,7 @@ impl cosmic::Application for CosmicLauncher {
                     }
                     keyboard_nav::Action::Escape => {
                         self.input_value.clear();
-                        self.request(launcher::Request::Search(String::new()));
+                        self.refresh_results();
                     }
                     _ => {}
                 };
@@ -808,8 +1067,24 @@ impl cosmic::Application for CosmicLauncher {
                 );
             }
             Message::AltRelease => {
-                if self.alt_tab {
-                    if self.surface_state == SurfaceState::Visible {
+                if self.alt_tab && self.awaiting_switcher_output {
+                    // The output was never reported (e.g. it appeared just
+                    // now). Don't wait forever: ask without it, so pop-launcher
+                    // falls back to the focused window's output, and activate
+                    // once the list arrives. (The probe takes no keyboard
+                    // focus, so this only fires if the launcher had focus.)
+                    debug!("alt-tab released before the switcher's output was known");
+                    self.awaiting_switcher_output = false;
+                    self.refresh_results();
+                    self.alt_tab_released = true;
+                    return self.destroy_output_probe();
+                } else if self.alt_tab {
+                    // A switcher shown before its list arrived has nothing (or
+                    // a stale list) to activate yet; wait for the results.
+                    if self.surface_state == SurfaceState::Visible
+                        && !self.awaiting_switcher_output
+                        && !self.launcher_items.is_empty()
+                    {
                         debug!("alt-tab modifier released; activating focused item");
                         return self.update(Message::Activate(None));
                     }
@@ -853,37 +1128,13 @@ impl cosmic::Application for CosmicLauncher {
                 }
 
                 match cmd {
-                    LauncherTasks::AltTab => {
-                        if self.alt_tab {
-                            if self.surface_state == SurfaceState::WaitingToBeShown
-                                || self.launcher_items.is_empty()
-                            {
-                                self.queue.push_back(Message::AltTab);
-                                return Task::none();
-                            }
-                            return self.update(Message::AltTab);
-                        }
-
-                        self.alt_tab = true;
-                        self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
-                        self.queue.push_back(Message::AltTab);
-                    }
+                    LauncherTasks::AltTab => return self.switcher_key(Message::AltTab, false),
                     LauncherTasks::ShiftAltTab => {
-                        if self.alt_tab {
-                            if self.surface_state == SurfaceState::WaitingToBeShown
-                                || self.launcher_items.is_empty()
-                            {
-                                self.queue.push_back(Message::ShiftAltTab);
-                                return Task::none();
-                            }
-                            return self.update(Message::ShiftAltTab);
-                        }
-
-                        self.alt_tab = true;
-                        self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
-                        self.queue.push_back(Message::ShiftAltTab);
+                        return self.switcher_key(Message::ShiftAltTab, false);
+                    }
+                    LauncherTasks::AltGrave => return self.switcher_key(Message::AltTab, true),
+                    LauncherTasks::ShiftAltGrave => {
+                        return self.switcher_key(Message::ShiftAltTab, true);
                     }
                     LauncherTasks::Input { input } => {
                         self.request(launcher::Request::Search(String::new()));
@@ -1285,5 +1536,107 @@ impl cosmic::Application for CosmicLauncher {
                 _ => None,
             }),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_switcher_query_sends_plain_search() {
+        assert!(matches!(
+            switcher_request(&WindowSwitcherQuery::default()),
+            launcher::Request::Search(query) if query.is_empty()
+        ));
+    }
+
+    #[test]
+    fn scoped_switcher_query_sends_window_switcher() {
+        let query = WindowSwitcherQuery {
+            scope: WorkspaceScope::ActiveWorkspaces,
+            ..Default::default()
+        };
+        assert!(matches!(
+            switcher_request(&query),
+            launcher::Request::WindowSwitcher(sent) if sent == query
+        ));
+    }
+
+    // cosmic-settings-daemon's system_actions spawn these exact command lines,
+    // and the running instance receives them back as JSON over D-Bus.
+    #[test]
+    fn alt_grave_subcommands_parse() {
+        for (arg, forward) in [("alt-grave", true), ("shift-alt-grave", false)] {
+            let task = Args::try_parse_from(["cosmic-launcher", arg])
+                .unwrap()
+                .subcommand
+                .unwrap();
+            let task = LauncherTasks::from_str(&task.to_string()).unwrap();
+            assert!(match task {
+                LauncherTasks::AltGrave => forward,
+                LauncherTasks::ShiftAltGrave => !forward,
+                _ => false,
+            });
+        }
+    }
+
+    // Same-app is never the default query, so it must not fall back to the
+    // plain search an old service understands: that would list every window.
+    #[test]
+    fn same_app_query_sends_window_switcher() {
+        let query = WindowSwitcherQuery {
+            same_app: true,
+            ..Default::default()
+        };
+        assert!(matches!(
+            switcher_request(&query),
+            launcher::Request::WindowSwitcher(sent) if sent == query
+        ));
+    }
+
+    // Showing the switcher first would give it keyboard focus, and the
+    // compositor then marks the top window of the pointer's display as
+    // focused, so Alt+` would follow the wrong app. Probe the output with an
+    // invisible, unfocusable surface instead.
+    #[test]
+    fn this_display_switcher_probes_output_without_showing() {
+        use WorkspaceScope as S;
+        assert_eq!(
+            switcher_start(S::FocusedOutputWorkspace, false),
+            SwitcherStart::ProbeOutput
+        );
+        assert_eq!(
+            switcher_start(S::FocusedOutputWorkspace, true),
+            SwitcherStart::RequestOnVisibleOutput
+        );
+        for visible in [false, true] {
+            assert_eq!(
+                switcher_start(S::AllWorkspaces, visible),
+                SwitcherStart::Request
+            );
+            assert_eq!(
+                switcher_start(S::ActiveWorkspaces, visible),
+                SwitcherStart::Request
+            );
+        }
+    }
+
+    #[test]
+    fn load_switcher_query_sets_same_app() {
+        assert!(load_switcher_query(true).same_app);
+        assert!(!load_switcher_query(false).same_app);
+    }
+
+    #[test]
+    fn ipc_scope_maps_every_variant() {
+        use cosmic_launcher_config::WindowSwitcherScope as S;
+        use pop_launcher::WorkspaceScope as W;
+        assert_eq!(ipc_scope(S::AllWorkspaces), W::AllWorkspaces);
+        assert_eq!(ipc_scope(S::ActiveWorkspaces), W::ActiveWorkspaces);
+        assert_eq!(
+            ipc_scope(S::FocusedOutputWorkspace),
+            W::FocusedOutputWorkspace
+        );
     }
 }
