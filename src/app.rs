@@ -39,6 +39,7 @@ use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
 use cosmic::{Element, keyboard_nav};
+use cosmic_launch::gpu;
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
@@ -48,10 +49,13 @@ use std::fmt::Display;
 use std::path::Path;
 use std::rc::Rc;
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, OnceLock};
 use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
+
+/// Shared zbus session connection for reuse
+pub static SHARED_ZBUS_SESSION: OnceLock<Option<zbus::Connection>> = OnceLock::new();
 
 static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("autosize"));
 static MAIN_ID: LazyLock<Id> = LazyLock::new(|| Id::new("main"));
@@ -164,6 +168,7 @@ pub struct CosmicLauncher {
     needs_clear: bool,
     hand_over: String,
     dummy_id: Option<window::Id>,
+    gpus: Option<Arc<[gpu::Descriptor]>>,
 }
 
 #[derive(Debug, Clone)]
@@ -182,7 +187,12 @@ pub enum Message {
     Layer(LayerEvent, window::Id),
     Output(OutputEvent),
     KeyboardNav(keyboard_nav::Action),
-    ActivationToken(Option<String>, String, String, GpuPreference, bool),
+    ActivationToken(
+        Arc<cosmic::desktop::DesktopEntryData>,
+        Option<String>,
+        Option<String>,
+        GpuPreference,
+    ),
     AltTab,
     ShiftAltTab,
     Opened(Size, window::Id),
@@ -355,51 +365,6 @@ fn alt_tab_modifier_is_released(modifiers: Modifiers) -> bool {
     !modifiers.alt() && !modifiers.logo() && !modifiers.control()
 }
 
-async fn launch(
-    token: Option<String>,
-    app_id: String,
-    exec: String,
-    gpu: GpuPreference,
-    terminal: bool,
-) {
-    let mut envs = Vec::new();
-    if let Some(token) = token {
-        envs.push(("XDG_ACTIVATION_TOKEN".to_string(), token.clone()));
-        envs.push(("DESKTOP_STARTUP_ID".to_string(), token));
-    }
-
-    if let Some(gpu_envs) = try_get_gpu_envs(gpu).await {
-        envs.extend(gpu_envs);
-    }
-
-    cosmic::desktop::spawn_desktop_exec(exec, envs, Some(&app_id), terminal).await;
-}
-
-async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>> {
-    use cosmic::desktop::gpu::{Descriptor, Preference};
-
-    let connection = zbus::Connection::system().await.ok()?;
-    let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection)
-        .await
-        .ok()?;
-    let gpus = proxy.get_gpus().await.ok()?;
-    let gpus = gpus
-        .into_iter()
-        .map(|gpu| Descriptor {
-            name: gpu.name,
-            environment: gpu.environment,
-            default: gpu.default,
-            discrete: gpu.discrete,
-        })
-        .collect::<Vec<_>>();
-    let idx = match gpu {
-        GpuPreference::Default => Preference::Default.select(&gpus),
-        GpuPreference::NonDefault => Preference::NonDefault.select(&gpus),
-        GpuPreference::SpecificIdx(idx) => usize::try_from(idx).ok(),
-    }?;
-    gpus.get(idx).map(|gpu| gpu.environment.clone())
-}
-
 impl cosmic::Application for CosmicLauncher {
     type Message = Message;
     type Executor = cosmic::executor::single::Executor;
@@ -407,12 +372,32 @@ impl cosmic::Application for CosmicLauncher {
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
     fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
+        let gpus = futures::executor::block_on(async {
+            // Initialize dbus connections for shared reuse.
+            let (session, system) =
+                futures::future::join(zbus::Connection::session(), zbus::Connection::system())
+                    .await;
+
+            // Get a list of available GPUs.
+            let mut gpus: Option<Arc<[gpu::Descriptor]>> = None;
+            if let Ok(conn) = system.as_ref() {
+                gpus = cosmic_launch::gpu::enumerate(conn)
+                    .await
+                    .map(|iter| Arc::from(iter.collect::<Vec<_>>()));
+            }
+
+            _ = SHARED_ZBUS_SESSION.set(session.ok());
+
+            gpus
+        });
+
         core.set_app_type(cosmic::core::AppType::System);
 
         core.set_keyboard_nav(false);
 
         let mut app = CosmicLauncher {
             core,
+            gpus,
             input_value: String::new(),
             surface_state: SurfaceState::Hidden,
             launcher_items: Vec::new(),
@@ -583,30 +568,18 @@ impl cosmic::Application for CosmicLauncher {
                         action_name,
                     } => {
                         if let Some(entry) = cosmic::desktop::load_desktop_file(&[], path) {
-                            let exec = if let Some(action_name) = action_name {
-                                entry
-                                    .desktop_actions
-                                    .into_iter()
-                                    .find(|action| action.name == action_name)
-                                    .map(|action| action.exec)
-                            } else {
-                                entry.exec
-                            };
+                            let entry = Arc::new(entry);
 
-                            let Some(exec) = exec else {
-                                return Task::none();
-                            };
                             return request_token(
                                 Some(String::from(Self::APP_ID)),
                                 Some(self.window_id),
                             )
                             .map(move |token| {
                                 cosmic::Action::App(Message::ActivationToken(
+                                    Arc::clone(&entry),
+                                    action_name.clone(),
                                     token,
-                                    entry.id.to_string(),
-                                    exec.clone(),
                                     gpu_preference,
-                                    entry.terminal,
                                 ))
                             });
                         }
@@ -787,10 +760,47 @@ impl cosmic::Application for CosmicLauncher {
                     _ => {}
                 };
             }
-            Message::ActivationToken(token, app_id, exec, dgpu, terminal) => {
-                return Task::perform(launch(token, app_id, exec, dgpu, terminal), |()| {
-                    cosmic::action::app(Message::Hide)
+            Message::ActivationToken(entry, action, token, gpu_override) => {
+                let Some(conn) = SHARED_ZBUS_SESSION.get().unwrap() else {
+                    return self.update(Message::Hide);
+                };
+
+                let mut env_vars = Vec::new();
+                if let Some(token) = token {
+                    env_vars.push(("XDG_ACTIVATION_TOKEN".to_string(), token.clone()));
+                    env_vars.push(("DESKTOP_STARTUP_ID".to_string(), token));
+                }
+
+                let gpu_id = self
+                    .gpus
+                    .as_deref()
+                    .and_then(|gpus| match gpu_override {
+                        GpuPreference::Default => gpu::Preference::Default.select(gpus),
+                        GpuPreference::NonDefault => gpu::Preference::NonDefault.select(gpus),
+                        GpuPreference::SpecificIdx(id) => Some(id as usize),
+                    })
+                    .map(gpu::Preference::Id);
+
+                let gpus = self.gpus.clone();
+                let conn = conn.clone();
+                tokio::spawn(async move {
+                    if entry.exec.is_some()
+                        && let Err(why) = cosmic_launch::spawn(
+                            &conn,
+                            &*entry,
+                            action.as_deref(),
+                            gpus.as_deref().unwrap_or_default(),
+                            gpu_id,
+                            env_vars,
+                            &[] as &[String],
+                        )
+                        .await
+                    {
+                        tracing::error!(?why, "failed to spawn application");
+                    }
                 });
+
+                return self.update(Message::Hide);
             }
             Message::AltTab => {
                 self.focus_next();

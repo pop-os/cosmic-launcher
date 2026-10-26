@@ -10,10 +10,17 @@ default = ["wgpu"]
 wgpu = ["libcosmic/wgpu"]
 console = ["tokio/tracing"]
 
+[profile.release]
+lto = "thin"
+
 [build-dependencies]
 xdgen = "0.1.0"
 
 [dependencies]
+cosmic-launch = { git = "https://github.com/pop-os/libcosmic/", features = [
+    "systemd",
+    "tokio",
+] }
 console-subscriber = "0.5.0"
 futures = "0.3.31"
 i18n-embed = { version = "0.16", features = [
@@ -24,12 +31,12 @@ i18n-embed-fl = "0.10"
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "autosize",
     "dbus-config",
+    "desktop",
     "winit",
     "multi-window",
     "wayland",
     "tokio",
     "single-instance",
-    "desktop-systemd-scope",
     "xdg-portal",
 ] }
 tracing = "0.1"
@@ -48,13 +55,14 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 tokio = { version = "1.49.0", features = ["sync", "rt"] }
 clap = { version = "4.5.56", features = ["derive"] }
-switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }
 zbus = { version = "5.13", default-features = false, features = ["tokio"] }
 
-# [patch.'https://github.com/pop-os/libcosmic']
-# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
-# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
-# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
+# [patch."https://github.com/pop-os/libcosmic/"]
+# cosmic-config = { git = "https://github.com/pop-os/libcosmic//", branch = "cosmic-launch" }
+# cosmic-launch = { git = "https://github.com/pop-os/libcosmic//", branch = "cosmic-launch" }
+# cosmic-theme = { git = "https://github.com/pop-os/libcosmic//", branch = "cosmic-launch" }
+# libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "cosmic-launch" }
+
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
 # cosmic-theme = { path = "../libcosmic/cosmic-theme" }
