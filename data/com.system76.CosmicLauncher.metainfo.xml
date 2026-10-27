@@ -16,8 +16,8 @@
     <kudo>ModernToolkit</kudo>
     <kudo>HiDpiIcon</kudo>
   </kudos>
-  <developer_name>Ashley Wulber</developer_name>
-  <update_contact>ashley@system76.com</update_contact>
+  <developer_name>System76</developer_name>
+  <update_contact>info@system76.com</update_contact>
   <translation type="gettext">cosmic-launcher</translation>
   <launchable type="desktop-id">com.system76.CosmicLauncher.desktop</launchable>
   <categories>
