@@ -15,12 +15,41 @@ xdgen = "0.1.0"
 
 [dependencies]
 console-subscriber = "0.5.0"
+cosmic-config.workspace = true
+cosmic-launcher-config.workspace = true
 futures = "0.3.31"
 i18n-embed = { version = "0.16", features = [
     "fluent-system",
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.10"
+libcosmic.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.22", default-features = false, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
+tracing-journald = "0.3.2"
+tokio-stream = "0.1.18"
+nix = { version = "0.31.1", features = ["process"] }
+pop-launcher.workspace = true
+pop-launcher-service.workspace = true
+rust-embed = "8.11.0"
+serde.workspace = true
+serde_json = "1.0.149"
+tokio = { version = "1.49.0", features = ["sync", "rt"] }
+clap = { version = "4.5.56", features = ["derive"] }
+switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }
+zbus = { version = "5.13", default-features = false, features = ["tokio"] }
+log.workspace = true
+
+[workspace]
+members = ["cosmic-launcher-config"]
+
+[workspace.dependencies]
+cosmic-config = { git = "https://github.com/pop-os/libcosmic/" }
+cosmic-launcher-config = { path = "cosmic-launcher-config" }
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "autosize",
     "dbus-config",
@@ -32,24 +61,10 @@ libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "desktop-systemd-scope",
     "xdg-portal",
 ] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3.22", default-features = false, features = [
-    "std",
-    "fmt",
-    "env-filter",
-] }
-tracing-journald = "0.3.2"
-tokio-stream = "0.1.18"
-nix = { version = "0.31.1", features = ["process"] }
+log = "0.4.29"
 pop-launcher = { git = "https://github.com/pop-os/launcher/" }
 pop-launcher-service = { git = "https://github.com/pop-os/launcher/" }
-rust-embed = "8.11.0"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.149"
-tokio = { version = "1.49.0", features = ["sync", "rt"] }
-clap = { version = "4.5.56", features = ["derive"] }
-switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }
-zbus = { version = "5.13", default-features = false, features = ["tokio"] }
 
 # [patch.'https://github.com/pop-os/libcosmic']
 # libcosmic = { git = "https://github.com/pop-os/libcosmic//", branch = "theme-v2" }
@@ -58,3 +73,8 @@ zbus = { version = "5.13", default-features = false, features = ["tokio"] }
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
 # cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+
+[patch."https://github.com/pop-os/launcher/"]
+pop-launcher = { git = "https://github.com/avnyu/launcher/", branch = "config" }
+pop-launcher-service = { git = "https://github.com/avnyu/launcher/", branch = "config" }
+
