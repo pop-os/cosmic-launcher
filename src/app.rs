@@ -555,6 +555,9 @@ impl cosmic::Application for CosmicLauncher {
                 launcher::Event::ServiceIsClosed => {
                     self.request(launcher::Request::ServiceIsClosed);
                 }
+                launcher::Event::Config(config) => {
+                    self.request(launcher::Request::Config(config));
+                }
                 launcher::Event::Response(response) => match response {
                     pop_launcher::Response::Close => {
                         return self.hide();
@@ -1256,6 +1259,16 @@ impl cosmic::Application for CosmicLauncher {
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(vec![
             launcher::subscription(0, self.flags.config.clone()).map(Message::LauncherEvent),
+            config::Config::subscription().map(|update| {
+                if !update.errors.is_empty() {
+                    log::info!(
+                        "errors loading config {:?}: {:?}",
+                        update.keys,
+                        update.errors
+                    );
+                }
+                Message::LauncherEvent(launcher::Event::Config(update.config))
+            }),
             listen_raw(|e, status, id| match e {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, _, layer_id),

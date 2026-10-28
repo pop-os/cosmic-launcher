@@ -16,6 +16,7 @@ pub enum Request {
     ActivateContext(u32, u32),
     Close,
     ServiceIsClosed,
+    Config(Config),
 }
 
 #[derive(Debug, Clone)]
@@ -23,6 +24,7 @@ pub enum Event {
     Started(mpsc::Sender<Request>),
     Response(pop_launcher::Response),
     ServiceIsClosed,
+    Config(Config),
 }
 
 pub fn subscription<I: 'static + Hash + Copy + Send + Sync>(
@@ -110,7 +112,7 @@ pub fn service(config: Config) -> impl Stream<Item = Event> + MaybeSend {
         let client = &mut None;
 
         // list of disabled plugins to pass to pop-launcher as arguments
-        let disabled_plugins = config
+        let mut disabled_plugins = config
             .plugins
             .into_iter()
             .filter_map(|plugin| plugin.disabled.then_some(plugin.name))
@@ -168,6 +170,15 @@ pub fn service(config: Config) -> impl Stream<Item = Event> + MaybeSend {
                     }
                 }
                 Request::ServiceIsClosed => {
+                    *client = None;
+                }
+                // update disabled plugins from config subscription, also stop client to re-init with new config
+                Request::Config(config) => {
+                    disabled_plugins = config
+                        .plugins
+                        .into_iter()
+                        .filter_map(|plugin| plugin.disabled.then_some(plugin.name))
+                        .collect();
                     *client = None;
                 }
             }
