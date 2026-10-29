@@ -38,7 +38,7 @@ use cosmic::widget::icon::IconFallback;
 use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
-use cosmic::{Element, keyboard_nav};
+use cosmic::{Element, cosmic_config, keyboard_nav};
 use iced::keyboard::{Key, Modifiers};
 use iced::{Alignment, Color};
 use pop_launcher::{ContextOption, GpuPreference, IconSource, SearchResult};
@@ -52,6 +52,8 @@ use std::sync::LazyLock;
 use std::time::Instant;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info};
+
+use cosmic_launcher_config as config;
 
 static AUTOSIZE_ID: LazyLock<Id> = LazyLock::new(|| Id::new("autosize"));
 static MAIN_ID: LazyLock<Id> = LazyLock::new(|| Id::new("main"));
@@ -67,6 +69,13 @@ const SCROLL_MIN: usize = 8;
 pub struct Args {
     #[clap(subcommand)]
     pub subcommand: Option<LauncherTasks>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Flags {
+    args: Args,
+    pub config_handler: Option<cosmic_config::Config>,
+    pub config: config::Config,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, clap::Subcommand)]
@@ -95,17 +104,23 @@ impl FromStr for LauncherTasks {
     }
 }
 
-impl CosmicFlags for Args {
+impl CosmicFlags for Flags {
     type SubCommand = LauncherTasks;
     type Args = Vec<String>;
 
     fn action(&self) -> Option<&LauncherTasks> {
-        self.subcommand.as_ref()
+        self.args.subcommand.as_ref()
     }
 }
 
 pub fn run() -> cosmic::iced::Result {
     let args = Args::parse();
+    let (config, config_handler) = config::Config::load();
+    let flags = Flags {
+        args,
+        config_handler,
+        config,
+    };
     cosmic::app::run_single_instance::<CosmicLauncher>(
         Settings::default()
             .antialiasing(true)
@@ -115,7 +130,7 @@ pub fn run() -> cosmic::iced::Result {
             .scale_factor(1.0)
             .no_main_window(true)
             .exit_on_close(false),
-        args,
+        flags,
     )
 }
 
@@ -144,6 +159,7 @@ pub enum SurfaceState {
 #[derive(Clone)]
 pub struct CosmicLauncher {
     core: Core,
+    flags: Flags,
     input_value: String,
     surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
@@ -403,16 +419,17 @@ async fn try_get_gpu_envs(gpu: GpuPreference) -> Option<HashMap<String, String>>
 impl cosmic::Application for CosmicLauncher {
     type Message = Message;
     type Executor = cosmic::executor::single::Executor;
-    type Flags = Args;
+    type Flags = Flags;
     const APP_ID: &'static str = "com.system76.CosmicLauncher";
 
-    fn init(mut core: Core, _flags: Args) -> (Self, Task<Message>) {
+    fn init(mut core: Core, flags: Flags) -> (Self, Task<Message>) {
         core.set_app_type(cosmic::core::AppType::System);
 
         core.set_keyboard_nav(false);
 
         let mut app = CosmicLauncher {
             core,
+            flags,
             input_value: String::new(),
             surface_state: SurfaceState::Hidden,
             launcher_items: Vec::new(),
@@ -537,6 +554,9 @@ impl cosmic::Application for CosmicLauncher {
                 }
                 launcher::Event::ServiceIsClosed => {
                     self.request(launcher::Request::ServiceIsClosed);
+                }
+                launcher::Event::Config(config) => {
+                    self.request(launcher::Request::Config(config));
                 }
                 launcher::Event::Response(response) => match response {
                     pop_launcher::Response::Close => {
@@ -694,6 +714,16 @@ impl cosmic::Application for CosmicLauncher {
                     pop_launcher::Response::Fill(s) => {
                         self.input_value = s;
                         self.request(launcher::Request::Search(self.input_value.clone()));
+                    }
+                    pop_launcher::Response::Plugins(plugin_results) => {
+                        if let Some(config) = self.flags.config_handler.as_ref()
+                            && let Err(err) = self.flags.config.set_plugins(
+                                config,
+                                plugin_results.into_iter().map(Into::into).collect(),
+                            )
+                        {
+                            log::warn!("Failed to save plugins: {err:?}");
+                        }
                     }
                 },
             },
@@ -1228,7 +1258,17 @@ impl cosmic::Application for CosmicLauncher {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         Subscription::batch(vec![
-            launcher::subscription(0).map(Message::LauncherEvent),
+            launcher::subscription(0, self.flags.config.clone()).map(Message::LauncherEvent),
+            config::Config::subscription().map(|update| {
+                if !update.errors.is_empty() {
+                    log::info!(
+                        "errors loading config {:?}: {:?}",
+                        update.keys,
+                        update.errors
+                    );
+                }
+                Message::LauncherEvent(launcher::Event::Config(update.config))
+            }),
             listen_raw(|e, status, id| match e {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, _, layer_id),
