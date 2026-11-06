@@ -1219,7 +1219,7 @@ dependencies = [
  "tracing-journald",
  "tracing-subscriber",
  "xdgen",
- "zbus 5.19.0",
+ "zbus 6.2.1",
 ]
 
 [[package]]
