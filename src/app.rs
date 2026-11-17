@@ -954,7 +954,7 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
+                        self.request(launcher::Request::Windows);
                         self.queue.push_back(Message::AltTab);
                     }
                     LauncherTasks::ShiftAltTab => {
@@ -970,7 +970,7 @@ impl cosmic::Application for CosmicLauncher {
 
                         self.alt_tab = true;
                         self.alt_tab_released = false;
-                        self.request(launcher::Request::Search(String::new()));
+                        self.request(launcher::Request::Windows);
                         self.queue.push_back(Message::ShiftAltTab);
                     }
                     LauncherTasks::Input { input } => {

@@ -19,6 +19,7 @@ pub enum Request {
     ServiceIsClosed,
     EnablePlugin(String),
     DisablePlugin(String),
+    Windows,
 }
 
 #[derive(Debug, Clone)]
@@ -196,6 +197,25 @@ pub fn service(config: Config) -> impl Stream<Item = Event> + MaybeSend {
                                 pop_launcher::ConfigPlugin::Disable(name),
                             ))
                             .await;
+                    }
+                }
+                // temporarily enable COSMIC Windows plugin for alt-tab view
+                Request::Windows => {
+                    if let Some((client , _)) =
+                        client_request(&responses_tx, client, &disabled_plugins)
+                    {
+                        let window_plugin = "COSMIC Windows";
+                        if disabled_plugins.contains(window_plugin) {
+                            let _res =client.send(pop_launcher::Request::Plugin(
+                                pop_launcher::ConfigPlugin::Enable(window_plugin.into())
+                            )).await;
+                            let _res =client.send(pop_launcher::Request::Search(String::new())).await;
+                            let _res =client.send(pop_launcher::Request::Plugin(
+                                pop_launcher::ConfigPlugin::Disable(window_plugin.into())
+                            )).await;
+                        } else {
+                           let _res = client.send(pop_launcher::Request::Search(String::new())).await;
+                        }
                     }
                 }
             }
