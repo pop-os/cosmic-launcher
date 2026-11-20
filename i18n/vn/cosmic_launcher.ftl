@@ -1,2 +1,3 @@
 app-name = Trình khởi chạy COSMIC
 type-to-search = Nhập để tìm ứng dụng hoặc gõ “?” để xem thêm tùy chọn...
+xdg-comment = Giao diện COSMIC cho Pop Launcher
