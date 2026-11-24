@@ -1,2 +1,3 @@
 app-name = COSMIC Starter
 type-to-search = Typ om toepassingen te zoeken of typ “?” voor meer opties…
+xdg-name = Launcher
