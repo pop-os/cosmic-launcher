@@ -8,14 +8,14 @@ rootdir := ''
 prefix := '/usr'
 debug := '0'
 
-appdata := appid + '.metainfo.xml'
+metainfo := appid + '.metainfo.xml'
 desktop := appid + '.desktop'
 
 base-dir := absolute_path(clean(rootdir / prefix))
 cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
 bin-src := if debug == '1' { 'debug' / name } else { cargo-target-dir / 'release' / name }
 bin-dst := base-dir / 'bin' / name
-appdata-dst := base-dir / 'share' / 'appdata' / appdata
+metainfo-dst := base-dir / 'share' / 'metainfo' / metainfo
 desktop-dst := base-dir / 'share' / 'applications' / desktop
 icon-dst := base-dir / 'share' / 'icons' / 'hicolor' / 'scalable' / 'apps' / appid + '.svg'
 
@@ -65,9 +65,9 @@ tokio-console: (build-release '--features console')
 install:
     install -Dm0755 {{bin-src}} {{bin-dst}}
     install -Dm0644 {{ 'target' / 'xdgen' / desktop }} {{desktop-dst}}
-    install -Dm0644 {{ 'target' / 'xdgen' / appdata }} {{appdata-dst}}
+    install -Dm0644 {{ 'target' / 'xdgen' / metainfo }} {{metainfo-dst}}
     install -Dm0644 {{ 'data' / 'icons' / appid + '.svg' }} {{icon-dst}}
 
 # Uninstalls installed files
 uninstall:
-    rm {{bin-dst}} {{desktop-dst}} {{appdata-dst}} {{icon-dst}}
+    rm {{bin-dst}} {{desktop-dst}} {{metainfo-dst}} {{icon-dst}}
