@@ -1,0 +1,13 @@
+[package]
+name = "cosmic-launcher-config"
+version = "1.11.0"
+edition = "2024"
+description = "Configuration for COSMIC's Launcher"
+repository = "https://github.com/pop-os/cosmic-launcher"
+
+[dependencies]
+cosmic-config.workspace = true
+libcosmic.workspace = true
+log.workspace = true
+pop-launcher.workspace = true
+serde.workspace = true

@@ -17,10 +17,38 @@ lto = "thin"
 xdgen = "0.1.0"
 
 [dependencies]
+cosmic-launch.workspace = true
+cosmic-launcher-config.workspace = true
+console-subscriber.workspace = true
+futures.workspace = true
+i18n-embed.workspace = true
+i18n-embed-fl.workspace = true
+log.workspace = true
+libcosmic.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-journald.workspace = true
+tokio-stream.workspace = true
+nix.workspace = true
+pop-launcher.workspace = true
+pop-launcher-service.workspace = true
+rust-embed.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+clap.workspace = true
+zbus.workspace = true
+
+[workspace]
+members = ["cosmic-launcher-config"]
+
+[workspace.dependencies]
 cosmic-launch = { git = "https://github.com/pop-os/libcosmic/", features = [
     "systemd",
     "tokio",
 ] }
+cosmic-config = { git = "https://github.com/pop-os/libcosmic/" }
+cosmic-launcher-config = { path = "cosmic-launcher-config" }
 console-subscriber = "0.5.0"
 futures = "0.3.31"
 i18n-embed = { version = "0.16", features = [
@@ -28,6 +56,7 @@ i18n-embed = { version = "0.16", features = [
     "desktop-requester",
 ] }
 i18n-embed-fl = "0.10"
+log = "0.4.29"
 libcosmic = { git = "https://github.com/pop-os/libcosmic/", features = [
     "autosize",
     "dbus-config",
@@ -66,3 +95,7 @@ zbus = { version = "6.2.1", default-features = false, features = ["tokio"] }
 # libcosmic = { path = "../libcosmic" }
 # cosmic-config = { path = "../libcosmic/cosmic-config" }
 # cosmic-theme = { path = "../libcosmic/cosmic-theme" }
+
+[patch."https://github.com/pop-os/launcher/"]
+pop-launcher = { git = "https://github.com/avnyu/launcher/", branch = "config" }
+pop-launcher-service = { git = "https://github.com/avnyu/launcher/", branch = "config" }
